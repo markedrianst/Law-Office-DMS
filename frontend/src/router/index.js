@@ -4,6 +4,10 @@ import Login from "@/pages/auth/Login.vue";
 import Dashboard from "@/pages/Dashboard.vue";
 import Layout from "@/layouts/Layout.vue";
 import AdminUserManagement from "@/pages/Admin/AdminUserManagement.vue";
+import CaseCategories from "@/pages/Admin/MasterData/CaseCategories.vue";
+import Courts from "@/pages/Admin/MasterData/Courts.vue";
+import Documents from "@/pages/Admin/MasterData/Documents.vue";
+import CaseMaster from "@/pages/Admin/CaseMaster/CaseMaster.vue";
 
 const routes = [
   {
@@ -31,6 +35,45 @@ const routes = [
           roles: ['admin'] // Only admin can access
         },
       },
+      {
+        path: "/casecategories",
+        name: "CaseCategories",
+        component: CaseCategories,
+        meta: { 
+          requiresAuth: true,
+          roles: ['admin','lawyer'] 
+        },
+      },
+      {
+        path: "/courts",
+        name: "Courts",
+        component: Courts,
+        meta: { 
+          requiresAuth: true,
+          roles: ['admin','lawyer'] 
+        },
+      },
+      {
+        path: "/documents",
+        name: "Documents",
+        component: Documents,
+        meta: { 
+          requiresAuth: true,
+          roles: ['admin','lawyer'] 
+        },
+      },
+      {
+        path: "/casemaster",
+        name: "CaseMaster",
+        component: CaseMaster,
+        meta: { 
+          requiresAuth: true,
+          roles: ['admin','lawyer','clerk'] 
+        },
+      },
+
+
+
     ],
   },
 ];

@@ -16,7 +16,12 @@ return new class extends Migration
             $table->boolean('requires_approval')->default(false);
             $table->boolean('is_active')->default(true);
             $table->integer('sort_order')->default(0);
+            $table->enum('approval_status', ['pending', 'approved', 'rejected'])->default('approved');
+            $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('approved_at')->nullable();
+            $table->text('rejection_reason')->nullable();
             $table->timestamps();
+
         });
     }
 
