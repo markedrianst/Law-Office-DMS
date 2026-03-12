@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CaseChecklist;
 use App\Models\Cases;
 use App\Models\User;
+use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,10 @@ class CaseChecklistController extends Controller
                         'id' => $item->id,
                         'case_id' => $item->case_id,
                         'task' => $item->task,
+                        'document_type_id' => $item->document_type_id,
+                        'document_type' => $item->document_type,
+                        'document_category' => $item->document_category,
+                        'document_color' => $item->document_color,
                         'status' => $item->status,
                         'due_date' => $item->due_date?->format('Y-m-d'),
                         'assigned_clerk_id' => $item->assigned_clerk_id,
@@ -60,6 +65,10 @@ class CaseChecklistController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'task' => 'required|string|max:500',
+                'document_type_id' => 'nullable|exists:documents,id',
+                'document_type' => 'nullable|string|max:255',
+                'document_category' => 'nullable|string|max:100',
+                'document_color' => 'nullable|string|max:7',
                 'status' => 'required|in:todo,in-progress,done',
                 'due_date' => 'nullable|date',
                 'assigned_clerk_id' => 'nullable|exists:users,id',
@@ -75,13 +84,32 @@ class CaseChecklistController extends Controller
 
             DB::beginTransaction();
 
+            // Get clerk info if assigned
             $clerkId = $request->assigned_clerk_id ?? null;
             $clerk = $clerkId ? User::find($clerkId) : null;
+
+            // If document_type_id is provided, get document details
+            $documentType = $request->document_type;
+            $documentCategory = $request->document_category;
+            $documentColor = $request->document_color;
+
+            if ($request->document_type_id) {
+                $document = Document::find($request->document_type_id);
+                if ($document) {
+                    $documentType = $document->type;
+                    $documentCategory = $document->category;
+                    $documentColor = $document->color;
+                }
+            }
 
             $item = CaseChecklist::create([
                 'case_id' => $caseId,
                 'created_by' => auth()->id(),
                 'task' => $request->task,
+                'document_type_id' => $request->document_type_id,
+                'document_type' => $documentType,
+                'document_category' => $documentCategory,
+                'document_color' => $documentColor,
                 'status' => $request->status,
                 'due_date' => $request->due_date,
                 'assigned_clerk_id' => $clerk?->id,
@@ -94,7 +122,10 @@ class CaseChecklistController extends Controller
                 'case_id' => $caseId,
                 'user_id' => auth()->id(),
                 'action' => 'added_task',
-                'details' => json_encode(['task' => $request->task]),
+                'details' => json_encode([
+                    'task' => $request->task,
+                    'document_type' => $documentType
+                ]),
             ]);
 
             DB::commit();
@@ -105,6 +136,10 @@ class CaseChecklistController extends Controller
                     'id' => $item->id,
                     'case_id' => $item->case_id,
                     'task' => $item->task,
+                    'document_type_id' => $item->document_type_id,
+                    'document_type' => $item->document_type,
+                    'document_category' => $item->document_category,
+                    'document_color' => $item->document_color,
                     'status' => $item->status,
                     'due_date' => $item->due_date?->format('Y-m-d'),
                     'assigned_clerk_id' => $item->assigned_clerk_id,
@@ -138,6 +173,10 @@ class CaseChecklistController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'task' => 'sometimes|required|string|max:500',
+                'document_type_id' => 'nullable|exists:documents,id',
+                'document_type' => 'nullable|string|max:255',
+                'document_category' => 'nullable|string|max:100',
+                'document_color' => 'nullable|string|max:7',
                 'status' => 'sometimes|required|in:todo,in-progress,done',
                 'due_date' => 'nullable|date',
                 'assigned_clerk_id' => 'nullable|exists:users,id',
@@ -153,11 +192,32 @@ class CaseChecklistController extends Controller
 
             DB::beginTransaction();
 
+            // Get clerk info if assigned
             $clerkId = $request->assigned_clerk_id ?? null;
             $clerk = $clerkId ? User::find($clerkId) : null;
 
+            // Handle document type
+            $documentType = $request->document_type ?? $item->document_type;
+            $documentCategory = $request->document_category ?? $item->document_category;
+            $documentColor = $request->document_color ?? $item->document_color;
+            $documentTypeId = $request->document_type_id ?? $item->document_type_id;
+
+            if ($request->document_type_id && $request->document_type_id != $item->document_type_id) {
+                $document = Document::find($request->document_type_id);
+                if ($document) {
+                    $documentType = $document->type;
+                    $documentCategory = $document->category;
+                    $documentColor = $document->color;
+                    $documentTypeId = $document->id;
+                }
+            }
+
             $item->update([
                 'task' => $request->task ?? $item->task,
+                'document_type_id' => $documentTypeId,
+                'document_type' => $documentType,
+                'document_category' => $documentCategory,
+                'document_color' => $documentColor,
                 'status' => $request->status ?? $item->status,
                 'due_date' => $request->due_date ?? $item->due_date,
                 'assigned_clerk_id' => $clerk?->id ?? $item->assigned_clerk_id,
@@ -166,9 +226,9 @@ class CaseChecklistController extends Controller
             ]);
 
             // If status changed to done, set completed_at
-            if ($request->status === 'done' && $item->status !== 'done') {
+            if ($request->has('status') && $request->status === 'done' && $item->status !== 'done') {
                 $item->update(['completed_at' => now()]);
-            } elseif ($request->status !== 'done' && $item->status === 'done') {
+            } elseif ($request->has('status') && $request->status !== 'done' && $item->status === 'done') {
                 $item->update(['completed_at' => null]);
             }
 
@@ -180,6 +240,10 @@ class CaseChecklistController extends Controller
                     'id' => $item->id,
                     'case_id' => $item->case_id,
                     'task' => $item->task,
+                    'document_type_id' => $item->document_type_id,
+                    'document_type' => $item->document_type,
+                    'document_category' => $item->document_category,
+                    'document_color' => $item->document_color,
                     'status' => $item->status,
                     'due_date' => $item->due_date?->format('Y-m-d'),
                     'assigned_clerk_id' => $item->assigned_clerk_id,

@@ -46,12 +46,14 @@
               <!-- Document type + category badge + status -->
               <div class="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm font-semibold text-slate-800 leading-snug">{{ localTask.document_type ?? localTask.task }}</p>
-                  <span v-if="localTask.document_category"
-                    class="inline-block mt-1 px-2 py-0.5 text-[10px] font-semibold rounded-md"
-                    :class="categoryBadgeClass(localTask.document_category)">
-                    {{ localTask.document_category }}
-                  </span>
+                  <p class="text-sm font-semibold text-slate-800 leading-snug">{{ localTask.task }}</p>
+                  <div class="flex items-center gap-2 mt-1">
+                    <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: localTask.document_color || '#94a3b8' }"></div>
+                    <span class="text-xs font-medium text-slate-600">{{ localTask.document_type }}</span>
+                    <span v-if="localTask.document_category" class="text-xs px-2 py-0.5 rounded-full" :class="categoryBadgeClass(localTask.document_category)">
+                      {{ localTask.document_category }}
+                    </span>
+                  </div>
                 </div>
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full flex-shrink-0"
                   :class="taskStatusClass(localTask.status)">
@@ -124,6 +126,11 @@
                 Loading document types...
               </div>
 
+              <!-- No documents available -->
+              <div v-else-if="!documents || documents.length === 0" class="px-4 py-3 text-xs text-amber-600 border border-dashed border-amber-200 rounded-xl bg-amber-50">
+                ⚠ No active document types found. Please add documents in Master Data first.
+              </div>
+
               <!-- Searchable dropdown -->
               <div v-else class="relative" ref="docDropdownRef">
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" 
@@ -170,8 +177,10 @@
                           class="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50 last:border-0"
                           :class="{ 'bg-blue-50/60': localTask.document_type_id === doc.id }">
                           <div class="w-6 h-6 rounded-full" :style="{ backgroundColor: doc.color }"></div>
-                          <span class="text-sm text-slate-700 flex-1">{{ doc.type }}</span>
-                          <span class="text-xs text-slate-400">{{ doc.category }}</span>
+                          <div class="flex-1">
+                            <span class="text-sm text-slate-700">{{ doc.type }}</span>
+                            <span class="text-xs text-slate-400 ml-2">{{ doc.category }}</span>
+                          </div>
                           <svg v-if="localTask.document_type_id === doc.id" 
                             class="w-4 h-4 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
@@ -195,7 +204,9 @@
               <div v-if="localTask.document_type_id && selectedDoc" class="mt-2 flex items-center gap-2">
                 <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: selectedDoc.color }"></div>
                 <span class="text-xs font-medium text-slate-700">{{ selectedDoc.type }}</span>
-                <span class="text-xs text-slate-400">· {{ selectedDoc.category }}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full" :class="categoryBadgeClass(selectedDoc.category)">
+                  {{ selectedDoc.category }}
+                </span>
               </div>
             </div>
 
@@ -211,19 +222,18 @@
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Due Date</label>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Due Date <span class="text-red-400">*</span></label>
                 <input v-model="localTask.due_date" type="date"
                   class="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 bg-white transition-all" />
                 <p v-if="errors.due_date" class="mt-1 text-xs text-red-500 font-medium">{{ errors.due_date }}</p>
               </div>
             </div>
 
-            <!-- Assigned Clerk -->
+            <!-- Assigned Clerk (Searchable) -->
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Assigned Clerk</label>
 
-              <div v-if="!clerks || clerks.length === 0"
-                class="px-3.5 py-2.5 text-xs text-amber-600 border border-dashed border-amber-200 rounded-xl bg-amber-50">
+              <div v-if="!clerks || clerks.length === 0" class="px-3.5 py-2.5 text-xs text-amber-600 border border-dashed border-amber-200 rounded-xl bg-amber-50">
                 ⚠ No clerks available
               </div>
 
@@ -259,9 +269,9 @@
                         class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors"
                         :class="{ 'bg-blue-50/60': localTask.assigned_clerk_id === clerk.id }">
                         <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-[#1a4972]">
-                          {{ getInitials(clerkDisplayName(clerk)) }}
+                          {{ getInitials(clerk.full_name) }}
                         </div>
-                        <span class="text-sm text-slate-700 flex-1">{{ clerkDisplayName(clerk) }}</span>
+                        <span class="text-sm text-slate-700 flex-1">{{ clerk.full_name }}</span>
                         <svg v-if="localTask.assigned_clerk_id === clerk.id"
                           class="w-3.5 h-3.5 flex-shrink-0 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
@@ -273,6 +283,14 @@
                     </div>
                   </div>
                 </Transition>
+              </div>
+
+              <!-- Selected clerk indicator -->
+              <div v-if="localTask.assigned_clerk_id && selectedClerkName" class="mt-1.5 flex items-center gap-1">
+                <svg class="w-3 h-3 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span class="text-xs font-medium text-emerald-700">{{ selectedClerkName }}</span>
               </div>
             </div>
 
@@ -291,8 +309,9 @@
             class="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
             {{ mode === 'view' ? 'Close' : 'Cancel' }}
           </button>
-          <button v-if="mode !== 'view'" @click="handleSave"
-            class="px-5 py-2.5 text-sm font-semibold text-white rounded-xl active:scale-95 transition-all bg-gradient-to-br from-[#1a4972] to-[#0f2f4a] shadow-lg shadow-[#1a4972]/20 hover:shadow-xl">
+          <button v-if="mode !== 'view'" @click="handleSave" :disabled="!isFormValid"
+            class="px-5 py-2.5 text-sm font-semibold text-white rounded-xl active:scale-95 transition-all shadow-lg shadow-[#1a4972]/20 hover:shadow-xl"
+            :class="isFormValid ? 'bg-gradient-to-br from-[#1a4972] to-[#0f2f4a]' : 'bg-gray-400 cursor-not-allowed'">
             {{ mode === 'add' ? 'Save Task' : 'Save Changes' }}
           </button>
           <button v-if="mode === 'view'" @click="$emit('switch-to-edit')"
@@ -304,6 +323,7 @@
     </div>
   </Transition>
 </template>
+
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useMasterData } from '@/composables/useMasterData';
@@ -375,6 +395,7 @@ const selectDoc = (doc) => {
   localTask.document_type_id = doc.id;
   localTask.document_type = doc.type;
   localTask.document_category = doc.category || '';
+  localTask.document_color = doc.color || '#94a3b8';
   localTask.task = doc.type; // Auto-fill task description with document type
   docSearch.value = doc.type;
   docDropdownOpen.value = false;
@@ -385,6 +406,7 @@ const clearDoc = () => {
   localTask.document_type_id = null;
   localTask.document_type = '';
   localTask.document_category = '';
+  localTask.document_color = '#94a3b8';
   localTask.task = '';
   docSearch.value = '';
   docDropdownOpen.value = false;
@@ -412,6 +434,7 @@ const defaultTask = () => ({
   document_type_id: null,
   document_type: '',
   document_category: '',
+  document_color: '#94a3b8',
   status: 'todo',
   due_date: '',
   assigned_clerk_id: '',
@@ -435,10 +458,15 @@ const clerkDropdownRef  = ref(null);
 const clerkDisplayName = (clerk) => clerk?.full_name ?? clerk?.name ?? '';
 
 const filteredClerks = computed(() => {
+  if (!props.clerks || props.clerks.length === 0) return [];
+  
   const q = clerkSearch.value.toLowerCase().trim();
-  return q
-    ? (props.clerks || []).filter(c => clerkDisplayName(c).toLowerCase().includes(q))
-    : (props.clerks || []);
+  if (q) {
+    return props.clerks.filter(c => 
+      clerkDisplayName(c).toLowerCase().includes(q)
+    );
+  }
+  return props.clerks;
 });
 
 const selectedClerkName = computed(() => {
@@ -453,6 +481,11 @@ const resolvedClerkName = computed(() => {
     if (found) return clerkDisplayName(found);
   }
   return localTask.assigned_to || '';
+});
+
+// ── Form validation ────────────────────────────────────────────────────────
+const isFormValid = computed(() => {
+  return localTask.document_type_id && localTask.due_date;
 });
 
 // ── Sync on open / task change ─────────────────────────────────────────────
@@ -470,13 +503,15 @@ const syncTask = () => {
   }
 
   if (props.task) {
+    console.log('Syncing task:', props.task);
+    
+    // Map the task data to local form
     Object.assign(localTask, {
-      ...defaultTask(),
-      ...props.task,
       task: props.task.task || props.task.document_type || '',
       document_type_id: props.task.document_type_id || null,
       document_type: props.task.document_type || '',
       document_category: props.task.document_category || '',
+      document_color: props.task.document_color || '#94a3b8',
       status: props.task.status || 'todo',
       due_date: props.task.due_date || '',
       assigned_clerk_id: props.task.assigned_clerk_id || '',
@@ -486,12 +521,28 @@ const syncTask = () => {
       updated_at: props.task.updated_at || null,
     });
 
+    // If document_type_id is missing but we have document_type, try to find it
+    if (!localTask.document_type_id && localTask.document_type && documents.value?.length > 0) {
+      const matched = documents.value.find(
+        d => d.type.toLowerCase() === localTask.document_type.toLowerCase()
+      );
+      if (matched) {
+        localTask.document_type_id = matched.id;
+        localTask.document_category = matched.category || '';
+        localTask.document_color = matched.color || '#94a3b8';
+      }
+    }
+
     // Pre-fill doc search box
     docSearch.value = localTask.document_type || '';
 
     // Pre-fill clerk search box
-    const foundClerk = (props.clerks || []).find(c => c.id === localTask.assigned_clerk_id);
-    clerkSearch.value = foundClerk ? clerkDisplayName(foundClerk) : (localTask.assigned_to || '');
+    if (localTask.assigned_clerk_id && props.clerks) {
+      const foundClerk = props.clerks.find(c => c.id === localTask.assigned_clerk_id);
+      clerkSearch.value = foundClerk ? clerkDisplayName(foundClerk) : (localTask.assigned_to || '');
+    } else {
+      clerkSearch.value = localTask.assigned_to || '';
+    }
   }
 };
 
@@ -505,6 +556,20 @@ watch(() => props.show, async (newVal) => {
 
 // Watch for task changes
 watch(() => props.task, syncTask, { deep: true });
+
+// Watch for documents to be loaded, then try to resolve document_type_id
+watch(() => documents.value, (newDocs) => {
+  if (newDocs?.length > 0 && localTask.document_type && !localTask.document_type_id) {
+    const matched = newDocs.find(
+      d => d.type.toLowerCase() === localTask.document_type.toLowerCase()
+    );
+    if (matched) {
+      localTask.document_type_id = matched.id;
+      localTask.document_category = matched.category || '';
+      localTask.document_color = matched.color || '#94a3b8';
+    }
+  }
+});
 
 // ── Click outside ──────────────────────────────────────────────────────────
 const handleClickOutside = (e) => {
@@ -562,6 +627,7 @@ const handleSave = () => {
     document_type_id: localTask.document_type_id,
     document_type: localTask.document_type,
     document_category: localTask.document_category,
+    document_color: localTask.document_color,
     status: localTask.status,
     due_date: localTask.due_date,
     assigned_clerk_id: localTask.assigned_clerk_id || null,
@@ -569,8 +635,11 @@ const handleSave = () => {
     notes: localTask.notes || null,
   };
 
-  if (props.mode === 'edit' && props.task?.id) payload.id = props.task.id;
+  if (props.mode === 'edit' && props.task?.id) {
+    payload.id = props.task.id;
+  }
   
+  console.log('Saving payload:', payload);
   emit('save', { mode: props.mode, data: payload });
 };
 
@@ -613,7 +682,10 @@ const formatDateTime = (d) => {
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
     ' ' + dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 };
-
+// Add this watch
+watch(() => props.clerks, (newVal) => {
+  console.log('TaskModal clerks received:', newVal);
+}, { immediate: true, deep: true });
 const taskStatusLabel = (s) => ({ todo: 'To-do', 'in-progress': 'In-progress', done: 'Done' }[s] || s);
 const taskStatusClass = (s) => ({ 
   todo: 'bg-slate-100 text-slate-600', 
@@ -626,6 +698,7 @@ const taskStatusDotClass = (s) => ({
   done: 'bg-emerald-500' 
 }[s] || 'bg-slate-400');
 </script>
+
 <style scoped>
 .task-modal-enter-active, .task-modal-leave-active { transition: all 0.2s ease; }
 .task-modal-enter-from, .task-modal-leave-to { opacity: 0; transform: scale(0.97) translateY(6px); }

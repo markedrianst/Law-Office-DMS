@@ -15,6 +15,10 @@ class CaseChecklist extends Model
         'case_id',
         'created_by',
         'task',
+        'document_type_id',
+        'document_type',
+        'document_category',
+        'document_color',
         'status',
         'due_date',
         'assigned_clerk_id',
@@ -54,6 +58,14 @@ class CaseChecklist extends Model
     public function assignedClerk()
     {
         return $this->belongsTo(User::class, 'assigned_clerk_id');
+    }
+
+    /**
+     * Get the document type for this checklist.
+     */
+    public function document()
+    {
+        return $this->belongsTo(Document::class, 'document_type_id');
     }
 
     /**
@@ -102,5 +114,24 @@ class CaseChecklist extends Model
     public function scopeForCase($query, $caseId)
     {
         return $query->where('case_id', $caseId);
+    }
+
+    /**
+     * Scope a query to filter by document type.
+     */
+    public function scopeOfDocumentType($query, $documentTypeId)
+    {
+        return $query->where('document_type_id', $documentTypeId);
+    }
+
+    /**
+     * Get formatted task with document info.
+     */
+    public function getTaskWithDocumentAttribute()
+    {
+        if ($this->document_type) {
+            return "{$this->document_type}: {$this->task}";
+        }
+        return $this->task;
     }
 }

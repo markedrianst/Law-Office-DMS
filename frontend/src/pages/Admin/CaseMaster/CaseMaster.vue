@@ -158,18 +158,6 @@
                 {{ capitalize(item.case_status) }}
               </span>
             </td>
-
-            <!-- Tasks -->
-            <td class="px-5 py-4">
-              <div class="flex items-center gap-2">
-                <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div class="h-full bg-emerald-500 rounded-full" 
-                    :style="{ width: (item.completed_tasks / (item.total_tasks || 1)) * 100 + '%' }"></div>
-                </div>
-                <span class="text-xs text-slate-500">{{ item.completed_tasks || 0 }}/{{ item.total_tasks || 0 }}</span>
-              </div>
-            </td>
-
             <!-- Actions -->
             <td class="px-5 py-4">
               <div class="flex items-center gap-2">
@@ -252,6 +240,7 @@
       :errors="errors"
       :categories="lookups.categories"
       :stages="lookups.stages"
+      :courts="lookups.courts"
       :lawyers="lookups.lawyers"
       :clerks="lookups.clerks"
       :clients="lookups.clients"
@@ -261,15 +250,14 @@
       @submit="submitForm"
       @client-created="onClientCreated"
     />
-
     <CaseViewModal
       ref="viewModalRef"
       :show="showViewModal"
       :case-data="selectedCase"
       :stages="lookups.stages"
       :clerks="lookups.clerks"
+      :all-users="lookups.users"
       @close="showViewModal = false"
-      @edit="openEditModal"
       @refresh="loadCases"
     />
   </div>
@@ -296,8 +284,7 @@ const columns = [
   { label: 'Stage', field: 'stage', sortable: true },
   { label: 'Priority', field: 'priority', sortable: true },
   { label: 'Status', field: 'case_status', sortable: true },
-  { label: 'Tasks', field: 'tasks', sortable: false },
-  { label: 'Actions', field: 'actions', sortable: false },
+    { label: 'Actions', field: 'actions', sortable: false },
 ];
 
 // State
@@ -307,7 +294,9 @@ const lookups = ref({
   stages: [],
   lawyers: [],
   clerks: [],
-  clients: []
+  clients: [],
+  courts: [],
+  users: []
 });
 const pagination = ref({
   current_page: 1,
@@ -425,12 +414,33 @@ const loadCases = async () => {
   }
 };
 
-// Load lookups
+
+// In the loadLookups function, after setting lookups.value
 const loadLookups = async () => {
   isLoadingLookups.value = true;
   try {
     const response = await caseService.getLookups();
     lookups.value = response.data || {};
+    
+    // Ensure users array exists (combine lawyers and clerks)
+    const lawyers = lookups.value.lawyers || [];
+    const clerks = lookups.value.clerks || [];
+    
+    lookups.value.users = [
+      ...lawyers.map(l => ({ 
+        id: l.id, 
+        full_name: l.full_name, 
+        role: 'lawyer' 
+      })),
+      ...clerks.map(c => ({ 
+        id: c.id, 
+        full_name: c.full_name, 
+        role: 'clerk' 
+      }))
+    ];
+    
+
+    
   } catch (error) {
     console.error('Failed to load lookups:', error);
     lookups.value = {
@@ -438,13 +448,14 @@ const loadLookups = async () => {
       stages: [],
       lawyers: [],
       clerks: [],
-      clients: []
+      clients: [],
+      courts: [],
+      users: []
     };
   } finally {
     isLoadingLookups.value = false;
   }
 };
-
 // Filters
 const debouncedSearch = debounce(() => {
   currentPage.value = 1;
@@ -546,8 +557,12 @@ const openEditModal = async (caseItem) => {
   showFormModal.value = true;
 };
 
+// Update this function
 const openViewModal = async (caseItem) => {
   try {
+    // Load lookups first to get users and clerks
+    await loadLookups();
+    
     const response = await caseService.getCase(caseItem.id);
     selectedCase.value = response.data;
     showViewModal.value = true;

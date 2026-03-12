@@ -173,14 +173,12 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Court/Office with Search and N/A Checkbox -->
                 <div>
-                  <div class="flex items-center justify-between mb-1.5">
-                    <label class="text-sm font-semibold text-slate-700">Court / Office</label>
-                    <div class="flex items-center gap-2">
-                      <input type="checkbox" v-model="courtNA" @change="onCourtNAChange" id="courtNA" 
-                        class="w-3.5 h-3.5 rounded border-slate-300 text-[#1a4972] focus:ring-[#1a4972]" />
-                      <label for="courtNA" class="text-xs text-slate-500 font-medium cursor-pointer">N/A</label>
-                    </div>
-                  </div>
+               <div class="flex items-center gap-2 mb-1.5">
+                <label class="text-sm font-semibold text-slate-700">Court / Office</label>
+                <input type="checkbox" v-model="courtNA" @change="onCourtNAChange" id="courtNA" 
+                    class="w-3.5 h-3.5 rounded border-slate-300 text-[#1a4972] focus:ring-[#1a4972]" />
+                <label for="courtNA" class="text-xs text-slate-500 font-medium cursor-pointer">N/A</label>
+                </div>
 
                   <!-- Active dropdown input -->
                   <div v-if="!courtNA" class="relative" ref="courtDropdownRef">
@@ -263,14 +261,12 @@
 
                 <!-- Docket Number with N/A Checkbox -->
                 <div>
-                  <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 mb-1.5">
                     <label class="text-sm font-semibold text-slate-700">Docket Number</label>
-                    <div class="flex items-center gap-2">
-                      <input type="checkbox" v-model="docketNA" @change="onDocketNAChange" id="docketNA" 
+                    <input type="checkbox" v-model="docketNA" @change="onDocketNAChange" id="docketNA" 
                         class="w-3.5 h-3.5 rounded border-slate-300 text-[#1a4972] focus:ring-[#1a4972]" />
-                      <label for="docketNA" class="text-xs text-slate-500 font-medium cursor-pointer">N/A</label>
-                    </div>
-                  </div>
+                    <label for="docketNA" class="text-xs text-slate-500 font-medium cursor-pointer">N/A</label>
+                </div>
                   <input v-model="form.docket_no" type="text" :placeholder="docketNA ? 'Not Applicable' : 'e.g. 2024-00123'" 
                     :disabled="docketNA"
                     class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100" />
@@ -339,15 +335,15 @@
                 </div>
 
                 <!-- Current Stage -->
+                <!-- Current Stage -->
                 <div>
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">Current Stage</label>
-                  <select v-model="form.current_stage_id"
+                <label class="block text-sm font-semibold text-slate-700 mb-1.5">Current Stage</label>
+                <select v-model="form.current_stage_id"
                     class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] text-slate-600">
-                    <option value="">— Select Stage —</option>
                     <option v-for="stage in stages" :key="stage.id" :value="stage.id">
-                      {{ stage.name }}
+                    {{ stage.name }}
                     </option>
-                  </select>
+                </select>
                 </div>
               </div>
             </div>
@@ -605,6 +601,12 @@ watch(() => props.show, (newVal) => {
     
     // Sync docket N/A
     docketNA.value = props.form.docket_no === 'N/A';
+
+    // ✅ Default to first stage for new cases
+    if (!props.isEditing && !props.form.current_stage_id && props.stages?.length) {
+      props.form.current_stage_id = props.stages[0].id;
+    }
+
   } else {
     // Reset on close
     clientSearch.value = '';
