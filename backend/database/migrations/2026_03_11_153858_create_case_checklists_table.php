@@ -24,6 +24,11 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->boolean('is_out')->default(false);
             $table->timestamp('completed_at')->nullable();
+            // In case_checklists table migration
+            $table->foreignId('document_type_id')->nullable()->constrained('documents')->nullOnDelete();
+            $table->string('document_type')->nullable();
+            $table->string('document_category')->nullable();
+            $table->string('document_color')->nullable();
             
             $table->timestamps();
             

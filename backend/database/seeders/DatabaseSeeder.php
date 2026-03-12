@@ -10,8 +10,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             // First, run your existing seeders (RoleSeeder, UserSeeder)
-            // RoleSeeder::class,
-            // UserSeeder::class,
+            RoleSeeder::class,
+            UserSeeder::class,
             
             // Then these master data seeders
             CaseCategorySeeder::class,
