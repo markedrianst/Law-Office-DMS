@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cases;
 use App\Models\CaseChecklist;
 use App\Models\ChecklistMovement;
+use App\Models\CaseActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -112,6 +113,8 @@ class ChecklistTrackerController extends Controller
             $isPrivileged = in_array($roleName, ['admin', 'lawyer']);
 
             $taskName = null;
+            $task = null;
+            
             if ($request->checklist_id) {
                 $task = CaseChecklist::find($request->checklist_id);
                 $taskName = $task?->task;
@@ -137,6 +140,27 @@ class ChecklistTrackerController extends Controller
                 CaseChecklist::where('id', $request->checklist_id)
                     ->update(['is_out' => $request->type === 'OUT']);
             }
+
+            // SIMPLIFIED AUDIT MESSAGE
+            $taskDisplay = $taskName ? $taskName : 'Checklist item';
+            $location = $movement->from_to ?: 'unspecified';
+            
+            $message = $movement->type === 'OUT' 
+                ? "Released {$taskDisplay} to {$location}" 
+                : "Received {$taskDisplay} from {$location}";
+            
+            CaseActivityLog::create([
+                'case_id' => $caseId,
+                'user_id' => $user->id,
+                'action' => $movement->type === 'OUT' ? 'checklist_released' : 'checklist_received',
+                'details' => [
+                    'message' => $message,
+                    'type' => $movement->type,
+                    'task_name' => $taskName,
+                    'from_to' => $movement->from_to,
+                    'handled_by' => $movement->handled_by,
+                ],
+            ]);
 
             DB::commit();
 
@@ -199,6 +223,26 @@ class ChecklistTrackerController extends Controller
                 CaseChecklist::where('id', $movement->checklist_id)
                     ->update(['is_out' => $movement->type === 'OUT']);
             }
+
+            // SIMPLIFIED AUDIT MESSAGE
+            $taskName = $movement->task_name ?: 'Checklist item';
+            $status = strtolower($request->approval_status);
+            
+            $message = $request->approval_status === 'APPROVED'
+                ? "{$taskName} movement approved"
+                : "{$taskName} movement rejected";
+            
+            CaseActivityLog::create([
+                'case_id' => $caseId,
+                'user_id' => $user->id,
+                'action' => $request->approval_status === 'APPROVED' ? 'checklist_approved' : 'checklist_rejected',
+                'details' => [
+                    'message' => $message,
+                    'task_name' => $movement->task_name,
+                    'from_to' => $movement->from_to,
+                    'approval_status' => $request->approval_status,
+                ],
+            ]);
 
             DB::commit();
 

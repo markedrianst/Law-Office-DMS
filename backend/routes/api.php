@@ -13,6 +13,9 @@ use App\Http\Controllers\Admin\CaseChecklistController;
 use App\Http\Controllers\Admin\CaseStageController;
 use App\Http\Controllers\Admin\FolderTrackerController;
 use App\Http\Controllers\Admin\ChecklistTrackerController;
+use App\Http\Controllers\Admin\AuditLogController;
+
+
 
 // ========== PUBLIC ROUTES ==========
 Route::get('/sanctum/csrf-cookie', function () {
@@ -123,5 +126,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/cases/{caseId}/checklist-tracker', [ChecklistTrackerController::class, 'store']);
         Route::get('/cases/{caseId}/checklist-tracker/pending', [ChecklistTrackerController::class, 'pending']);
         Route::patch('/cases/{caseId}/checklist-tracker/{movementId}/approve', [ChecklistTrackerController::class, 'approve']);
-    });
+        
+         //Audit trail
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/audit-logs/case-activity', [AuditLogController::class, 'caseActivity']);
+        Route::get('/audit-logs/combined', [AuditLogController::class, 'combined']);
+        Route::get('/audit-logs/actions', [AuditLogController::class, 'getActions']);
+        Route::get('/audit-logs/stats', [AuditLogController::class, 'getStats']);
+        Route::get('/audit-logs/export', [AuditLogController::class, 'export']);
+        Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
+        
+        });
 });

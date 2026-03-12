@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Cases;
 use App\Models\FolderMovement;
+use App\Models\CaseActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -121,6 +122,24 @@ class FolderTrackerController extends Controller
                 $case->update(['is_out' => $request->type === 'OUT']);
             }
 
+            // SIMPLIFIED AUDIT MESSAGE
+            $location = $movement->from_to ?: 'unspecified';
+            $message = $movement->type === 'OUT' 
+                ? "Folder released to {$location}" 
+                : "Folder received from {$location}";
+            
+            CaseActivityLog::create([
+                'case_id' => $caseId,
+                'user_id' => $user->id,
+                'action' => $movement->type === 'OUT' ? 'folder_released' : 'folder_received',
+                'details' => [
+                    'message' => $message,
+                    'type' => $movement->type,
+                    'from_to' => $movement->from_to,
+                    'handled_by' => $movement->handled_by,
+                ],
+            ]);
+
             DB::commit();
 
             return response()->json([
@@ -182,6 +201,25 @@ class FolderTrackerController extends Controller
                 $case = Cases::find($caseId);
                 $case->update(['is_out' => $movement->type === 'OUT']);
             }
+
+            // SIMPLIFIED AUDIT MESSAGE
+            $location = $movement->from_to ?: 'unspecified';
+            $status = strtolower($request->approval_status);
+            
+            $message = $request->approval_status === 'APPROVED'
+                ? "Folder movement to/from {$location} approved"
+                : "Folder movement to/from {$location} rejected";
+            
+            CaseActivityLog::create([
+                'case_id' => $caseId,
+                'user_id' => $user->id,
+                'action' => $request->approval_status === 'APPROVED' ? 'folder_approved' : 'folder_rejected',
+                'details' => [
+                    'message' => $message,
+                    'from_to' => $movement->from_to,
+                    'approval_status' => $request->approval_status,
+                ],
+            ]);
 
             DB::commit();
 

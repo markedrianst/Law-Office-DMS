@@ -19,7 +19,7 @@ class CaseActivityLog extends Model
     ];
 
     protected $casts = [
-        'details' => 'array',
+        'details' => 'array', // Automatically converts JSON string to array
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];
@@ -65,41 +65,51 @@ class CaseActivityLog extends Model
     }
 
     /**
-     * Get formatted details for display.
+     * Get the message from details (if available)
      */
-    public function getFormattedDetailsAttribute()
+    public function getMessageAttribute()
     {
-        if (!$this->details) {
-            return null;
-        }
-
-        $details = $this->details;
-        
-        switch ($this->action) {
-            case 'created_case':
-                return "Created case: {$details['title']} ({$details['case_no']})";
-            
-            case 'updated_case':
-                $fields = implode(', ', $details['fields'] ?? []);
-                return "Updated case fields: {$fields}";
-            
-            case 'changed_stage':
-                return "Changed stage from {$details['from']} to {$details['to']}";
-            
-            case 'assigned_lawyer':
-                return "Assigned lawyer: {$details['lawyer']}";
-            
-            case 'assigned_clerk':
-                return "Assigned clerk: {$details['clerk']}";
-            
-            case 'deleted_case':
-                return "Deleted case: {$details['title']} ({$details['case_code']})";
-            
-            case 'archived_case':
-                return "Archived case";
-            
-            default:
-                return json_encode($details);
-        }
+        return $this->details['message'] ?? null;
     }
+
+    /**
+     * Get formatted details for display (backward compatibility)
+     */
+   public function getFormattedDetailsAttribute()
+{
+    if (!$this->details) {
+        return null;
+    }
+
+    $details = $this->details;
+    
+    // Use message field if it exists
+    if (isset($details['message'])) {
+        return $details['message'];
+    }
+    
+    // Format based on action
+    switch ($this->action) {
+        case 'created_case':
+            return "New case: {$details['case_no']} - {$details['title']}";
+        
+        case 'updated_case':
+            if (isset($details['changes'])) {
+                return implode('; ', $details['changes']);
+            }
+            return "Case updated";
+        
+        case 'changed_stage':
+            return "Stage: {$details['from']} → {$details['to']}";
+        
+        case 'deleted_case':
+            return "Deleted case: {$details['case_no']}";
+        
+        case 'archived_case':
+            return "Archived case: {$details['case_no']}";
+        
+        default:
+            return "Action: {$this->action}"; // Simple fallback
+    }
+}
 }

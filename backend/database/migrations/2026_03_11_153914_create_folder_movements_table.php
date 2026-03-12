@@ -23,6 +23,7 @@ return new class extends Migration
             $table->enum('approval_status', ['PENDING', 'APPROVED', 'REJECTED'])->default('PENDING');
             $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
+            $table->text('notes')->nullable(); // 👈 ADDED NOTES COLUMN
             
             $table->timestamps();
             

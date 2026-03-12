@@ -19,6 +19,7 @@ class FolderMovement extends Model
         'date',
         'purpose',
         'handled_by',
+        'notes',
         'approval_status',
         'approved_by',
         'approved_at'

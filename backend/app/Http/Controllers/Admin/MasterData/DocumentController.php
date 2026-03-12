@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\MasterData;
 use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\DocumentApproval;
+use App\Models\CaseActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -284,6 +285,24 @@ class DocumentController extends Controller
                 'approved_at' => $approvedAt,
             ]);
 
+            // ADD ACTIVITY LOG
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => $user->id,
+                'action' => 'created_document_type',
+                'details' => [
+                    'message' => $message,
+                    'document_id' => $document->id,
+                    'document_type' => $document->type,
+                    'category' => $document->category,
+                    'color' => $document->color,
+                    'requires_approval' => $document->requires_approval,
+                    'approval_status' => $document->approval_status,
+                    'sort_order' => $document->sort_order,
+                    'is_active' => $document->is_active,
+                ],
+            ]);
+
             DB::commit();
 
             return response()->json([
@@ -307,6 +326,7 @@ class DocumentController extends Controller
     {
         try {
             $document = Document::findOrFail($id);
+            $oldValues = $document->toArray();
 
             $validator = Validator::make($request->all(), [
                 'type' => 'sometimes|required|string|max:255|unique:documents,type,' . $id,
@@ -379,6 +399,28 @@ class DocumentController extends Controller
                 ]);
             }
 
+            // ADD ACTIVITY LOG
+            $changes = [];
+            if ($oldValues['type'] != $document->type) $changes['type'] = ['old' => $oldValues['type'], 'new' => $document->type];
+            if ($oldValues['category'] != $document->category) $changes['category'] = ['old' => $oldValues['category'], 'new' => $document->category];
+            if ($oldValues['color'] != $document->color) $changes['color'] = ['old' => $oldValues['color'], 'new' => $document->color];
+            if ($oldValues['requires_approval'] != $document->requires_approval) $changes['requires_approval'] = ['old' => $oldValues['requires_approval'], 'new' => $document->requires_approval];
+            if ($oldValues['approval_status'] != $document->approval_status) $changes['approval_status'] = ['old' => $oldValues['approval_status'], 'new' => $document->approval_status];
+            if ($oldValues['sort_order'] != $document->sort_order) $changes['sort_order'] = ['old' => $oldValues['sort_order'], 'new' => $document->sort_order];
+            if ($oldValues['is_active'] != $document->is_active) $changes['is_active'] = ['old' => $oldValues['is_active'], 'new' => $document->is_active];
+
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => $user->id,
+                'action' => 'updated_document_type',
+                'details' => [
+                    'message' => "Updated document type: {$document->type}",
+                    'document_id' => $document->id,
+                    'document_type' => $document->type,
+                    'changes' => $changes,
+                ],
+            ]);
+
             DB::commit();
 
             return response()->json([
@@ -442,6 +484,20 @@ class DocumentController extends Controller
                 'approved_by' => $user->id,
                 'status' => 'approved',
                 'approved_at' => now(),
+            ]);
+
+            // ADD ACTIVITY LOG
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => $user->id,
+                'action' => 'approved_document_type',
+                'details' => [
+                    'message' => "Approved document type: {$document->type}",
+                    'document_id' => $document->id,
+                    'document_type' => $document->type,
+                    'previous_status' => 'pending',
+                    'new_status' => 'approved',
+                ],
             ]);
 
             DB::commit();
@@ -511,6 +567,21 @@ class DocumentController extends Controller
                 'rejection_reason' => $request->rejection_reason,
             ]);
 
+            // ADD ACTIVITY LOG
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => $user->id,
+                'action' => 'rejected_document_type',
+                'details' => [
+                    'message' => "Rejected document type: {$document->type}",
+                    'document_id' => $document->id,
+                    'document_type' => $document->type,
+                    'previous_status' => 'pending',
+                    'new_status' => 'rejected',
+                    'rejection_reason' => $request->rejection_reason,
+                ],
+            ]);
+
             DB::commit();
 
             return response()->json([
@@ -574,6 +645,21 @@ class DocumentController extends Controller
                     'status' => 'approved',
                     'approved_at' => now(),
                 ]);
+
+                // ADD ACTIVITY LOG FOR EACH DOCUMENT
+                CaseActivityLog::create([
+                    'case_id' => null,
+                    'user_id' => $user->id,
+                    'action' => 'approved_document_type',
+                    'details' => [
+                        'message' => "Approved document type: {$document->type} (bulk approval)",
+                        'document_id' => $document->id,
+                        'document_type' => $document->type,
+                        'previous_status' => 'pending',
+                        'new_status' => 'approved',
+                        'bulk_operation' => true,
+                    ],
+                ]);
             }
 
             DB::commit();
@@ -602,7 +688,23 @@ class DocumentController extends Controller
     {
         try {
             $document = Document::findOrFail($id);
+            $oldStatus = $document->is_active;
+            
             $document->update(['is_active' => !$document->is_active]);
+
+            // ADD ACTIVITY LOG
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => auth()->id(),
+                'action' => $document->is_active ? 'activated_document_type' : 'deactivated_document_type',
+                'details' => [
+                    'message' => ($document->is_active ? 'Activated' : 'Deactivated') . " document type: {$document->type}",
+                    'document_id' => $document->id,
+                    'document_type' => $document->type,
+                    'old_status' => $oldStatus,
+                    'new_status' => $document->is_active,
+                ],
+            ]);
 
             return response()->json([
                 'message' => $document->is_active ? 'Document activated' : 'Document deactivated',
@@ -624,6 +726,7 @@ class DocumentController extends Controller
     {
         try {
             $document = Document::findOrFail($id);
+            $documentData = $document->toArray();
 
             // Don't allow deleting "Others"
             if (strtolower($document->type) === 'others') {
@@ -639,6 +742,24 @@ class DocumentController extends Controller
             Document::where('sort_order', '>', $document->sort_order)
                 ->where('sort_order', '<', 9000)
                 ->decrement('sort_order');
+
+            // ADD ACTIVITY LOG (BEFORE DELETING APPROVAL HISTORY)
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => auth()->id(),
+                'action' => 'deleted_document_type',
+                'details' => [
+                    'message' => "Deleted document type: {$document->type}",
+                    'document_id' => $document->id,
+                    'document_type' => $document->type,
+                    'category' => $document->category,
+                    'color' => $document->color,
+                    'requires_approval' => $document->requires_approval,
+                    'approval_status' => $document->approval_status,
+                    'sort_order' => $document->sort_order,
+                    'was_active' => $document->is_active,
+                ],
+            ]);
 
             // Delete approval history
             DocumentApproval::where('document_id', $id)->delete();

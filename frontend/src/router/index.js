@@ -8,6 +8,7 @@ import CaseCategories from "@/pages/Admin/MasterData/CaseCategories.vue";
 import Courts from "@/pages/Admin/MasterData/Courts.vue";
 import Documents from "@/pages/Admin/MasterData/Documents.vue";
 import CaseMaster from "@/pages/Admin/CaseMaster/CaseMaster.vue";
+import AuditTrail from "@/pages/Admin/AuditTrail.vue";
 
 const routes = [
   {
@@ -69,6 +70,15 @@ const routes = [
         meta: { 
           requiresAuth: true,
           roles: ['admin','lawyer','clerk'] 
+        },
+      },
+      {
+        path: "/audit-trail",
+        name: "AuditTrail",
+        component: AuditTrail,
+        meta: { 
+          requiresAuth: true,
+          roles: ['admin'] 
         },
       },
 

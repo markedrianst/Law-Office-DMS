@@ -132,7 +132,7 @@ const icons = {
 const allNav = [
   { path: '/dashboard', label: 'Dashboard', icon: icons.dashboard, roles: [] },
   { path: '/usermanagement', label: 'Users', icon: icons.users, roles: ['admin'] },
-  { path: '/audittrail', label: 'Activity Logs', icon: icons.logs, roles: ['admin'] },
+  { path: '/audit-trail', label: 'Activity Logs', icon: icons.logs, roles: ['admin'] },
   { path: '/casemaster', label: 'Case Master', icon: icons.cases, roles: ['admin', 'lawyer', 'clerk'] },
   { path: '/approvals', label: 'Approvals', icon: icons.approvals, roles: ['admin', 'lawyer'] },
   {
@@ -148,6 +148,7 @@ const allNav = [
     ],
   },
   { path: '/clerkstracker', label: 'Clerks Tracker', icon: icons.appointments, roles: ['clerk'] },
+  
 ]
 
 // Filter nav based on user role

@@ -10,6 +10,7 @@ use App\Models\CaseStage;
 use App\Models\CaseStageHistory;
 use App\Models\Client;
 use App\Models\User;
+use App\Models\Court;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -160,7 +161,7 @@ class CaseController extends Controller
                 'clerks' => $clerks,
                 'clients' => Client::orderBy('full_name')
                     ->get(['id', 'full_name', 'contact_no', 'email']),
-                'courts' => \App\Models\Court::where('is_active', true)
+                'courts' => Court::where('is_active', true)
                     ->orderBy('name')
                     ->get(['id', 'name', 'type', 'address']),
                 // Add users array combining lawyers and clerks for From/To dropdown
@@ -247,25 +248,37 @@ class CaseController extends Controller
                 'created_by' => auth()->id(),
             ]);
 
-            // Log activity
+            // Load relationships for message
+            $case->load(['client', 'lawyer', 'clerk', 'category', 'currentStage']);
+
+            // Get names for human-readable message
+            $clientName = $case->client?->full_name ?? 'Unknown';
+            $lawyerName = $case->lawyer?->full_name ?? 'Unknown';
+
+            // SIMPLE CREATE MESSAGE
+            $message = "New case: {$case->case_no} - {$case->title}";
+            
             CaseActivityLog::create([
                 'case_id' => $case->id,
                 'user_id' => auth()->id(),
                 'action' => 'created_case',
-                'details' => json_encode([
+                'details' => [
+                    'message' => $message,
                     'case_no' => $case->case_no,
-                    'title' => $case->title
-                ]),
+                    'title' => $case->title,
+                ],
             ]);
 
             // Create stage history if stage is set
             if ($request->current_stage_id) {
+                $stageName = CaseStage::find($request->current_stage_id)?->name ?? 'Unknown';
+                
                 CaseStageHistory::create([
                     'case_id' => $case->id,
                     'from_stage_id' => null,
                     'to_stage_id' => $request->current_stage_id,
                     'changed_by' => auth()->id(),
-                    'remarks' => 'Initial stage',
+                    'remarks' => "Initial stage: {$stageName}",
                 ]);
             }
 
@@ -368,7 +381,7 @@ class CaseController extends Controller
                 }
             ])->findOrFail($id);
 
-            // Transform checklists - INCLUDE ALL DOCUMENT FIELDS
+            // Transform checklists
             $checklists = $case->checklists->map(function($item) {
                 return [
                     'id' => $item->id,
@@ -439,11 +452,18 @@ class CaseController extends Controller
 
             // Transform activity logs
             $activityLogs = $case->activityLogs->map(function($item) {
+                // Decode details for better display
+                $details = $item->details;
+                if (is_string($details)) {
+                    $decoded = json_decode($details, true);
+                    $details = is_array($decoded) ? $decoded : $details;
+                }
+                
                 return [
                     'id' => $item->id,
                     'user' => $item->user?->full_name ?? 'System',
                     'action' => $item->action,
-                    'details' => json_decode($item->details, true),
+                    'details' => $details,
                     'created_at' => $item->created_at,
                 ];
             });
@@ -482,7 +502,7 @@ class CaseController extends Controller
                     'created_at' => $case->created_at,
                     'updated_at' => $case->updated_at,
                     
-                    // Related data - ALL LOADED IN ONE GO
+                    // Related data
                     'checklists' => $checklists,
                     'folder_movements' => $folderMovements,
                     'checklist_movements' => $checklistMovements,
@@ -540,8 +560,24 @@ class CaseController extends Controller
 
             DB::beginTransaction();
 
+            // Load relationships for old values
+            $case->load(['client', 'lawyer', 'clerk', 'category', 'currentStage']);
+
+            // Store old values for comparison
+            $oldCaseNo = $case->case_no;
+            $oldTitle = $case->title;
+            $oldCategory = $case->category?->name ?? 'None';
+            $oldClient = $case->client?->full_name ?? 'None';
+            $oldCourtOffice = $case->court_or_office ?: 'None';
+            $oldDocketNo = $case->docket_no ?: 'None';
+            $oldLawyer = $case->lawyer?->full_name ?? 'None';
+            $oldClerk = $case->clerk?->full_name ?? 'None';
+            $oldPriority = ucfirst($case->priority);
+            $oldStatus = ucfirst($case->case_status);
             $oldStageId = $case->current_stage_id;
-            
+            $oldStageName = $case->currentStage?->name ?? 'None';
+            $oldSummary = $case->summary;
+
             $case->update([
                 'case_no' => $request->case_no,
                 'title' => $request->title,
@@ -557,36 +593,116 @@ class CaseController extends Controller
                 'summary' => $request->summary,
             ]);
 
+            // Reload with new relationships
+            $case->load(['client', 'lawyer', 'clerk', 'category', 'currentStage']);
+
+            // Build change messages
+            $changeMessages = [];
+
+            if ($oldCaseNo != $case->case_no) {
+                $changeMessages[] = "Case #: {$oldCaseNo} → {$case->case_no}";
+            }
+            
+            if ($oldTitle != $case->title) {
+                $changeMessages[] = "Title: {$oldTitle} → {$case->title}";
+            }
+            
+            if ($oldCategory != ($case->category?->name ?? 'None')) {
+                $newCategory = $case->category?->name ?? 'None';
+                $changeMessages[] = "Category: {$oldCategory} → {$newCategory}";
+            }
+            
+            if ($oldClient != ($case->client?->full_name ?? 'None')) {
+                $newClient = $case->client?->full_name ?? 'None';
+                $changeMessages[] = "Client: {$oldClient} → {$newClient}";
+            }
+            
+            if ($oldCourtOffice != ($case->court_or_office ?: 'None')) {
+                $newCourtOffice = $case->court_or_office ?: 'None';
+                $changeMessages[] = "Court: {$oldCourtOffice} → {$newCourtOffice}";
+            }
+            
+            if ($oldDocketNo != ($case->docket_no ?: 'None')) {
+                $newDocketNo = $case->docket_no ?: 'None';
+                $changeMessages[] = "Docket: {$oldDocketNo} → {$newDocketNo}";
+            }
+            
+            if ($oldLawyer != ($case->lawyer?->full_name ?? 'None')) {
+                $newLawyer = $case->lawyer?->full_name ?? 'None';
+                $changeMessages[] = "Lawyer: {$oldLawyer} → {$newLawyer}";
+            }
+            
+            if ($oldClerk != ($case->clerk?->full_name ?? 'None')) {
+                $newClerk = $case->clerk?->full_name ?? 'None';
+                $changeMessages[] = "Clerk: {$oldClerk} → {$newClerk}";
+            }
+            
+            if ($oldPriority != ucfirst($case->priority)) {
+                $newPriority = ucfirst($case->priority);
+                $changeMessages[] = "Priority: {$oldPriority} → {$newPriority}";
+            }
+            
+            if ($oldStatus != ucfirst($case->case_status)) {
+                $newStatus = ucfirst($case->case_status);
+                $changeMessages[] = "Status: {$oldStatus} → {$newStatus}";
+            }
+            
+            if (($oldSummary ? 'Yes' : 'No') != ($case->summary ? 'Yes' : 'No')) {
+                $changeMessages[] = "Summary updated";
+            }
+
             // Log stage change if stage changed
             if ($request->current_stage_id && $request->current_stage_id != $oldStageId) {
+                $newStageName = CaseStage::find($request->current_stage_id)?->name ?? 'Unknown';
+                
                 CaseStageHistory::create([
                     'case_id' => $case->id,
                     'from_stage_id' => $oldStageId,
                     'to_stage_id' => $request->current_stage_id,
                     'changed_by' => auth()->id(),
-                    'remarks' => 'Stage updated via case edit',
+                    'remarks' => "Stage: {$oldStageName} → {$newStageName}",
                 ]);
 
+                // SIMPLE STAGE CHANGE MESSAGE
+                $stageMessage = "Stage: {$oldStageName} → {$newStageName}";
+                
                 CaseActivityLog::create([
                     'case_id' => $case->id,
                     'user_id' => auth()->id(),
                     'action' => 'changed_stage',
-                    'details' => json_encode([
-                        'from' => $oldStageId,
-                        'to' => $request->current_stage_id
-                    ]),
+                    'details' => [
+                        'message' => $stageMessage,
+                        'from' => $oldStageName,
+                        'to' => $newStageName,
+                    ],
                 ]);
             }
 
-            // Log general update
-            CaseActivityLog::create([
-                'case_id' => $case->id,
-                'user_id' => auth()->id(),
-                'action' => 'updated_case',
-                'details' => json_encode([
-                    'fields' => array_keys($request->all())
-                ]),
-            ]);
+            // Log general update if there are changes
+            if (!empty($changeMessages)) {
+                // SIMPLE UPDATE MESSAGE
+                $updateMessage = implode('; ', $changeMessages);
+                
+                CaseActivityLog::create([
+                    'case_id' => $case->id,
+                    'user_id' => auth()->id(),
+                    'action' => 'updated_case',
+                    'details' => [
+                        'message' => $updateMessage,
+                        'changes' => $changeMessages,
+                    ],
+                ]);
+            } else {
+                // No changes detected
+                CaseActivityLog::create([
+                    'case_id' => $case->id,
+                    'user_id' => auth()->id(),
+                    'action' => 'updated_case',
+                    'details' => [
+                        'message' => 'No changes',
+                    ],
+                ]);
+            }
 
             DB::commit();
 
@@ -639,64 +755,79 @@ class CaseController extends Controller
     /**
      * Remove the specified case.
      */
-    public function destroy($id)
-    {
-        try {
-            $case = Cases::findOrFail($id);
+/**
+ * Remove the specified case.
+ */
+public function destroy($id)
+{
+    try {
+        $case = Cases::findOrFail($id);
 
-            DB::beginTransaction();
+        DB::beginTransaction();
 
-            // Log deletion
-            CaseActivityLog::create([
-                'case_id' => $case->id,
-                'user_id' => auth()->id(),
-                'action' => 'deleted_case',
-                'details' => json_encode([
-                    'case_code' => $case->case_code,
-                    'title' => $case->title
-                ]),
-            ]);
+        // CREATE ACTIVITY LOG FIRST (while case still exists)
+        $deleteMessage = "Deleted case: {$case->case_no} - {$case->title}";
+        
+        CaseActivityLog::create([
+            'case_id' => $case->id,
+            'user_id' => auth()->id(),
+            'action' => 'deleted_case',
+            'details' => [
+                'message' => $deleteMessage,
+                'case_code' => $case->case_code,
+                'title' => $case->title,
+                'case_no' => $case->case_no,
+            ],
+        ]);
 
-            // Delete related records
-            $case->checklists()->delete();
-            $case->folderMovements()->delete();
-            $case->checklistMovements()->delete();
-            $case->stageHistories()->delete();
-            $case->activityLogs()->delete();
-            
-            // Delete case
-            $case->delete();
+        // THEN delete related records (but NOT activity logs if you want to keep them)
+        $case->checklists()->delete();
+        $case->folderMovements()->delete();
+        $case->checklistMovements()->delete();
+        $case->stageHistories()->delete();
+        // REMOVE OR COMMENT OUT: $case->activityLogs()->delete();
+        
+        // Finally delete case
+        $case->delete();
 
-            DB::commit();
+        DB::commit();
 
-            return response()->json([
-                'message' => 'Case deleted successfully'
-            ]);
+        return response()->json([
+            'message' => 'Case deleted successfully'
+        ]);
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Failed to delete case',
-                'errors' => ['server' => [$e->getMessage()]]
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Failed to delete case',
+            'errors' => ['server' => [$e->getMessage()]]
+        ], 500);
     }
+}
 
     /**
-     * Archive case (soft delete or status change)
+     * Archive case
      */
     public function archive($id)
     {
         try {
             $case = Cases::findOrFail($id);
             
+            $oldStatus = $case->case_status;
             $case->update(['case_status' => 'archived']);
+
+            // SIMPLE ARCHIVE MESSAGE
+            $archiveMessage = "Archived case: {$case->case_no}";
 
             CaseActivityLog::create([
                 'case_id' => $case->id,
                 'user_id' => auth()->id(),
                 'action' => 'archived_case',
-                'details' => null,
+                'details' => [
+                    'message' => $archiveMessage,
+                    'from_status' => ucfirst($oldStatus),
+                    'to_status' => 'Archived',
+                ],
             ]);
 
             return response()->json([
@@ -723,11 +854,18 @@ class CaseController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function($log) {
+                    // Decode details for better display
+                    $details = $log->details;
+                    if (is_string($details)) {
+                        $decoded = json_decode($details, true);
+                        $details = is_array($decoded) ? $decoded : $details;
+                    }
+                    
                     return [
                         'id' => $log->id,
                         'user' => $log->user?->full_name ?? 'System',
                         'action' => $log->action,
-                        'details' => json_decode($log->details, true),
+                        'details' => $details,
                         'created_at' => $log->created_at,
                     ];
                 });

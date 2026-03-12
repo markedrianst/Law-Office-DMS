@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Models\CaseCategory;
+use App\Models\CaseActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -107,77 +108,90 @@ class CaseCategoryController extends Controller
 
     /**
      * Create new category
-     *//**
- * Create new category
- */
-public function store(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'name' => 'required|string|max:255|unique:case_categories,name',
-        'color' => 'nullable|string|max:7|regex:/^#[a-fA-F0-9]{6}$/',
-        'sort_order' => 'nullable|integer|min:0',
-        'is_active' => 'nullable|boolean',
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'message' => 'Validation failed',
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    try {
-        DB::beginTransaction();
-
-        // Check if this is "Other" category
-        $isOther = strtolower($request->name) === 'other';
-        
-        if ($isOther) {
-            // Force "Other" to always be at the end
-            $sortOrder = 9999;
-            
-            // Delete any existing "Other" category
-            CaseCategory::where('name', 'LIKE', '%other%')
-                ->orWhere('name', 'LIKE', '%Other%')
-                ->delete();
-        } else {
-            // For normal categories, if sort_order is provided, use it and shift others
-            if ($request->has('sort_order') && $request->sort_order !== null) {
-                $sortOrder = $request->sort_order;
-                
-                // Shift all categories with sort_order >= requested order up by 1
-                CaseCategory::where('sort_order', '>=', $sortOrder)
-                    ->where('sort_order', '<', 9000)
-                    ->increment('sort_order');
-            } else {
-                // Get the next available number (max + 1)
-                $maxSortOrder = CaseCategory::where('sort_order', '<', 9000)->max('sort_order');
-                $sortOrder = $maxSortOrder ? $maxSortOrder + 1 : 1;
-            }
-        }
-
-        $category = CaseCategory::create([
-            'name' => $request->name,
-            'color' => $request->color ?? '#1a4972',
-            'sort_order' => $sortOrder,
-            'is_active' => $request->is_active ?? true,
+     */
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255|unique:case_categories,name',
+            'color' => 'nullable|string|max:7|regex:/^#[a-fA-F0-9]{6}$/',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'nullable|boolean',
         ]);
 
-        DB::commit();
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
 
-        return response()->json([
-            'message' => 'Category created successfully',
-            'data' => $category
-        ], 201);
+        try {
+            DB::beginTransaction();
 
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json([
-            'message' => 'Failed to create category',
-            'errors' => ['server' => [$e->getMessage()]]
-        ], 500);
+            // Check if this is "Other" category
+            $isOther = strtolower($request->name) === 'other';
+            
+            if ($isOther) {
+                // Force "Other" to always be at the end
+                $sortOrder = 9999;
+                
+                // Delete any existing "Other" category
+                CaseCategory::where('name', 'LIKE', '%other%')
+                    ->orWhere('name', 'LIKE', '%Other%')
+                    ->delete();
+            } else {
+                // For normal categories, if sort_order is provided, use it and shift others
+                if ($request->has('sort_order') && $request->sort_order !== null) {
+                    $sortOrder = $request->sort_order;
+                    
+                    // Shift all categories with sort_order >= requested order up by 1
+                    CaseCategory::where('sort_order', '>=', $sortOrder)
+                        ->where('sort_order', '<', 9000)
+                        ->increment('sort_order');
+                } else {
+                    // Get the next available number (max + 1)
+                    $maxSortOrder = CaseCategory::where('sort_order', '<', 9000)->max('sort_order');
+                    $sortOrder = $maxSortOrder ? $maxSortOrder + 1 : 1;
+                }
+            }
+
+            $category = CaseCategory::create([
+                'name' => $request->name,
+                'color' => $request->color ?? '#1a4972',
+                'sort_order' => $sortOrder,
+                'is_active' => $request->is_active ?? true,
+            ]);
+
+            // ADD ACTIVITY LOG
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => auth()->id(),
+                'action' => 'created_case_category',
+                'details' => [
+                    'message' => "Created case category: {$category->name}",
+                    'category_id' => $category->id,
+                    'category_name' => $category->name,
+                    'color' => $category->color,
+                    'sort_order' => $category->sort_order,
+                    'is_active' => $category->is_active,
+                ],
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Category created successfully',
+                'data' => $category
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to create category',
+                'errors' => ['server' => [$e->getMessage()]]
+            ], 500);
+        }
     }
-}
 
     /**
      * Update category
@@ -186,6 +200,7 @@ public function store(Request $request)
     {
         try {
             $category = CaseCategory::findOrFail($id);
+            $oldValues = $category->toArray();
 
             $validator = Validator::make($request->all(), [
                 'name' => 'sometimes|required|string|max:255|unique:case_categories,name,' . $id,
@@ -233,6 +248,25 @@ public function store(Request $request)
                 'is_active' => $request->is_active ?? $category->is_active,
             ]);
 
+            // ADD ACTIVITY LOG
+            $changes = [];
+            if ($oldValues['name'] != $category->name) $changes['name'] = ['old' => $oldValues['name'], 'new' => $category->name];
+            if ($oldValues['color'] != $category->color) $changes['color'] = ['old' => $oldValues['color'], 'new' => $category->color];
+            if ($oldValues['sort_order'] != $category->sort_order) $changes['sort_order'] = ['old' => $oldValues['sort_order'], 'new' => $category->sort_order];
+            if ($oldValues['is_active'] != $category->is_active) $changes['is_active'] = ['old' => $oldValues['is_active'], 'new' => $category->is_active];
+
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => auth()->id(),
+                'action' => 'updated_case_category',
+                'details' => [
+                    'message' => "Updated case category: {$category->name}",
+                    'category_id' => $category->id,
+                    'category_name' => $category->name,
+                    'changes' => $changes,
+                ],
+            ]);
+
             DB::commit();
 
             return response()->json([
@@ -256,7 +290,23 @@ public function store(Request $request)
     {
         try {
             $category = CaseCategory::findOrFail($id);
+            $oldStatus = $category->is_active;
+            
             $category->update(['is_active' => !$category->is_active]);
+
+            // ADD ACTIVITY LOG
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => auth()->id(),
+                'action' => $category->is_active ? 'activated_case_category' : 'deactivated_case_category',
+                'details' => [
+                    'message' => ($category->is_active ? 'Activated' : 'Deactivated') . " case category: {$category->name}",
+                    'category_id' => $category->id,
+                    'category_name' => $category->name,
+                    'old_status' => $oldStatus,
+                    'new_status' => $category->is_active,
+                ],
+            ]);
 
             return response()->json([
                 'message' => $category->is_active ? 'Category activated' : 'Category deactivated',
@@ -278,6 +328,7 @@ public function store(Request $request)
     {
         try {
             $category = CaseCategory::findOrFail($id);
+            $categoryData = $category->toArray();
 
             // Don't allow deleting "Other" category
             if (strtolower($category->name) === 'other') {
@@ -301,6 +352,21 @@ public function store(Request $request)
             CaseCategory::where('sort_order', '>', $category->sort_order)
                 ->where('sort_order', '<', 9000)
                 ->decrement('sort_order');
+
+            // ADD ACTIVITY LOG (BEFORE DELETING)
+            CaseActivityLog::create([
+                'case_id' => null,
+                'user_id' => auth()->id(),
+                'action' => 'deleted_case_category',
+                'details' => [
+                    'message' => "Deleted case category: {$category->name}",
+                    'category_id' => $category->id,
+                    'category_name' => $category->name,
+                    'color' => $category->color,
+                    'sort_order' => $category->sort_order,
+                    'was_active' => $category->is_active,
+                ],
+            ]);
 
             $category->delete();
 

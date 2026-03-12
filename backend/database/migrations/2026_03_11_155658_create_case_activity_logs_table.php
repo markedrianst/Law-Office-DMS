@@ -10,10 +10,18 @@ return new class extends Migration
     {
         Schema::create('case_activity_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('case_id')->constrained()->cascadeOnDelete();
+            
+            // CHANGE THIS LINE:
+            // From: cascadeOnDelete() - DELETES logs
+            // To: nullOnDelete() - KEEPS logs, sets case_id to NULL
+            $table->foreignId('case_id')
+                    ->nullable()
+                  ->constrained()
+                  ->nullOnDelete();  
+            
             $table->foreignId('user_id')->constrained('users');
             $table->string('action');
-            $table->json('details')->nullable();
+            $table->text('details')->nullable();
             $table->timestamps();
             
             $table->index(['case_id', 'created_at']);

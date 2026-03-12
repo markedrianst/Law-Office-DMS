@@ -21,6 +21,7 @@ class ChecklistMovement extends Model
         'purpose',
         'handled_by',
         'task_name',
+        'notes',
         'approval_status',
         'approved_by',
         'approved_at'
