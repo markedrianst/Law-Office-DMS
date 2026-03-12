@@ -15,6 +15,7 @@
         <div class="text-xs text-slate-500 mt-2">{{ lawyerStats.active_cases }} active</div>
       </div>
 
+      <!-- Pending Approvals (Combined) -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -24,10 +25,18 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Pending Approvals</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ stats.pending_approvals }}</div>
-        <div class="text-xs text-slate-500 mt-2">Awaiting your review</div>
+        <div class="text-3xl font-bold text-slate-800">{{ pendingTotal || stats.pending_approvals }}</div>
+        <div class="flex items-center gap-2 mt-2">
+          <span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+            {{ pendingDocuments || 0 }} Docs
+          </span>
+          <span class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+            {{ pendingMovements || 0 }} Moves
+          </span>
+        </div>
       </div>
 
+      <!-- Documents -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
@@ -39,6 +48,30 @@
         </div>
         <div class="text-3xl font-bold text-slate-800">{{ stats.total_documents || 0 }}</div>
         <div class="text-xs text-slate-500 mt-2">In your cases</div>
+      </div>
+    </div>
+
+    <!-- Pending Document Approvals (for Lawyers) -->
+    <div v-if="pendingDocuments > 0" class="bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden mb-8">
+      <div class="px-6 py-4 border-b border-amber-100 bg-amber-50 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-amber-800">Document Approvals Needed</h3>
+        <span class="px-2 py-1 bg-amber-200 text-amber-800 text-xs font-bold rounded-full">
+          {{ pendingDocuments }} pending
+        </span>
+      </div>
+      <div class="divide-y divide-amber-50">
+        <div v-for="item in pendingDocumentsList" :key="item.id" class="px-6 py-4 hover:bg-amber-50/50">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-slate-800">{{ item.type }}</p>
+              <p class="text-xs text-slate-500">Category: {{ item.category }}</p>
+            </div>
+            <button @click="goToDocuments" 
+              class="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition">
+              Review
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -84,10 +117,10 @@
       </table>
     </div>
 
-    <!-- Pending Approvals Quick View -->
+    <!-- Pending Movement Approvals -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100">
-        <h3 class="text-sm font-semibold text-slate-700">Pending Your Approval</h3>
+        <h3 class="text-sm font-semibold text-slate-700">Pending Movement Approvals</h3>
       </div>
       <div class="divide-y divide-slate-50">
         <div v-for="item in pendingItems" :key="item.id" class="px-6 py-4 hover:bg-slate-50/50">
@@ -108,8 +141,9 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { defineProps, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import documentService from '@/services/documentService';
 
 const router = useRouter();
 
@@ -118,7 +152,29 @@ const props = defineProps({
   lawyerStats: Object,
   myCases: Array,
   pendingItems: Array,
-  casesLoading: Boolean
+  casesLoading: Boolean,
+  pendingDocuments: [Number, String],
+  pendingMovements: [Number, String],
+  pendingTotal: [Number, String]
+});
+
+const pendingDocumentsList = ref([]);
+
+// Load pending documents list
+const loadPendingDocuments = async () => {
+  try {
+    const response = await documentService.getPendingApprovals();
+    pendingDocumentsList.value = response.data || [];
+  } catch (error) {
+    console.error('Failed to load pending documents:', error);
+  }
+};
+
+// Load on mount
+onMounted(() => {
+  if (props.pendingDocuments > 0) {
+    loadPendingDocuments();
+  }
 });
 
 const priorityClass = (priority) => ({
@@ -128,4 +184,5 @@ const priorityClass = (priority) => ({
 }[priority] || 'bg-slate-100 text-slate-500');
 
 const goToApprovals = () => router.push('/approvals');
+const goToDocuments = () => router.push('/documents');
 </script>
