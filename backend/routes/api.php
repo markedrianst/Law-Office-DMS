@@ -14,8 +14,7 @@ use App\Http\Controllers\Admin\CaseStageController;
 use App\Http\Controllers\Admin\FolderTrackerController;
 use App\Http\Controllers\Admin\ChecklistTrackerController;
 use App\Http\Controllers\Admin\AuditLogController;
-
-
+use App\Http\Controllers\Admin\ApprovalsController; 
 
 // ========== PUBLIC ROUTES ==========
 Route::get('/sanctum/csrf-cookie', function () {
@@ -127,7 +126,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/cases/{caseId}/checklist-tracker/pending', [ChecklistTrackerController::class, 'pending']);
         Route::patch('/cases/{caseId}/checklist-tracker/{movementId}/approve', [ChecklistTrackerController::class, 'approve']);
         
-         //Audit trail
+        // Audit trail
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
         Route::get('/audit-logs/case-activity', [AuditLogController::class, 'caseActivity']);
         Route::get('/audit-logs/combined', [AuditLogController::class, 'combined']);
@@ -136,5 +135,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/audit-logs/export', [AuditLogController::class, 'export']);
         Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
         
-        });
-});
+            // ========== APPROVALS (Admin & Lawyer only) ==========
+        Route::get('/approvals', [ApprovalsController::class, 'index']);
+        Route::get('/approvals/pending-count', [ApprovalsController::class, 'pendingCount']);
+        Route::patch('/approvals/{type}/{id}/approve', [ApprovalsController::class, 'approve']);
+        Route::get('/approvals/case/{caseId}', [ApprovalsController::class, 'caseHistory']);
+            
+    });
+
+}); 

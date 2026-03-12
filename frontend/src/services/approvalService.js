@@ -1,98 +1,57 @@
 // src/services/approvalService.js
-import api from './api';
+import api from "@/services/api";
 
-class SmartPolling {
-    constructor(endpoint, interval = 30000) {
-        this.endpoint = endpoint;
-        this.interval = interval;
-        this.timer = null;
-        this.lastPoll = 0;
-        this.lastData = null;
-        this.callbacks = new Set();
-    }
+const approvalService = {
+  // ========== APPROVALS ==========
+  
+  // Get all approvals with filters (status, type, direction, search)
+  async getApprovals(params = {}) {
+    const { data } = await api.get("/admin/approvals", { params });
+    return data;
+  },
 
-    subscribe(callback) {
-        this.callbacks.add(callback);
-        if (this.callbacks.size === 1) this.start();
-        return () => this.unsubscribe(callback);
-    }
+  // Get pending count for badge
+  async getPendingCount() {
+    const { data } = await api.get("/admin/approvals/pending-count");
+    return data.count ?? 0;
+  },
 
-    unsubscribe(callback) {
-        this.callbacks.delete(callback);
-        if (this.callbacks.size === 0) this.stop();
-    }
-
-    async poll() {
-        try {
-            const params = { last_poll: this.lastPoll };
-            if (this.lastData?.count !== undefined) {
-                params.last_count = this.lastData.count;
-            }
-
-            const response = await api.get(this.endpoint, { params });
-            
-            if (response.data.changed) {
-                this.lastPoll = response.data.timestamp || Date.now() / 1000;
-                this.lastData = response.data;
-                this.notify(response.data);
-            }
-        } catch (error) {
-            console.error(`Polling error for ${this.endpoint}:`, error);
-        }
-    }
-
-    notify(data) {
-        this.callbacks.forEach(cb => cb(data));
-    }
-
-    start() {
-        this.poll(); // Immediate first poll
-        this.timer = setInterval(() => this.poll(), this.interval);
-    }
-
-    stop() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
-
-    forceRefresh() {
-        this.lastPoll = 0;
-        this.poll();
-    }
-}
-
-// Create polling instances
-export const approvalsPolling = new SmartPolling('/admin/approvals', 30000);
-export const pendingCountPolling = new SmartPolling('/admin/approvals/pending-count', 10000);
-
-// API methods
-export const getApprovals = async (params = {}) => {
-    const response = await api.get('/admin/approvals', { params });
-    return response.data;
-};
-
-export const getPendingCount = async () => {
-    const response = await api.get('/admin/approvals/pending-count');
-    return response.data.count ?? 0;
-};
-
-export const reviewMovement = async (type, id, status, notes = '') => {
-    const response = await api.patch(`/admin/approvals/${type}/${id}/approve`, {
-        status,
-        notes
+  // Approve or reject a movement
+  async reviewMovement(type, movementId, status, notes = "") {
+    const { data } = await api.patch(`/admin/approvals/${type}/${movementId}/approve`, {
+      status,
+      notes
     });
-    
-    // Force refresh after action
-    approvalsPolling.forceRefresh();
-    pendingCountPolling.forceRefresh();
-    
-    return response.data;
+    return data;
+  },
+
+  // Get approval history for a specific case
+  async getCaseApprovalHistory(caseId) {
+    const { data } = await api.get(`/admin/approvals/case/${caseId}`);
+    return data;
+  },
+
+  // ========== CONVENIENCE METHODS ==========
+  
+  // Approve checklist movement
+  async approveChecklist(movementId, notes = "") {
+    return this.reviewMovement("checklist", movementId, "APPROVED", notes);
+  },
+
+  // Reject checklist movement
+  async rejectChecklist(movementId, notes) {
+    return this.reviewMovement("checklist", movementId, "REJECTED", notes);
+  },
+
+  // Approve folder movement
+  async approveFolder(movementId, notes = "") {
+    return this.reviewMovement("folder", movementId, "APPROVED", notes);
+  },
+
+  // Reject folder movement
+  async rejectFolder(movementId, notes) {
+    return this.reviewMovement("folder", movementId, "REJECTED", notes);
+  }
 };
 
-export const reviewChecklistMovement = (caseId, movementId, status, notes) => 
-    reviewMovement('checklist', movementId, status, notes);
-
-export const reviewFolderMovement = (caseId, movementId, status, notes) => 
-    reviewMovement('folder', movementId, status, notes);
+export default approvalService;
