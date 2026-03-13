@@ -2,6 +2,7 @@
   <div class="dashboard">
     <!-- Admin Overview Stats -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <!-- Total Cases -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -11,14 +12,15 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Total Cases</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ stats.total_cases }}</div>
+        <div class="text-3xl font-bold text-slate-800">{{ displayStats.total_cases }}</div>
         <div class="flex items-center gap-2 mt-2">
           <span class="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-            {{ stats.active_cases }} Active
+            {{ displayStats.active_cases }} Active
           </span>
         </div>
       </div>
 
+      <!-- Total Users -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
@@ -28,17 +30,18 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Total Users</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ adminStats.total_users }}</div>
+        <div class="text-3xl font-bold text-slate-800">{{ displayAdminStats.total_users }}</div>
         <div class="flex items-center gap-2 mt-2">
           <span class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-            {{ adminStats.lawyers }} Lawyers
+            {{ displayAdminStats.lawyers }} Lawyers
           </span>
           <span class="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-            {{ adminStats.clerks }} Clerks
+            {{ displayAdminStats.clerks }} Clerks
           </span>
         </div>
       </div>
 
+      <!-- Pending Approvals (Combined) -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -48,10 +51,18 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Pending Approvals</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ stats.pending_approvals }}</div>
-        <div class="text-xs text-slate-500 mt-2">Awaiting review</div>
+        <div class="text-3xl font-bold text-slate-800">{{ displayPendingTotal }}</div>
+        <div class="flex items-center gap-2 mt-2">
+          <span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+            {{ displayPendingDocuments }} Documents
+          </span>
+          <span class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+            {{ displayPendingMovements }} Movements
+          </span>
+        </div>
       </div>
 
+      <!-- Total Clients -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
@@ -61,12 +72,12 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Total Clients</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ stats.total_clients }}</div>
+        <div class="text-3xl font-bold text-slate-800">{{ displayStats.total_clients }}</div>
         <div class="text-xs text-slate-500 mt-2">Active clients</div>
       </div>
     </div>
 
-    <!-- User Activity Chart -->
+    <!-- User Activity Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <h3 class="text-sm font-semibold text-slate-700 mb-4">System Activity (Last 7 Days)</h3>
@@ -80,15 +91,15 @@
         <div class="space-y-4">
           <div class="flex items-center justify-between">
             <span class="text-sm text-slate-600">Active Users Today</span>
-            <span class="text-lg font-bold text-[#1a4972]">{{ adminStats.active_today || 0 }}</span>
+            <span class="text-lg font-bold text-[#1a4972]">{{ displayAdminStats.active_today || 0 }}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-sm text-slate-600">Logins Today</span>
-            <span class="text-lg font-bold text-[#1a4972]">{{ adminStats.logins_today || 0 }}</span>
+            <span class="text-lg font-bold text-[#1a4972]">{{ displayAdminStats.logins_today || 0 }}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-sm text-slate-600">Activities (7 days)</span>
-            <span class="text-lg font-bold text-[#1a4972]">{{ adminStats.activities_last_7_days || 0 }}</span>
+            <span class="text-lg font-bold text-[#1a4972]">{{ displayAdminStats.activities_last_7_days || 0 }}</span>
           </div>
         </div>
       </div>
@@ -100,7 +111,7 @@
         <h3 class="text-sm font-semibold text-slate-700">Recent System Activities</h3>
       </div>
       <div class="divide-y divide-slate-50">
-        <div v-for="activity in recentActivities" :key="activity.id" class="px-6 py-4 hover:bg-slate-50/50">
+        <div v-for="activity in displayRecentActivities" :key="activity.id" class="px-6 py-4 hover:bg-slate-50/50">
           <div class="flex items-start gap-3">
             <div class="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
             <div class="flex-1">
@@ -118,13 +129,49 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
   stats: Object,
   adminStats: Object,
-  recentActivities: Array
+  recentActivities: Array,
+  pendingDocuments: [Number, String],
+  pendingMovements: [Number, String],
+  pendingTotal: [Number, String]
 });
+
+// Create reactive local copies that update when props change
+const displayStats = ref({ ...props.stats });
+const displayAdminStats = ref({ ...props.adminStats });
+const displayRecentActivities = ref([...props.recentActivities || []]);
+const displayPendingDocuments = ref(props.pendingDocuments || 0);
+const displayPendingMovements = ref(props.pendingMovements || 0);
+const displayPendingTotal = ref(props.pendingTotal || 0);
+
+// Watch for prop changes and update local refs
+watch(() => props.stats, (newVal) => {
+  displayStats.value = { ...newVal };
+}, { deep: true, immediate: true });
+
+watch(() => props.adminStats, (newVal) => {
+  displayAdminStats.value = { ...newVal };
+}, { deep: true, immediate: true });
+
+watch(() => props.recentActivities, (newVal) => {
+  displayRecentActivities.value = [...(newVal || [])];
+}, { deep: true, immediate: true });
+
+watch(() => props.pendingDocuments, (newVal) => {
+  displayPendingDocuments.value = newVal || 0;
+}, { immediate: true });
+
+watch(() => props.pendingMovements, (newVal) => {
+  displayPendingMovements.value = newVal || 0;
+}, { immediate: true });
+
+watch(() => props.pendingTotal, (newVal) => {
+  displayPendingTotal.value = newVal || 0;
+}, { immediate: true });
 
 const formatDate = (date) => {
   if (!date) return '';

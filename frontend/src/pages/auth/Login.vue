@@ -372,9 +372,11 @@
 import { ref, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import authService from "@/services/auth";
+import { useAuth } from '@/composables/useAuth';
 import backgroundImg from "../../assets/images/bg.jpg";
 
 const router = useRouter();
+const { refreshUser } = useAuth();
 const backgroundImage = ref(backgroundImg);
 
 // ── Fade-in animation ─────────────────────────────────────────────────────
@@ -413,7 +415,6 @@ const resetErrors = reactive({ currentPassword: "", newPassword: "", confirmPass
 const handleLogin = async () => {
   loading.value = true;
   
-  // Clear previous errors
   errors.email = "";
   errors.password = "";
   errors.general = "";
@@ -424,18 +425,19 @@ const handleLogin = async () => {
       password: password.value 
     });
     
-    // Handle password change requirement
     if (response.requires_password_change) {
       resetEmail.value = response.user.email;
       showResetModal.value = true;
       return;
     }
     
-    // Successful login
+    // Refresh auth state
+    await refreshUser();
+    
+    // Navigate to dashboard - will show INSTANTLY from cache
     router.push("/dashboard");
     
   } catch (error) {
-    // Handle validation errors from backend
     if (error.response?.data?.errors) {
       const backendErrors = error.response.data.errors;
       if (backendErrors.email) errors.email = backendErrors.email[0];
@@ -452,7 +454,6 @@ const handleLogin = async () => {
 
 // ─── PASSWORD CHANGE HANDLER ──────────────────────────────────────────────
 const handleResetPassword = async () => {
-  // Clear previous errors
   resetErrors.currentPassword = "";
   resetErrors.newPassword = "";
   resetErrors.confirmPassword = "";
@@ -473,18 +474,13 @@ const handleResetPassword = async () => {
     setTimeout(() => {
       showResetModal.value = false;
       showSuccessMessage.value = false;
-      
-      // Clear form
       currentPassword.value = "";
       newPassword.value = "";
       confirmPassword.value = "";
-      
-      // Show message on login form
       errors.general = "Password updated. Please login with your new password.";
     }, 2000);
 
   } catch (error) {
-    // Handle validation errors from backend
     if (error.response?.data?.errors) {
       const backendErrors = error.response.data.errors;
       if (backendErrors.current_password) resetErrors.currentPassword = backendErrors.current_password[0];
