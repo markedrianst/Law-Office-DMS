@@ -146,11 +146,7 @@ router.beforeEach((to, from, next) => {
   const authenticated = isAuthenticated();
   const userRole = getUserRole();
 
-  // Debug logging (remove in production)
-  console.log('Navigation to:', to.path);
-  console.log('Authenticated:', authenticated);
-  console.log('User role:', userRole);
-  console.log('Route meta:', to.meta);
+
 
   // Not logged in → redirect to login
   if (to.meta.requiresAuth && !authenticated) {

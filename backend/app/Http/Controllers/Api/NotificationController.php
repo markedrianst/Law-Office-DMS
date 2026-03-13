@@ -34,7 +34,6 @@ class NotificationController extends Controller
                 'is_read' => $notification->is_read,
                 'action_url' => $notification->action_url,
                 'created_at' => $notification->created_at,
-                'updated_at' => $notification->updated_at,
             ];
         });
         
@@ -46,7 +45,7 @@ class NotificationController extends Controller
             'success' => true,
             'data' => $notifications,
             'unread_count' => $unreadCount,
-            'server_time' => now()->toDateTimeString(),
+          
         ]);
     }
 
