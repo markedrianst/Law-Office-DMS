@@ -101,14 +101,10 @@
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
-      <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin mb-4"></div>
-      <p class="text-sm text-slate-500">Loading approvals...</p>
-    </div>
+
 
     <!-- Empty State -->
-    <div v-else-if="!approvals.length" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
+    <div v-if="!approvals.length" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
       <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
         <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -364,10 +360,13 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import approvalService from '@/services/approvalService';
+import cacheService from '@/services/cacheService';
 
 // ========== STATE ==========
 const approvals = ref([]);
 const loading = ref(false);
+const isRefreshing = ref(false);
+const isFromCache = ref(false);
 const stats = ref({
   total: 0,
   pending: 0,
@@ -405,29 +404,73 @@ const hasActiveFilters = computed(() => {
          filters.search !== '';
 });
 
-// ========== METHODS ==========
-const loadApprovals = async () => {
-  loading.value = true;
+// ========== LOAD FROM CACHE FIRST ==========
+const loadFromCache = () => {
+  const params = {
+    status: filters.status,
+    type: filters.type,
+    direction: filters.direction,
+    search: filters.search || undefined
+  };
+  
+  const cached = cacheService.getApprovalsList(params);
+  if (cached) {
+    console.log('📦 Loading approvals from cache');
+    approvals.value = cached.data || [];
+    stats.value = cached.stats || { total: 0, pending: 0, approved: 0, rejected: 0 };
+    isFromCache.value = true;
+  }
+};
+
+// ========== FETCH FRESH APPROVALS ==========
+const fetchFreshApprovals = async (showLoading = true) => {
+  if (showLoading) loading.value = true;
+  isRefreshing.value = true;
+  
   try {
-    const response = await approvalService.getApprovals({
+    const params = {
       status: filters.status,
       type: filters.type,
       direction: filters.direction,
       search: filters.search || undefined
-    });
+    };
+    
+    const response = await approvalService.getApprovals(params);
     
     approvals.value = response.data || [];
     stats.value = response.stats || { total: 0, pending: 0, approved: 0, rejected: 0 };
     lastUpdated.value = new Date().toLocaleTimeString();
+    
+    // Save to cache
+    cacheService.setApprovalsList({ data: approvals.value, stats: stats.value }, params);
+    isFromCache.value = false;
+    
   } catch (error) {
     showToast(error.message || 'Failed to load approvals', 'error');
   } finally {
-    loading.value = false;
+    if (showLoading) loading.value = false;
+    isRefreshing.value = false;
   }
 };
 
+// ========== LOAD APPROVALS (with cache first) ==========
+const loadApprovals = async (forceRefresh = false) => {
+  if (forceRefresh) {
+    await fetchFreshApprovals(true);
+  } else {
+    // Try cache first
+    loadFromCache();
+    
+    // Fetch fresh in background
+    setTimeout(() => {
+      fetchFreshApprovals(false);
+    }, 100);
+  }
+};
+
+// ========== FILTER METHODS ==========
 const applyFilters = () => {
-  loadApprovals();
+  fetchFreshApprovals(true);
 };
 
 const clearFilters = () => {
@@ -435,9 +478,10 @@ const clearFilters = () => {
   filters.type = 'all';
   filters.direction = 'ALL';
   filters.search = '';
-  loadApprovals();
+  fetchFreshApprovals(true);
 };
 
+// ========== MODAL METHODS ==========
 const openApproveModal = (item) => {
   modal.show = true;
   modal.item = item;
@@ -484,9 +528,11 @@ const submitDecision = async () => {
     );
     
     closeModal();
-    loadApprovals(); // Refresh the list
     
-    // Also refresh pending count if you have a store/badge
+    // Invalidate cache and refresh
+    cacheService.invalidateApprovalsCache();
+    await fetchFreshApprovals(true);
+    
   } catch (error) {
     showToast(error.message || `Failed to ${modal.action === 'APPROVED' ? 'approve' : 'reject'} movement`, 'error');
   } finally {
@@ -494,6 +540,7 @@ const submitDecision = async () => {
   }
 };
 
+// ========== TOAST METHODS ==========
 const showToast = (message, type = 'success') => {
   toast.show = true;
   toast.message = message;
@@ -537,9 +584,17 @@ const statusClass = (status) => {
 
 // ========== LIFECYCLE ==========
 onMounted(() => {
-  loadApprovals();
+  // 1. Load from cache INSTANTLY
+  loadFromCache();
+  
+  // 2. Fetch fresh data in background
+  setTimeout(() => {
+    fetchFreshApprovals(false);
+  }, 100);
 });
 </script>
+
+
 
 <style scoped>
 .animate-spin {

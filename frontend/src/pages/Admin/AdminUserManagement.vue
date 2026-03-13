@@ -342,6 +342,7 @@
 import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue';
 import { debounce } from 'lodash';
 import userService from '@/services/userServices';
+import cacheService from '@/services/cacheService';
 import Swal from 'sweetalert2';
 
 // ==================== COLUMNS ====================
@@ -376,6 +377,9 @@ const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
 // Loading states
+const isLoading = ref(false);
+const isRefreshing = ref(false);
+const isFromCache = ref(false);
 const isAdding = ref(false);
 const isEditingUser = ref(null);
 const isDeletingUser = ref(null);
@@ -404,6 +408,7 @@ const displayedPages = computed(() => {
   const max = 5;
   const total = pagination.value.last_page || 1;
   const current = pagination.value.current_page || 1;
+  
   if (total <= max) {
     for (let i = 1; i <= total; i++) pages.push(i);
   } else {
@@ -415,14 +420,81 @@ const displayedPages = computed(() => {
   return pages;
 });
 
-// ==================== FETCH ROLES ====================
-const fetchRoles = async () => {
+// ==================== LOAD FROM CACHE FIRST ====================
+const loadFromCache = () => {
+  // Get cached users
+  const cachedUsers = cacheService.getUsers();
+  if (cachedUsers && cachedUsers.length > 0) {
+    console.log('📦 Loading users from cache');
+    
+    // Filter based on current filters
+    let filtered = [...cachedUsers];
+    
+    if (searchQuery.value) {
+      const search = searchQuery.value.toLowerCase();
+      filtered = filtered.filter(u => 
+        u.name?.toLowerCase().includes(search) || 
+        u.email?.toLowerCase().includes(search)
+      );
+    }
+    
+    if (roleFilter.value) {
+      filtered = filtered.filter(u => u.role === roleFilter.value);
+    }
+    
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal = a[sortField.value];
+      let bVal = b[sortField.value];
+      
+      if (sortField.value === 'name') {
+        aVal = aVal?.toLowerCase() || '';
+        bVal = bVal?.toLowerCase() || '';
+      } else if (sortField.value === 'created_at' || sortField.value === 'last_login') {
+        aVal = aVal ? new Date(aVal).getTime() : 0;
+        bVal = bVal ? new Date(bVal).getTime() : 0;
+      }
+      
+      if (sortDirection.value === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+    
+    // Paginate
+    const start = (currentPage.value - 1) * itemsPerPage.value;
+    const end = start + itemsPerPage.value;
+    const paginatedData = filtered.slice(start, end);
+    
+    users.value = paginatedData;
+    pagination.value = {
+      current_page: currentPage.value,
+      last_page: Math.ceil(filtered.length / itemsPerPage.value),
+      per_page: itemsPerPage.value,
+      total: filtered.length,
+      from: start + 1,
+      to: Math.min(end, filtered.length)
+    };
+    
+    isFromCache.value = true;
+  }
+  
+  // Get cached roles
+  const cachedRoles = cacheService.getUserRoles();
+  if (cachedRoles && cachedRoles.length > 0) {
+    availableRoles.value = cachedRoles;
+  }
+};
+
+// ==================== FETCH FRESH ROLES ====================
+const fetchFreshRoles = async () => {
   try {
     const response = await userService.getRoles();
     availableRoles.value = response.data || [];
+    cacheService.setUserRoles(availableRoles.value);
   } catch (error) {
     console.error('Failed to fetch roles:', error);
-    // Fallback to default roles
     availableRoles.value = [
       { id: 1, name: 'Lawyer' },
       { id: 2, name: 'Clerk' }
@@ -430,8 +502,11 @@ const fetchRoles = async () => {
   }
 };
 
-// ==================== LOAD USERS ====================
-const loadUsers = async () => {
+// ==================== FETCH FRESH USERS ====================
+const fetchFreshUsers = async (showLoading = true) => {
+  if (showLoading) isLoading.value = true;
+  isRefreshing.value = true;
+  
   try {
     const params = {
       search: searchQuery.value || undefined,
@@ -454,21 +529,54 @@ const loadUsers = async () => {
       to: users.value.length
     };
     
+    // Update cache with all users (fetch all for caching)
+    if (currentPage.value === 1 && !searchQuery.value && !roleFilter.value) {
+      const allResponse = await userService.getUsers({ per_page: 100 });
+      cacheService.setUsers(allResponse.data || []);
+    }
+    
+    isFromCache.value = false;
+    
   } catch (error) {
     console.error('Failed to load users:', error);
-    users.value = [];
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: error.message || 'Failed to load users',
+      confirmButtonColor: '#dc2626',
+      timer: 2000,
+      showConfirmButton: false
+    });
+  } finally {
+    if (showLoading) isLoading.value = false;
+    isRefreshing.value = false;
+  }
+};
+
+// ==================== LOAD USERS (with cache first) ====================
+const loadUsers = async (forceRefresh = false) => {
+  if (forceRefresh) {
+    await fetchFreshUsers(true);
+  } else {
+    // Try cache first
+    loadFromCache();
+    
+    // Fetch fresh in background
+    setTimeout(() => {
+      fetchFreshUsers(false);
+    }, 100);
   }
 };
 
 // ==================== FILTER / SORT / PAGINATE ====================
 const debouncedSearch = debounce(() => { 
   currentPage.value = 1; 
-  loadUsers(); 
+  fetchFreshUsers(true); 
 }, 500);
 
 const handleFilterChange = () => { 
   currentPage.value = 1; 
-  loadUsers(); 
+  fetchFreshUsers(true); 
 };
 
 const sortBy = (field) => {
@@ -478,26 +586,26 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  loadUsers();
+  fetchFreshUsers(true);
 };
 
 const previousPage = () => { 
   if (currentPage.value > 1) { 
     currentPage.value--; 
-    loadUsers(); 
+    fetchFreshUsers(true); 
   } 
 };
 
 const nextPage = () => { 
   if (currentPage.value < pagination.value.last_page) { 
     currentPage.value++; 
-    loadUsers(); 
+    fetchFreshUsers(true); 
   } 
 };
 
 const goToPage = (page) => { 
   currentPage.value = page; 
-  loadUsers(); 
+  fetchFreshUsers(true); 
 };
 
 // ==================== UTILITIES ====================
@@ -556,7 +664,6 @@ const editUser = (user) => {
   isEditing.value = true;
   editingUserId.value = user.id;
   
-  // Parse name
   const nameParts = user.name?.split(' ') || [];
   form.firstName = nameParts[0] || '';
   form.lastName = nameParts.slice(1).join(' ') || '';
@@ -582,7 +689,6 @@ const submitForm = async () => {
   formLoading.value = true;
   clearErrors();
   
-  // Prepare data for optimistic update
   const fullName = [form.firstName, form.middleName, form.lastName]
     .filter(part => part?.trim())
     .join(' ')
@@ -606,7 +712,7 @@ const submitForm = async () => {
   
   try {
     if (isEditing.value) {
-      // OPTIMISTIC UPDATE - Update UI immediately
+      // Optimistic update
       const index = users.value.findIndex(u => u.id === editingUserId.value);
       if (index !== -1) {
         users.value[index] = {
@@ -618,33 +724,24 @@ const submitForm = async () => {
         };
       }
       
-      // API call in background (don't await)
-      userService.updateUser(editingUserId.value, payload)
-        .then(response => {
-          // Show success toast (non-blocking)
-          Swal.fire({
-            icon: 'success',
-            title: 'Success!',
-            text: 'User updated successfully',
-            timer: 1500,
-            showConfirmButton: false,
-            position: 'top-end',
-            toast: true
-          });
-          // Refresh in background
-          loadUsers();
-        })
-        .catch(error => {
-          // Revert on error
-          loadUsers(); // Reload to get correct state
-          handleSubmitError(error);
-        });
+      await userService.updateUser(editingUserId.value, payload);
+      
+      // Invalidate cache
+      cacheService.invalidateUserCache();
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'User updated successfully',
+        timer: 1500,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
+      });
       
     } else {
-      // For create, we need the ID from response
       const response = await userService.createUser(payload);
       
-      // Add new user to list immediately
       if (response.data) {
         users.value.unshift({
           ...response.data,
@@ -652,7 +749,9 @@ const submitForm = async () => {
         });
       }
       
-      // Show success (non-blocking)
+      // Invalidate cache
+      cacheService.invalidateUserCache();
+      
       Swal.fire({
         icon: 'success',
         title: 'Success!',
@@ -662,13 +761,14 @@ const submitForm = async () => {
         position: 'top-end',
         toast: true
       });
-      
-      // Refresh in background
-      loadUsers();
     }
     
-    // Close modal immediately
     closeModal();
+    
+    // Refresh in background
+    setTimeout(() => {
+      fetchFreshUsers(false);
+    }, 500);
     
   } catch (error) {
     handleSubmitError(error);
@@ -679,7 +779,7 @@ const submitForm = async () => {
   }
 };
 
-// Separate error handler
+// ==================== ERROR HANDLER ====================
 const handleSubmitError = (error) => {
   if (error.errors) {
     const fieldMap = {
@@ -727,10 +827,13 @@ const confirmDeleteUser = async (user) => {
     isDeletingUser.value = user.id;
     
     try {
-      await userService.deleteUser(user.id);
-      
       // Optimistic delete
       users.value = users.value.filter(u => u.id !== user.id);
+      
+      await userService.deleteUser(user.id);
+      
+      // Invalidate cache
+      cacheService.invalidateUserCache();
       
       await Swal.fire({
         icon: 'success',
@@ -743,9 +846,14 @@ const confirmDeleteUser = async (user) => {
       });
       
       // Refresh in background
-      await loadUsers();
+      setTimeout(() => {
+        fetchFreshUsers(false);
+      }, 500);
       
     } catch (error) {
+      // Revert on error
+      await fetchFreshUsers(true);
+      
       await Swal.fire({
         icon: 'error',
         title: 'Error!',
@@ -753,24 +861,31 @@ const confirmDeleteUser = async (user) => {
         confirmButtonColor: '#dc2626'
       });
       
-      // Revert optimistic delete by reloading
-      await loadUsers();
-      
     } finally {
       isDeletingUser.value = null;
     }
   }
 };
 
-// ==================== LIFECYCLE ====================
-onMounted(async () => {
-  await fetchRoles();
-  await loadUsers();
+// ==================== WATCH FOR PAGE CHANGES ====================
+watch(currentPage, () => {
+  fetchFreshUsers(true);
 });
 
-// Watch for page changes
-watch(currentPage, () => {
-  loadUsers();
+// ==================== LIFECYCLE ====================
+onMounted(async () => {
+  // 1. Load from cache INSTANTLY
+  loadFromCache();
+  
+  // 2. Fetch fresh roles in background
+  setTimeout(() => {
+    fetchFreshRoles();
+  }, 100);
+  
+  // 3. Fetch fresh users in background
+  setTimeout(() => {
+    fetchFreshUsers(false);
+  }, 200);
 });
 
 // Cleanup

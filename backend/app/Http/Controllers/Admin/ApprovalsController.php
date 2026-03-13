@@ -30,7 +30,7 @@ class ApprovalsController extends Controller
 
         $roleName = strtolower($user->role?->name ?? $user->role ?? '');
         
-        if (!in_array($roleName, ['admin', 'lawyer'])) {
+        if (!in_array($roleName, ['admin', 'lawyer','clerk'])) {
             abort(403, 'Unauthorized. Only admin and lawyer can access approvals.');
         }
         

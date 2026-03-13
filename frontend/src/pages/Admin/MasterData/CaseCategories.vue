@@ -270,6 +270,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { debounce } from 'lodash';
 import { caseCategoryService } from '@/services/masterData';
+import cacheService from '@/services/cacheService';
 import ColorPicker from '@/components/ColorPicker.vue';
 import Swal from 'sweetalert2';
 
@@ -300,6 +301,9 @@ const sortDirection = ref('asc');
 const currentPage = ref(1);
 
 // Loading states
+const isLoading = ref(false);
+const isRefreshing = ref(false);
+const isFromCache = ref(false);
 const isAdding = ref(false);
 const editingId = ref(null);
 const togglingId = ref(null);
@@ -330,6 +334,7 @@ const displayedPages = computed(() => {
   const max = 5;
   const total = pagination.value.last_page || 1;
   const current = pagination.value.current_page || 1;
+  
   if (total <= max) {
     for (let i = 1; i <= total; i++) pages.push(i);
   } else {
@@ -341,8 +346,74 @@ const displayedPages = computed(() => {
   return pages;
 });
 
-// Load data
-const loadCategories = async () => {
+// ==================== LOAD FROM CACHE FIRST ====================
+const loadFromCache = () => {
+  const params = {
+    search: searchQuery.value || undefined,
+    is_active: statusFilter.value || undefined,
+    sort_by: sortField.value,
+    sort_direction: sortDirection.value,
+    page: currentPage.value,
+    per_page: pagination.value.per_page
+  };
+  
+  // Try to get cached categories
+  const cachedCategories = cacheService.getCategories();
+  if (cachedCategories && cachedCategories.length > 0) {
+    console.log('📦 Loading categories from cache');
+    
+    // Filter and sort cached data based on current params
+    let filtered = [...cachedCategories];
+    
+    if (statusFilter.value) {
+      const isActive = statusFilter.value === 'true';
+      filtered = filtered.filter(c => c.is_active === isActive);
+    }
+    
+    if (searchQuery.value) {
+      const search = searchQuery.value.toLowerCase();
+      filtered = filtered.filter(c => c.name.toLowerCase().includes(search));
+    }
+    
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal = a[sortField.value];
+      let bVal = b[sortField.value];
+      
+      if (sortField.value === 'name') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      
+      if (sortDirection.value === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+    
+    // Paginate
+    const start = (currentPage.value - 1) * pagination.value.per_page;
+    const end = start + pagination.value.per_page;
+    const paginatedData = filtered.slice(start, end);
+    
+    categories.value = paginatedData;
+    pagination.value = {
+      ...pagination.value,
+      total: filtered.length,
+      from: start + 1,
+      to: Math.min(end, filtered.length)
+    };
+    
+    isFromCache.value = true;
+  }
+};
+
+// ==================== FETCH FRESH CATEGORIES ====================
+const fetchFreshCategories = async (showLoading = true) => {
+  if (showLoading) isLoading.value = true;
+  isRefreshing.value = true;
+  
   try {
     const params = {
       search: searchQuery.value || undefined,
@@ -354,6 +425,7 @@ const loadCategories = async () => {
     };
 
     const response = await caseCategoryService.getCategories(params);
+    
     categories.value = response.data || [];
     pagination.value = response.meta || {
       current_page: currentPage.value,
@@ -363,21 +435,55 @@ const loadCategories = async () => {
       from: 1,
       to: categories.value.length
     };
+    
+    // Update cache with all categories (fetch all for caching)
+    if (currentPage.value === 1 && !searchQuery.value && !statusFilter.value) {
+      const allResponse = await caseCategoryService.getCategories({ per_page: 100 });
+      cacheService.setCategories(allResponse.data || []);
+    }
+    
+    isFromCache.value = false;
+    
   } catch (error) {
     console.error('Failed to load categories:', error);
-    categories.value = [];
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: error.message || 'Failed to load categories',
+      confirmButtonColor: '#dc2626',
+      timer: 2000,
+      showConfirmButton: false
+    });
+  } finally {
+    if (showLoading) isLoading.value = false;
+    isRefreshing.value = false;
+  }
+};
+
+// ==================== LOAD CATEGORIES (with cache first) ====================
+const loadCategories = async (forceRefresh = false) => {
+  if (forceRefresh) {
+    await fetchFreshCategories(true);
+  } else {
+    // Try cache first
+    loadFromCache();
+    
+    // Fetch fresh in background
+    setTimeout(() => {
+      fetchFreshCategories(false);
+    }, 100);
   }
 };
 
 // Filters
 const debouncedSearch = debounce(() => {
   currentPage.value = 1;
-  loadCategories();
+  fetchFreshCategories(true);
 }, 500);
 
 const handleFilterChange = () => {
   currentPage.value = 1;
-  loadCategories();
+  fetchFreshCategories(true);
 };
 
 const sortBy = (field) => {
@@ -387,27 +493,27 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  loadCategories();
+  fetchFreshCategories(true);
 };
 
 // Pagination
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
-    loadCategories();
+    fetchFreshCategories(true);
   }
 };
 
 const nextPage = () => {
   if (currentPage.value < pagination.value.last_page) {
     currentPage.value++;
-    loadCategories();
+    fetchFreshCategories(true);
   }
 };
 
 const goToPage = (page) => {
   currentPage.value = page;
-  loadCategories();
+  fetchFreshCategories(true);
 };
 
 // Format date
@@ -445,20 +551,19 @@ const openCreateModal = async () => {
     const response = await caseCategoryService.getCategories({ 
       sort_by: 'sort_order', 
       sort_direction: 'desc',
-      per_page: 100 // Get enough to find max
+      per_page: 100
     });
     
     if (response.data && response.data.length > 0) {
-      // Find max sort_order that's less than 9000 (normal items)
       const normalItems = response.data.filter(item => item.sort_order < 9000);
       if (normalItems.length > 0) {
         const maxSortOrder = Math.max(...normalItems.map(item => item.sort_order));
         form.sort_order = maxSortOrder + 1;
       } else {
-        form.sort_order = 1; // Start at 1 if no normal items
+        form.sort_order = 1;
       }
     } else {
-      form.sort_order = 1; // Start at 1 if no items at all
+      form.sort_order = 1;
     }
   } catch (error) {
     console.error('Failed to get next sort order:', error);
@@ -510,6 +615,9 @@ const submitForm = async () => {
       }
 
       await caseCategoryService.updateCategory(editingItemId.value, payload);
+      
+      // Update cache
+      cacheService.remove(cacheService.CACHE_KEYS.CATEGORIES);
 
       await Swal.fire({
         icon: 'success',
@@ -528,6 +636,9 @@ const submitForm = async () => {
       if (response.data) {
         categories.value.unshift(response.data);
       }
+      
+      // Update cache
+      cacheService.remove(cacheService.CACHE_KEYS.CATEGORIES);
 
       await Swal.fire({
         icon: 'success',
@@ -541,7 +652,11 @@ const submitForm = async () => {
     }
 
     closeModal();
-    await loadCategories(); // Refresh in background
+    
+    // Refresh in background
+    setTimeout(() => {
+      fetchFreshCategories(false);
+    }, 500);
 
   } catch (error) {
     if (error.errors) {
@@ -578,6 +693,9 @@ const toggleStatus = async (item) => {
     }
 
     await caseCategoryService.toggleCategory(item.id);
+    
+    // Update cache
+    cacheService.remove(cacheService.CACHE_KEYS.CATEGORIES);
 
     await Swal.fire({
       icon: 'success',
@@ -591,7 +709,7 @@ const toggleStatus = async (item) => {
 
   } catch (error) {
     // Revert on error
-    await loadCategories();
+    await fetchFreshCategories(true);
 
     await Swal.fire({
       icon: 'error',
@@ -626,6 +744,9 @@ const confirmDelete = async (item) => {
       categories.value = categories.value.filter(c => c.id !== item.id);
 
       await caseCategoryService.deleteCategory(item.id);
+      
+      // Update cache
+      cacheService.remove(cacheService.CACHE_KEYS.CATEGORIES);
 
       await Swal.fire({
         icon: 'success',
@@ -637,11 +758,14 @@ const confirmDelete = async (item) => {
         toast: true
       });
 
-      await loadCategories(); // Refresh
+      // Refresh in background
+      setTimeout(() => {
+        fetchFreshCategories(false);
+      }, 500);
 
     } catch (error) {
       // Revert on error
-      await loadCategories();
+      await fetchFreshCategories(true);
 
       await Swal.fire({
         icon: 'error',
@@ -658,12 +782,18 @@ const confirmDelete = async (item) => {
 
 // Watch for page changes
 watch(currentPage, () => {
-  loadCategories();
+  fetchFreshCategories(true);
 });
 
 // Initial load
 onMounted(() => {
-  loadCategories();
+  // 1. Load from cache INSTANTLY
+  loadFromCache();
+  
+  // 2. Fetch fresh data in background
+  setTimeout(() => {
+    fetchFreshCategories(false);
+  }, 100);
 });
 </script>
 

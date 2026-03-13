@@ -10,6 +10,9 @@ import Documents from "@/pages/Admin/MasterData/Documents.vue";
 import CaseMaster from "@/pages/Admin/CaseMaster/CaseMaster.vue";
 import AuditTrail from "@/pages/Admin/AuditTrail.vue";
 import Approvals from "@/pages/Approvals.vue";
+import AccountSetting from "@/pages/AccountSetting.vue";
+
+
 
 const routes = [
   {
@@ -43,7 +46,7 @@ const routes = [
         component: CaseCategories,
         meta: { 
           requiresAuth: true,
-          roles: ['admin','lawyer'] 
+          roles: ['admin','lawyer','clerk'] 
         },
       },
       {
@@ -52,7 +55,7 @@ const routes = [
         component: Courts,
         meta: { 
           requiresAuth: true,
-          roles: ['admin','lawyer'] 
+          roles: ['admin','lawyer','clerk'] 
         },
       },
       {
@@ -61,7 +64,7 @@ const routes = [
         component: Documents,
         meta: { 
           requiresAuth: true,
-          roles: ['admin','lawyer'] 
+          roles: ['admin','lawyer','clerk'] 
         },
       },
       {
@@ -89,6 +92,15 @@ const routes = [
         meta: { 
           requiresAuth: true,
           roles: ['admin','lawyer'] 
+        },
+      },
+      {
+        path: "/account-setting",
+        name: "AccountSetting",
+        component: AccountSetting,
+        meta: { 
+          requiresAuth: true,
+          roles: ['admin','lawyer','clerk'] 
         },
       },
 
