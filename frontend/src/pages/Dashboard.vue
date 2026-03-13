@@ -23,11 +23,11 @@
       <!-- Live indicator - shows when refreshing -->
       <div class="flex items-center gap-2 mt-2 ml-4">
         <span class="relative flex h-3 w-3">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" v-if="isRefreshing"></span>
-          <span class="relative inline-flex rounded-full h-3 w-3" :class="isRefreshing ? 'bg-emerald-500' : 'bg-emerald-500'"></span>
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" v-if="isLoading"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3" :class="isLoading ? 'bg-emerald-500' : 'bg-emerald-500'"></span>
         </span>
         <span class="text-xs text-emerald-600">
-          {{ isRefreshing ? 'Updating...' : 'Live' }}
+          {{ isLoading ? 'Loading...' : 'Live' }}
         </span>
         <span class="text-xs text-slate-400 ml-2">
           Last updated: {{ lastUpdated }}
@@ -35,7 +35,7 @@
       </div>
     </div>
 
-    <!-- Role-Based Dashboard - Always shows data (cached while refreshing) -->
+    <!-- Role-Based Dashboard -->
     <component
       :is="dashboardComponent"
       :stats="stats"
@@ -50,18 +50,16 @@
       :pending-documents="pendingDocuments"
       :pending-movements="pendingMovements"
       :pending-total="pendingTotal"
-      :cases-loading="false"  
-      :tasks-loading="false"
+      :cases-loading="isLoading"
+      :tasks-loading="isLoading"
       @toggle-task="handleToggleTask"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, markRaw, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, computed, onMounted, onUnmounted, markRaw } from 'vue';
 import { useAuth } from '@/composables/useAuth';
-import cacheService from '@/services/cacheService';
 import { 
   caseService, 
   approvalService, 
@@ -92,11 +90,10 @@ const pendingMovements = ref(0);
 const pendingTotal = ref(0);
 const pendingDocumentsList = ref([]);
 
-// ========== LIVE/REFRESH STATE ==========
-const isRefreshing = ref(false);
+// ========== LOADING STATE ==========
+const isLoading = ref(false);
 const lastUpdated = ref('Just now');
-const refreshInterval = ref(null);
-const refreshTimeout = ref(null);
+let refreshTimeout = null;
 
 // ========== ROLE-BASED DASHBOARD COMPONENT ==========
 const dashboardComponent = computed(() => {
@@ -118,44 +115,6 @@ const getRoleMessage = computed(() => {
   return messages[userRole.value] || 'Welcome to the Document Management System';
 });
 
-// ========== LOAD FROM CACHE FIRST (INSTANT) ==========
-const loadFromCache = () => {
-  const role = userRole.value;
-  
-  // Get pending counts
-  const pendingCounts = cacheService.getPendingCounts();
-  pendingDocuments.value = pendingCounts.documents;
-  pendingMovements.value = pendingCounts.movements;
-  pendingTotal.value = pendingCounts.total;
-  
-  // Load role-specific dashboard data
-  if (role === 'admin') {
-    const data = cacheService.getAdminDashboard();
-    if (data) {
-      stats.value = data.stats || {};
-      adminStats.value = data.adminStats || {};
-    }
-  } 
-  else if (role === 'lawyer') {
-    const data = cacheService.getLawyerDashboard();
-    if (data) {
-      lawyerStats.value = data.lawyerStats || {};
-      myCases.value = data.myCases || [];
-      pendingItems.value = data.pendingItems || [];
-    }
-    loadPendingDocumentsList();
-  } 
-  else if (role === 'clerk') {
-    const data = cacheService.getClerkDashboard();
-    if (data) {
-      clerkStats.value = data.clerkStats || {};
-      myTasks.value = data.myTasks || [];
-    }
-  }
-  
-  recentMovements.value = cacheService.getRecentMovements();
-};
-
 // ========== LOAD PENDING DOCUMENTS LIST ==========
 const loadPendingDocumentsList = async () => {
   try {
@@ -166,100 +125,89 @@ const loadPendingDocumentsList = async () => {
   }
 };
 
-// ========== FETCH LIVE DATA - UPDATES CACHE BUT KEEP OLD DATA VISIBLE ==========
-const fetchLiveData = async () => {
-  if (isRefreshing.value) return;
+// ========== FETCH DASHBOARD DATA ==========
+const fetchDashboardData = async () => {
+  if (isLoading.value) return;
   
-  isRefreshing.value = true;
+  isLoading.value = true;
   
   const role = userRole.value;
   const userId = user.value?.id;
   
   try {
     if (role === 'admin') {
-      await refreshAdminData();
+      await fetchAdminData();
     } else if (role === 'lawyer' && userId) {
-      await refreshLawyerData(userId);
+      await fetchLawyerData(userId);
     } else if (role === 'clerk' && userId) {
-      await refreshClerkData(userId);
+      await fetchClerkData(userId);
     }
     
-    await refreshRecentMovements();
+    await fetchRecentMovements();
     updateLastUpdated();
     
   } catch (error) {
-    console.error('Live data fetch failed:', error);
+    console.error('Dashboard data fetch failed:', error);
   } finally {
-    isRefreshing.value = false;
+    isLoading.value = false;
   }
 };
 
-// ========== REFRESH FUNCTIONS - UPDATE DATA BUT KEEP OLD VISIBLE ==========
-const refreshAdminData = async () => {
+// ========== FETCH ADMIN DATA ==========
+const fetchAdminData = async () => {
   try {
     const [casesCount, pendingCounts, clientsCount, docsCount, usersData] = await Promise.all([
-      caseService.getCases({ per_page: 1 }).catch(() => ({ meta: { total: 0 } })),
-      approvalService.getTotalPendingCount().catch(() => ({ documents: 0, movements: 0, total: 0 })),
-      clientService.getAll({ limit: 1 }).catch(() => ({ meta: { total: 0 } })),
-      documentService.getDocuments({ per_page: 1 }).catch(() => ({ meta: { total: 0 } })),
-      caseService.getLookups().catch(() => ({ data: { users: [] } }))
+      caseService.getCases({ per_page: 1 }),
+      approvalService.getTotalPendingCount(),
+      clientService.getAll({ limit: 1 }),
+      documentService.getDocuments({ per_page: 1 }),
+      caseService.getLookups()
     ]);
     
     const users = usersData.data?.users || [];
     
-    // Update stats (keeps old values until new ones arrive)
     stats.value = {
-      ...stats.value,
       total_cases: casesCount.meta?.total || 0,
+      active_cases: 0,
+      closed_cases: 0,
+      archived_cases: 0,
       pending_approvals: pendingCounts.total || 0,
       total_clients: clientsCount.meta?.total || 0,
       total_documents: docsCount.meta?.total || 0
     };
     
     adminStats.value = {
-      ...adminStats.value,
       total_users: users.length,
       lawyers: users.filter(u => u.role === 'lawyer').length,
-      clerks: users.filter(u => u.role === 'clerk').length
+      clerks: users.filter(u => u.role === 'clerk').length,
+      active_today: 0,
+      logins_today: 0,
+      activities_last_7_days: 0
     };
     
     pendingDocuments.value = pendingCounts.documents || 0;
     pendingMovements.value = pendingCounts.movements || 0;
     pendingTotal.value = pendingCounts.total || 0;
     
-    // Update cache
-    cacheService.setPendingCounts(pendingCounts);
-    cacheService.setUsers(users);
-    
-    const adminData = {
-      stats: { ...stats.value },
-      adminStats: { ...adminStats.value },
-      pendingDocuments: pendingDocuments.value,
-      pendingMovements: pendingMovements.value,
-      pendingTotal: pendingTotal.value,
-      timestamp: Date.now()
-    };
-    cacheService.setAdminDashboard(adminData);
-    
   } catch (error) {
-    console.error('Admin refresh error:', error);
+    console.error('Admin data fetch error:', error);
   }
 };
 
-const refreshLawyerData = async (userId) => {
+// ========== FETCH LAWYER DATA ==========
+const fetchLawyerData = async (userId) => {
   try {
     const [casesResponse, pendingCounts, movementsResponse, pendingDocs] = await Promise.all([
       caseService.getCases({ 
         assigned_lawyer_id: userId,
         per_page: 5,
         case_status: 'active'
-      }).catch(() => ({ data: [], meta: { total: 0 } })),
-      approvalService.getTotalPendingCount().catch(() => ({ documents: 0, movements: 0, total: 0 })),
-      approvalService.getApprovals({ status: 'PENDING', per_page: 5 }).catch(() => ({ data: [] })),
-      documentService.getPendingApprovals().catch(() => ({ data: [] }))
+      }),
+      approvalService.getTotalPendingCount(),
+      approvalService.getApprovals({ status: 'PENDING', per_page: 5 }),
+      documentService.getPendingApprovals()
     ]);
     
-    // Update data (keeps old visible)
     myCases.value = casesResponse.data || [];
     lawyerStats.value = {
       assigned_cases: casesResponse.meta?.total || 0,
@@ -273,35 +221,29 @@ const refreshLawyerData = async (userId) => {
     pendingMovements.value = pendingCounts.movements || 0;
     pendingTotal.value = pendingCounts.total || 0;
     
-    // Update cache
-    cacheService.setPendingCounts(pendingCounts);
-    
-    const lawyerData = {
-      lawyerStats: { ...lawyerStats.value },
-      myCases: [...myCases.value],
-      pendingItems: [...pendingItems.value],
-      pendingDocuments: pendingDocuments.value,
-      pendingMovements: pendingMovements.value,
-      pendingTotal: pendingTotal.value,
-      timestamp: Date.now()
-    };
-    cacheService.setLawyerDashboard(lawyerData);
-    
   } catch (error) {
-    console.error('Lawyer refresh error:', error);
+    console.error('Lawyer data fetch error:', error);
   }
 };
 
-const refreshClerkData = async (userId) => {
+// ========== FETCH CLERK DATA ==========
+const fetchClerkData = async (userId) => {
   try {
     const [casesResponse] = await Promise.all([
       caseService.getCases({ 
         assigned_clerk_id: userId,
         per_page: 1
-      }).catch(() => ({ meta: { total: 0 } }))
+      })
     ]);
     
-    const tasks = myTasks.value; // Keep existing tasks
+    // You'll need to implement actual task fetching
+    const tasks = [
+      { id: 1, task: 'Review document for Case 2024-001', case_code: '2024-001', status: 'todo', due_date: '2024-03-20' },
+      { id: 2, task: 'Prepare folder for Case 2024-002', case_code: '2024-002', status: 'in-progress', due_date: '2024-03-18' },
+      { id: 3, task: 'File motion for Case 2024-003', case_code: '2024-003', status: 'todo', due_date: '2024-03-15' }
+    ];
+    
+    myTasks.value = tasks;
     
     clerkStats.value = {
       assigned_cases: casesResponse.meta?.total || 0,
@@ -310,25 +252,18 @@ const refreshClerkData = async (userId) => {
       completed_tasks: tasks.filter(t => t.status === 'done').length
     };
     
-    const clerkData = {
-      clerkStats: { ...clerkStats.value },
-      myTasks: [...tasks],
-      timestamp: Date.now()
-    };
-    cacheService.setClerkDashboard(clerkData);
-    
   } catch (error) {
-    console.error('Clerk refresh error:', error);
+    console.error('Clerk data fetch error:', error);
   }
 };
 
-const refreshRecentMovements = async () => {
+// ========== FETCH RECENT MOVEMENTS ==========
+const fetchRecentMovements = async () => {
   try {
     const response = await approvalService.getApprovals({ per_page: 5 });
     recentMovements.value = response.data || [];
-    cacheService.setRecentMovements(recentMovements.value);
   } catch (error) {
-    console.error('Failed to refresh movements:', error);
+    console.error('Failed to fetch movements:', error);
   }
 };
 
@@ -336,53 +271,35 @@ const refreshRecentMovements = async () => {
 const updateLastUpdated = () => {
   lastUpdated.value = 'Just now';
   
-  if (refreshTimeout.value) clearTimeout(refreshTimeout.value);
+  if (refreshTimeout) clearTimeout(refreshTimeout);
   
-  refreshTimeout.value = setTimeout(() => {
+  refreshTimeout = setTimeout(() => {
     lastUpdated.value = 'Few seconds ago';
   }, 5000);
   
-  refreshTimeout.value = setTimeout(() => {
+  refreshTimeout = setTimeout(() => {
     lastUpdated.value = 'Less than a minute';
   }, 10000);
-};
-
-// ========== AUTO-REFRESH EVERY 30 SECONDS ==========
-const startLiveRefresh = () => {
-  if (refreshInterval.value) clearInterval(refreshInterval.value);
-  
-  refreshInterval.value = setInterval(() => {
-    console.log('🔄 Auto-refreshing live data...');
-    fetchLiveData();
-  }, 30000);
 };
 
 // ========== WATCH FOR TAB VISIBILITY ==========
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     console.log('👋 Tab became visible, refreshing...');
-    fetchLiveData();
+    fetchDashboardData();
   }
 });
 
 // ========== ON MOUNT ==========
 onMounted(() => {
   if (isAuthReady.value) {
-    // 1. Show cached data INSTANTLY
-    loadFromCache();
-    
-    // 2. Fetch live data immediately (updates in background)
-    fetchLiveData();
-    
-    // 3. Start auto-refresh
-    startLiveRefresh();
+    fetchDashboardData();
   }
 });
 
 // ========== CLEANUP ==========
 onUnmounted(() => {
-  if (refreshInterval.value) clearInterval(refreshInterval.value);
-  if (refreshTimeout.value) clearTimeout(refreshTimeout.value);
+  if (refreshTimeout) clearTimeout(refreshTimeout);
 });
 
 // ========== HANDLE TASK TOGGLE ==========

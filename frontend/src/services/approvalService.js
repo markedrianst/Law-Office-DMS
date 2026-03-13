@@ -2,9 +2,7 @@
 import api from "@/services/api";
 
 const approvalService = {
-  // ========== MOVEMENT APPROVALS (Folder/Checklist) ==========
-  
-  // Get all movements with filters (status, type, direction, search)
+
   async getApprovals(params = {}) {
     const { data } = await api.get("/admin/approvals", { params });
     return data;
@@ -13,7 +11,7 @@ const approvalService = {
   // Get pending movement count for badge
   async getPendingCount() {
     const { data } = await api.get("/admin/approvals/pending-count");
-    return data.count ?? 0;
+    return data.count; // Returns number directly
   },
 
   // Approve or reject a movement
@@ -24,18 +22,11 @@ const approvalService = {
     });
     return data;
   },
-
-  // ========== DOCUMENT APPROVALS ==========
   
   // Get pending document approvals count
   async getPendingDocumentCount() {
-    try {
-      const { data } = await api.get("/admin/documents/pending-approvals");
-      return data.data?.length || 0;
-    } catch (error) {
-      console.error('Failed to fetch pending document count:', error);
-      return 0;
-    }
+    const { data } = await api.get("/admin/documents/pending-approvals");
+    return data.data?.length || 0; // Keep this one because API returns array
   },
 
   // Get pending document approvals list
@@ -60,21 +51,14 @@ const approvalService = {
   
   // Get total pending approvals (movements + documents)
   async getTotalPendingCount() {
-    try {
-      const [movementCount, documentCount] = await Promise.all([
-        this.getPendingCount().catch(() => 0),
-        this.getPendingDocumentCount().catch(() => 0)
-      ]);
-      
-      return {
-        movements: movementCount,
-        documents: documentCount,
-        total: movementCount + documentCount
-      };
-    } catch (error) {
-      console.error('Failed to get total pending count:', error);
-      return { movements: 0, documents: 0, total: 0 };
-    }
+    const movementCount = await this.getPendingCount();
+    const documentData = await this.getPendingDocumentCount();
+    
+    return {
+      movements: movementCount,
+      documents: documentData.data?.length || 0,
+      total: movementCount + (documentData.data?.length || 0)
+    };
   }
 };
 

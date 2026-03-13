@@ -1,6 +1,5 @@
 // frontend/src/services/userService.js
 import api from "@/services/api";
-import cacheService from './cacheService';
 
 const userService = {
   async getRoles() {
@@ -11,7 +10,7 @@ const userService = {
   async getUsers(params = {}) {
     const { data } = await api.get("/users", { params });
     
-    // Transform data to ensure consistent format
+    // Transform data to ensure consistent format (keep this - it's data formatting, not caching)
     if (data.data) {
       data.data = data.data.map(user => ({
         id: user.id,
@@ -36,25 +35,21 @@ const userService = {
 
   async createUser(userData) {
     const { data } = await api.post("/users", userData);
-    cacheService.invalidateUserCache();
     return data;
   },
 
   async updateUser(id, userData) {
     const { data } = await api.put(`/users/${id}`, userData);
-    cacheService.invalidateUserCache();
     return data;
   },
 
   async deleteUser(id) {
     const { data } = await api.delete(`/users/${id}`);
-    cacheService.invalidateUserCache();
     return data;
   },
 
   async toggleUserStatus(id) {
     const { data } = await api.patch(`/users/${id}/toggle-status`);
-    cacheService.invalidateUserCache();
     return data;
   },
 

@@ -304,7 +304,6 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { debounce } from 'lodash'
 import auditLogService from '@/services/auditLogService'
-import cacheService from '@/services/cacheService'
 import { useAuth } from '@/composables/useAuth'
 import * as XLSX from 'xlsx'
 import Swal from 'sweetalert2'
@@ -332,7 +331,6 @@ const pagination = ref({
   to: 0
 })
 const isLoading = ref(false)
-const isFromCache = ref(false)
 const expanded = ref([])
 const timeFilter = ref('')
 const currentPage = ref(1)
@@ -390,45 +388,9 @@ const timeFilters = [
   { label: 'Month', value: 'month' }
 ]
 
-// ==================== LOAD FROM CACHE FIRST ====================
-const loadFromCache = () => {
-  const params = {
-    search: filters.search || undefined,
-    type: filters.type || undefined,
-    status: filters.status || undefined,
-    date_from: filters.date_from || undefined,
-    date_to: filters.date_to || undefined,
-    page: currentPage.value,
-    per_page: perPage.value
-  }
-  
-  // Get cached logs
-  const cachedLogs = cacheService.getAuditLogs(params)
-  if (cachedLogs) {
-    console.log('📦 Loading audit logs from cache')
-    logs.value = cachedLogs.data || []
-    pagination.value = cachedLogs.meta || {
-      current_page: currentPage.value,
-      last_page: 1,
-      per_page: perPage.value,
-      total: logs.value.length,
-      from: 1,
-      to: logs.value.length
-    }
-    isFromCache.value = true
-  }
-  
-  // Get cached stats
-  const cachedStats = cacheService.getAuditStats()
-  if (cachedStats) {
-    stats.value = cachedStats.data || {}
-  }
-}
-
-// ==================== FETCH FRESH DATA ====================
-const fetchFreshData = async (showLoading = true) => {
+// ==================== FETCH DATA ====================
+const fetchData = async (showLoading = true) => {
   if (showLoading) isLoading.value = true
-  isFromCache.value = false
 
   try {
     const params = {
@@ -441,7 +403,7 @@ const fetchFreshData = async (showLoading = true) => {
       per_page: perPage.value
     }
 
-    const response = await auditLogService.getCombinedLogs(params, true)
+    const response = await auditLogService.getCombinedLogs(params)
     
     logs.value = response.data || []
     pagination.value = response.meta || {
@@ -453,8 +415,8 @@ const fetchFreshData = async (showLoading = true) => {
       to: logs.value.length
     }
 
-    // Load stats in background
-    loadStats(true)
+    // Load stats
+    await fetchStats()
 
   } catch (error) {
     console.error('Failed to load logs:', error)
@@ -471,10 +433,10 @@ const fetchFreshData = async (showLoading = true) => {
   }
 }
 
-// ==================== LOAD STATS ====================
-const loadStats = async (forceRefresh = false) => {
+// ==================== FETCH STATS ====================
+const fetchStats = async () => {
   try {
-    const response = await auditLogService.getStats(forceRefresh)
+    const response = await auditLogService.getStats()
     stats.value = response.data || {}
   } catch (error) {
     console.error('Failed to load stats:', error)
@@ -484,7 +446,7 @@ const loadStats = async (forceRefresh = false) => {
 // ==================== FILTER METHODS ====================
 const applyFilters = () => {
   currentPage.value = 1
-  fetchFreshData()
+  fetchData()
 }
 
 const debouncedApply = debounce(applyFilters, 450)
@@ -527,14 +489,14 @@ const formatDateForFilter = (date) => {
 const changePage = (page) => {
   if (page >= 1 && page <= pagination.value.last_page) {
     currentPage.value = page
-    fetchFreshData()
+    fetchData()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
 const changePerPage = () => {
   currentPage.value = 1
-  fetchFreshData()
+  fetchData()
 }
 
 // ==================== UI HELPERS ====================
@@ -739,7 +701,7 @@ const exportLogs = async (scope) => {
         per_page: 9999
       }
       
-      const response = await auditLogService.getCombinedLogs(params, true)
+      const response = await auditLogService.getCombinedLogs(params)
       rows = response.data || []
     } else {
       rows = logs.value
@@ -802,14 +764,8 @@ const exportLogs = async (scope) => {
 // ==================== LIFECYCLE ====================
 onMounted(() => {
   isActive.value = true
-  
-  // 1. Load from cache INSTANTLY
-  loadFromCache()
-  
-  // 2. Fetch fresh data in background
-  setTimeout(() => {
-    fetchFreshData(false) // Don't show loading for background refresh
-  }, 100)
+  fetchData()
+  fetchStats()
 })
 
 onUnmounted(() => {
@@ -819,7 +775,7 @@ onUnmounted(() => {
 // Watch for page focus
 watch(() => document.visibilityState, () => {
   if (document.visibilityState === 'visible' && isActive.value) {
-    fetchFreshData(false)
+    fetchData(false)
   }
 })
 
@@ -832,7 +788,6 @@ const vClickOutside = {
   unmounted(el) { document.removeEventListener('mousedown', el._out) }
 }
 </script>
-
 <style scoped>
 @keyframes slideIn {
   from {
