@@ -618,28 +618,33 @@ const submitForm = async () => {
         };
       }
       
-      // API call
-      await userService.updateUser(editingUserId.value, payload);
-      
-      // Show success toast
-      Swal.fire({
-        icon: 'success',
-        title: 'Success!',
-        text: 'User updated successfully',
-        timer: 1500,
-        showConfirmButton: false,
-        position: 'top-end',
-        toast: true
-      });
-      
-      // Refresh
-      await loadUsers();
+      // API call in background (don't await)
+      userService.updateUser(editingUserId.value, payload)
+        .then(response => {
+          // Show success toast (non-blocking)
+          Swal.fire({
+            icon: 'success',
+            title: 'Success!',
+            text: 'User updated successfully',
+            timer: 1500,
+            showConfirmButton: false,
+            position: 'top-end',
+            toast: true
+          });
+          // Refresh in background
+          loadUsers();
+        })
+        .catch(error => {
+          // Revert on error
+          loadUsers(); // Reload to get correct state
+          handleSubmitError(error);
+        });
       
     } else {
-      // For create
+      // For create, we need the ID from response
       const response = await userService.createUser(payload);
       
-      // Add new user to list
+      // Add new user to list immediately
       if (response.data) {
         users.value.unshift({
           ...response.data,
@@ -647,7 +652,7 @@ const submitForm = async () => {
         });
       }
       
-      // Show success
+      // Show success (non-blocking)
       Swal.fire({
         icon: 'success',
         title: 'Success!',
@@ -658,19 +663,15 @@ const submitForm = async () => {
         toast: true
       });
       
-      // Refresh
-      await loadUsers();
+      // Refresh in background
+      loadUsers();
     }
     
-    // Close modal
+    // Close modal immediately
     closeModal();
     
   } catch (error) {
     handleSubmitError(error);
-    
-    // Refresh to revert optimistic updates
-    await loadUsers();
-    
   } finally {
     formLoading.value = false;
     isAdding.value = false;
@@ -726,10 +727,10 @@ const confirmDeleteUser = async (user) => {
     isDeletingUser.value = user.id;
     
     try {
+      await userService.deleteUser(user.id);
+      
       // Optimistic delete
       users.value = users.value.filter(u => u.id !== user.id);
-      
-      await userService.deleteUser(user.id);
       
       await Swal.fire({
         icon: 'success',
@@ -741,19 +742,19 @@ const confirmDeleteUser = async (user) => {
         toast: true
       });
       
-      // Refresh
+      // Refresh in background
       await loadUsers();
       
     } catch (error) {
-      // Revert optimistic delete
-      await loadUsers();
-      
       await Swal.fire({
         icon: 'error',
         title: 'Error!',
         text: error.message || 'Failed to delete user',
         confirmButtonColor: '#dc2626'
       });
+      
+      // Revert optimistic delete by reloading
+      await loadUsers();
       
     } finally {
       isDeletingUser.value = null;

@@ -106,7 +106,7 @@ export function useNotifications() {
   };
 
   // Start polling
-  const startPolling = (interval = 5000) => {
+  const startPolling = (interval = 3000) => {
     stopPolling();
     poller = setInterval(pollUpdates, interval);
   };
