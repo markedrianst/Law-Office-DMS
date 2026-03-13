@@ -12,6 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Models\Notification; 
+use App\Models\User;
 
 class ApprovalsController extends Controller
 {
@@ -229,6 +231,10 @@ class ApprovalsController extends Controller
  * PATCH /admin/approvals/{type}/{id}/approve
  * Approve or reject a movement with CASE ACTIVITY LOGGING
  */
+/**
+ * PATCH /admin/approvals/{type}/{id}/approve
+ * Approve or reject a movement with CASE ACTIVITY LOGGING and NOTIFICATIONS
+ */
 public function approve(Request $request, string $type, int $id): JsonResponse
 {
     // Check role
@@ -276,14 +282,11 @@ public function approve(Request $request, string $type, int $id): JsonResponse
                 'notes' => $notes
             ]);
 
-            // 🔥 FIX: Update checklist is_out status based on movement type
+            // Update checklist is_out status based on movement type
             if ($status === 'APPROVED' && $movement->checklist_id) {
-                // If approved, set is_out based on movement type
-                // OUT = true, IN = false
                 CaseChecklist::where('id', $movement->checklist_id)
                     ->update(['is_out' => $movement->type === 'OUT']);
                 
-                // Also update the movement's task_name if not set
                 if (!$movement->task_name) {
                     $checklist = CaseChecklist::find($movement->checklist_id);
                     $movement->update(['task_name' => $checklist?->task]);
@@ -322,6 +325,28 @@ public function approve(Request $request, string $type, int $id): JsonResponse
                 ]
             ]);
 
+            // ========== 🔔 ADD NOTIFICATION FOR CHECKLIST ==========
+            if ($movement->recorded_by) {
+                Notification::create([
+                    'user_id' => $movement->recorded_by,
+                    'notifiable_type' => ChecklistMovement::class,
+                    'notifiable_id' => $movement->id,
+                    'type' => 'checklist_movement_' . strtolower($status),
+                    'title' => "Checklist Movement {$status}",
+                    'message' => "Your checklist movement for case {$movement->case?->case_code} was " . strtolower($status),
+                    'data' => [
+                        'case_code' => $movement->case?->case_code,
+                        'task_name' => $movement->task_name ?? $movement->checklist?->task,
+                        'type' => $movement->type,
+                        'from_to' => $movement->from_to,
+                        'status' => $status,
+                        'notes' => $notes,
+                    ],
+                    'action_url' => $status === 'APPROVED' ? "/casemaster/{$movement->case_id}" : null
+                ]);
+            }
+            // ========== 🔔 END NOTIFICATION ==========
+
         } else if ($type === 'folder') {
             // Find the folder movement
             $movement = FolderMovement::with(['case', 'recorder'])->findOrFail($id);
@@ -342,7 +367,7 @@ public function approve(Request $request, string $type, int $id): JsonResponse
                 'notes' => $notes
             ]);
 
-            // 🔥 FIX: Update case is_out status based on movement type
+            // Update case is_out status based on movement type
             if ($status === 'APPROVED') {
                 Cases::where('id', $movement->case_id)
                     ->update(['is_out' => $movement->type === 'OUT']);
@@ -376,6 +401,27 @@ public function approve(Request $request, string $type, int $id): JsonResponse
                     'case_code' => $movement->case?->case_code
                 ]
             ]);
+
+            // ========== 🔔 ADD NOTIFICATION FOR FOLDER ==========
+            if ($movement->recorded_by) {
+                Notification::create([
+                    'user_id' => $movement->recorded_by,
+                    'notifiable_type' => FolderMovement::class,
+                    'notifiable_id' => $movement->id,
+                    'type' => 'folder_movement_' . strtolower($status),
+                    'title' => "Folder Movement {$status}",
+                    'message' => "Your folder movement for case {$movement->case?->case_code} was " . strtolower($status),
+                    'data' => [
+                        'case_code' => $movement->case?->case_code,
+                        'type' => $movement->type,
+                        'from_to' => $movement->from_to,
+                        'status' => $status,
+                        'notes' => $notes,
+                    ],
+                    'action_url' => $status === 'APPROVED' ? "/casemaster/{$movement->case_id}" : null
+                ]);
+            }
+            // ========== 🔔 END NOTIFICATION ==========
 
         } else {
             return response()->json([

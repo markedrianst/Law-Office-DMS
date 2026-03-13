@@ -150,4 +150,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout-all', [App\Http\Controllers\Api\AccountController::class, 'logoutAllDevices']);
         Route::get('/sessions', [App\Http\Controllers\Api\AccountController::class, 'activeSessions']);
     });
+
+    // routes/api.php - Inside your auth:sanctum group
+
+    Route::prefix('notifications')->group(function () {
+        Route::get('/sync', [App\Http\Controllers\Api\NotificationController::class, 'sync']);
+        Route::get('/unread-count', [App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+        Route::post('/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+        Route::post('/mark-all-read', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+    });
 }); 

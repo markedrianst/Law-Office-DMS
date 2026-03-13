@@ -14,6 +14,7 @@ use App\Models\Court;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use App\Models\Notification;
 
 class CaseController extends Controller
 {
@@ -195,7 +196,7 @@ class CaseController extends Controller
     /**
      * Store a newly created case.
      */
-    public function store(Request $request)
+     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'case_no' => 'required|string|max:180|unique:cases,case_no',
@@ -284,6 +285,46 @@ class CaseController extends Controller
 
             DB::commit();
 
+            // ========== 🔔 ADD NOTIFICATIONS HERE ==========
+            // Notify assigned lawyer
+            if ($case->assigned_lawyer_id) {
+                Notification::create([
+                    'user_id' => $case->assigned_lawyer_id,
+                    'notifiable_type' => Cases::class,
+                    'notifiable_id' => $case->id,
+                    'type' => 'case_assigned',
+                    'title' => 'New Case Assigned',
+                    'message' => "Case {$case->case_code} has been assigned to you",
+                    'data' => [
+                        'case_code' => $case->case_code,
+                        'case_no' => $case->case_no,
+                        'title' => $case->title,
+                        'client' => $case->client?->full_name,
+                    ],
+                    'action_url' => "/casemaster"
+                ]);
+            }
+
+            // Notify assigned clerk
+            if ($case->assigned_clerk_id) {
+                Notification::create([
+                    'user_id' => $case->assigned_clerk_id,
+                    'notifiable_type' => Cases::class,
+                    'notifiable_id' => $case->id,
+                    'type' => 'case_assigned',
+                    'title' => 'New Case Assigned',
+                    'message' => "Case {$case->case_code} has been assigned to you",
+                    'data' => [
+                        'case_code' => $case->case_code,
+                        'case_no' => $case->case_no,
+                        'title' => $case->title,
+                        'client' => $case->client?->full_name,
+                    ],
+                    'action_url' => "/casemaster"
+                ]);
+            }
+            // ========== 🔔 END NOTIFICATIONS ==========
+
             // Load relationships for response
             $case->load([
                 'category:id,name,color',
@@ -330,6 +371,7 @@ class CaseController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * Display the specified case with all related data.
@@ -531,7 +573,7 @@ class CaseController extends Controller
     /**
      * Update the specified case.
      */
-    public function update(Request $request, $id)
+  public function update(Request $request, $id)
     {
         try {
             $case = Cases::findOrFail($id);
@@ -571,7 +613,9 @@ class CaseController extends Controller
             $oldCourtOffice = $case->court_or_office ?: 'None';
             $oldDocketNo = $case->docket_no ?: 'None';
             $oldLawyer = $case->lawyer?->full_name ?? 'None';
+            $oldLawyerId = $case->assigned_lawyer_id; // 👈 Store ID for notification
             $oldClerk = $case->clerk?->full_name ?? 'None';
+            $oldClerkId = $case->assigned_clerk_id; // 👈 Store ID for notification
             $oldPriority = ucfirst($case->priority);
             $oldStatus = ucfirst($case->case_status);
             $oldStageId = $case->current_stage_id;
@@ -599,6 +643,53 @@ class CaseController extends Controller
             // Build change messages
             $changeMessages = [];
 
+            // ========== 🔔 CHECK FOR ASSIGNMENT CHANGES ==========
+            // Check if lawyer changed
+            if ($oldLawyerId != $case->assigned_lawyer_id && $case->assigned_lawyer_id) {
+                $newLawyer = $case->lawyer?->full_name ?? 'None';
+                $changeMessages[] = "Lawyer: {$oldLawyer} → {$newLawyer}";
+                
+                // Notify new lawyer
+                Notification::create([
+                    'user_id' => $case->assigned_lawyer_id,
+                    'notifiable_type' => Cases::class,
+                    'notifiable_id' => $case->id,
+                    'type' => 'case_reassigned',
+                    'title' => 'Case Reassigned',
+                    'message' => "Case {$case->case_code} has been reassigned to you",
+                    'data' => [
+                        'case_code' => $case->case_code,
+                        'case_no' => $case->case_no,
+                        'title' => $case->title,
+                    ],
+                    'action_url' => "/casemaster"
+                ]);
+            }
+
+            // Check if clerk changed
+            if ($oldClerkId != $case->assigned_clerk_id && $case->assigned_clerk_id) {
+                $newClerk = $case->clerk?->full_name ?? 'None';
+                $changeMessages[] = "Clerk: {$oldClerk} → {$newClerk}";
+                
+                // Notify new clerk
+                Notification::create([
+                    'user_id' => $case->assigned_clerk_id,
+                    'notifiable_type' => Cases::class,
+                    'notifiable_id' => $case->id,
+                    'type' => 'case_reassigned',
+                    'title' => 'Case Reassigned',
+                    'message' => "Case {$case->case_code} has been reassigned to you",
+                    'data' => [
+                        'case_code' => $case->case_code,
+                        'case_no' => $case->case_no,
+                        'title' => $case->title,
+                    ],
+                    'action_url' => "/casemaster"
+                ]);
+            }
+            // ========== 🔔 END ASSIGNMENT NOTIFICATIONS ==========
+
+            // Other field comparisons
             if ($oldCaseNo != $case->case_no) {
                 $changeMessages[] = "Case #: {$oldCaseNo} → {$case->case_no}";
             }
@@ -625,16 +716,6 @@ class CaseController extends Controller
             if ($oldDocketNo != ($case->docket_no ?: 'None')) {
                 $newDocketNo = $case->docket_no ?: 'None';
                 $changeMessages[] = "Docket: {$oldDocketNo} → {$newDocketNo}";
-            }
-            
-            if ($oldLawyer != ($case->lawyer?->full_name ?? 'None')) {
-                $newLawyer = $case->lawyer?->full_name ?? 'None';
-                $changeMessages[] = "Lawyer: {$oldLawyer} → {$newLawyer}";
-            }
-            
-            if ($oldClerk != ($case->clerk?->full_name ?? 'None')) {
-                $newClerk = $case->clerk?->full_name ?? 'None';
-                $changeMessages[] = "Clerk: {$oldClerk} → {$newClerk}";
             }
             
             if ($oldPriority != ucfirst($case->priority)) {
@@ -676,6 +757,27 @@ class CaseController extends Controller
                         'to' => $newStageName,
                     ],
                 ]);
+
+                // ========== 🔔 NOTIFY ABOUT STAGE CHANGE ==========
+                $usersToNotify = array_filter([$case->assigned_lawyer_id, $case->assigned_clerk_id]);
+                
+                foreach ($usersToNotify as $userId) {
+                    Notification::create([
+                        'user_id' => $userId,
+                        'notifiable_type' => Cases::class,
+                        'notifiable_id' => $case->id,
+                        'type' => 'stage_changed',
+                        'title' => 'Case Stage Updated',
+                        'message' => "Case {$case->case_code} moved from {$oldStageName} to {$newStageName}",
+                        'data' => [
+                            'case_code' => $case->case_code,
+                            'from_stage' => $oldStageName,
+                            'to_stage' => $newStageName,
+                        ],
+                        'action_url' => "/casemaster"
+                    ]);
+                }
+                // ========== 🔔 END STAGE NOTIFICATIONS ==========
             }
 
             // Log general update if there are changes
