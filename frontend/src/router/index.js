@@ -11,6 +11,7 @@ import CaseMaster from "@/pages/Admin/CaseMaster/CaseMaster.vue";
 import AuditTrail from "@/pages/Admin/AuditTrail.vue";
 import Approvals from "@/pages/Approvals.vue";
 import AccountSetting from "@/pages/AccountSetting.vue";
+import Notifications from "@/pages/Notifications.vue";
 
 
 
@@ -98,6 +99,15 @@ const routes = [
         path: "/account-setting",
         name: "AccountSetting",
         component: AccountSetting,
+        meta: { 
+          requiresAuth: true,
+          roles: ['admin','lawyer','clerk'] 
+        },
+      },
+      {
+        path: "/notifications",
+        name: "Notifications",
+        component: Notifications,
         meta: { 
           requiresAuth: true,
           roles: ['admin','lawyer','clerk'] 

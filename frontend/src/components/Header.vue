@@ -338,8 +338,8 @@ const goToNotification = async (item) => {
   if (!item.is_read) await markAsRead(item.id)
   isNotificationOpen.value = false
   if (item.action_url)               router.push(item.action_url)
-  else if (item.data?.case_id)       router.push(`/casemaster/${item.data.case_id}`)
-  else if (item.type?.includes('approval')) router.push('/approvals')
+  else if (item.data?.case_id)       router.push(`/casemaster`)
+  else if (item.type?.includes('approval')&& item.data?.approval_id==userRole.value=='lawyer') router.push('/approvals')
 }
 
 const viewAll = () => {
