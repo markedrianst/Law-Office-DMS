@@ -39,7 +39,6 @@ const authService = {
     try {
       const { data } = await api.post("/login", payload);
 
-      // CASE 1: PASSWORD CHANGE REQUIRED
       if (data.requires_password_change) {
         return {
           requires_password_change: true,
@@ -47,16 +46,12 @@ const authService = {
         };
       }
 
-      // CASE 2: SUCCESSFUL LOGIN
       if (data.token) {
-        // Store auth data IMMEDIATELY
         sessionStorage.setItem('token', data.token);
         sessionStorage.setItem('user', JSON.stringify(data.user));
         
-        // 🔥 FETCH ALL DATA IN BACKGROUND - NO AWAIT!
         this.fetchAllDataInBackground(data.user);
         
-        // Refresh auth state
         const { refreshUser } = useAuth();
         refreshUser();
       }
@@ -69,25 +64,22 @@ const authService = {
     }
   },
 
-  // 🔥 ALL DATA FETCHING - Runs in background
   async fetchAllDataInBackground(user) {
-    console.log('📦 Background data fetch started...');
-    
     const role = user.role?.name || user.role;
     const userId = user.id;
 
     try {
-      // ========== FETCH EVERYTHING IN PARALLEL ==========
       const promises = [
         this.fetchMasterData(),
         this.fetchClients(),
-        this.fetchPendingCounts()
+        this.fetchPendingCounts(),
+        this.fetchUsers(),
+        this.fetchRoles(),
+        this.fetchAuditData(),
       ];
       
-      // Wait for common data
       const [masterData, clients, pendingCounts] = await Promise.all(promises);
       
-      // ========== FETCH ROLE-SPECIFIC DATA ==========
       if (role === 'admin') {
         await this.fetchAdminData(masterData, clients, pendingCounts);
       } else if (role === 'lawyer') {
@@ -96,18 +88,69 @@ const authService = {
         await this.fetchClerkData(userId);
       }
       
-      // ========== FETCH RECENT MOVEMENTS ==========
       await this.fetchRecentMovements();
-      
-      console.log('✅ All data cached successfully!');
       
     } catch (error) {
       console.error('Background data fetch error:', error);
     }
   },
 
-  // ========== INDIVIDUAL FETCH METHODS ==========
-  
+  // ========== FETCH USERS WITH PROPER FORMATTING ==========
+  async fetchUsers() {
+    try {
+      const { default: userService } = await import('@/services/userServices');
+      const response = await userService.getUsers({ per_page: 100 });
+      
+      const users = (response.data || []).map(user => ({
+        id: user.id,
+        name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+        role: user.role === 'lawyer' ? 'Lawyer' : (user.role === 'clerk' ? 'Clerk' : user.role),
+        status: user.status === 'active' ? 'Active' : 'Inactive',
+        created_at: user.created_at,
+        last_login: user.last_login,
+        address: user.address || '',
+        contact_number: user.contact_number || ''
+      }));
+      
+      cacheService.setUsers(users);
+      return users;
+    } catch (error) {
+      return [];
+    }
+  },
+
+  // ========== FETCH ROLES WITH PROPER FORMATTING ==========
+  async fetchRoles() {
+    try {
+      const { default: userService } = await import('@/services/userServices');
+      const response = await userService.getRoles();
+      
+      const roles = (response.data || []).map(role => ({
+        id: role.id,
+        name: role.name.charAt(0).toUpperCase() + role.name.slice(1)
+      }));
+      
+      cacheService.setUserRoles(roles);
+      return roles;
+    } catch (error) {
+      return [];
+    }
+  },
+
+  async fetchAuditData() {
+    try {
+      const { default: auditLogService } = await import('@/services/auditLogService');
+      const logsResponse = await auditLogService.getCombinedLogs({ per_page: 20 }, true);
+      const statsResponse = await auditLogService.getStats(true);
+      return { logs: logsResponse, stats: statsResponse };
+    } catch (error) {
+      return null;
+    }
+  },
+
   async fetchMasterData() {
     try {
       const response = await caseService.getLookups();
@@ -168,8 +211,8 @@ const authService = {
         },
         adminStats: {
           total_users: users.length,
-          lawyers: users.filter(u => u.role === 'lawyer').length,
-          clerks: users.filter(u => u.role === 'clerk').length
+          lawyers: users.filter(u => u.role === 'Lawyer').length,
+          clerks: users.filter(u => u.role === 'Clerk').length
         },
         pendingDocuments: pendingCounts.documents || 0,
         pendingMovements: pendingCounts.movements || 0,

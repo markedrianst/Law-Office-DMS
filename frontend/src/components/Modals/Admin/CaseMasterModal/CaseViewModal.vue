@@ -95,26 +95,24 @@
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Stage</p>
-              <!-- In the Folder Status section, replace the dropdown with text -->
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: viewCase.stage_color || '#64748b' }"></span>
-                            <span class="text-sm font-semibold text-gray-700">{{ viewCase.stage || '—' }}</span>
-                        </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: viewCase.stage_color || '#64748b' }"></span>
+                      <span class="text-sm font-semibold text-gray-700">{{ viewCase.stage || '—' }}</span>
                     </div>
+                  </div>
                 </div>
-                <!-- Replace the existing Folder Location div with this -->
                 <div>
-                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Folder Location</p>
-                <div class="flex items-center gap-2">
+                  <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Folder Location</p>
+                  <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#1a4972] to-[#2a5a8c] flex items-center justify-center text-xs font-bold text-white shadow-sm">
-                    {{ getInitials(lastFolderHandler) }}
+                      {{ getInitials(lastFolderHandler) }}
                     </div>
                     <div>
-                    <p class="text-sm font-semibold text-gray-900">{{ lastFolderHandler }}</p>
-                    <p class="text-xs text-gray-400">{{ viewCase.is_out ? 'OUT of office' : 'IN office' }}</p>
+                      <p class="text-sm font-semibold text-gray-900">{{ lastFolderHandler }}</p>
+                      <p class="text-xs text-gray-400">{{ viewCase.is_out ? 'OUT of office' : 'IN office' }}</p>
                     </div>
-                </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -257,22 +255,22 @@
               <div class="flex justify-between items-center mb-4">
                 <h4 class="text-sm font-bold text-gray-800">Folder Movement History</h4>
                 <div class="flex gap-2">
-                  <!-- OUT Button - Disabled if folder is already OUT -->
+                  <!-- OUT Button -->
                   <button @click="openFolderModal('OUT')" 
-                    :disabled="viewCase.is_out"
+                    :disabled="viewCase.is_out || hasPendingFolderOut"
                     class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
-                    :class="viewCase.is_out ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'">
+                    :class="(viewCase.is_out || hasPendingFolderOut) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                     </svg>
                     Release (OUT)
                   </button>
                   
-                  <!-- IN Button - Disabled if folder is already IN -->
+                  <!-- IN Button -->
                   <button @click="openFolderModal('IN')" 
-                    :disabled="!viewCase.is_out"
+                    :disabled="!viewCase.is_out || hasPendingFolderIn"
                     class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
-                    :class="!viewCase.is_out ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'">
+                    :class="(!viewCase.is_out || hasPendingFolderIn) ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
@@ -281,12 +279,18 @@
                 </div>
               </div>
 
-              <!-- Validation message for folder status -->
-              <div v-if="viewCase.is_out" class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700">
+              <!-- Validation messages -->
+              <div v-if="viewCase.is_out && !hasPendingFolderIn" class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700">
                 <span class="font-semibold">Note:</span> Folder is currently OUT. You must receive it (IN) before releasing again.
               </div>
-              <div v-else class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
+              <div v-else-if="!viewCase.is_out && !hasPendingFolderOut" class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
                 <span class="font-semibold">Note:</span> Folder is currently IN. You can release it (OUT).
+              </div>
+              <div v-if="hasPendingFolderOut" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                <span class="font-semibold">Note:</span> There is already a pending OUT request awaiting approval.
+              </div>
+              <div v-if="hasPendingFolderIn" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                <span class="font-semibold">Note:</span> There is already a pending IN request awaiting approval.
               </div>
 
               <div class="overflow-x-auto">
@@ -357,24 +361,22 @@
               <div class="flex justify-between items-center mb-4">
                 <h4 class="text-sm font-bold text-gray-800">Checklist Movement History</h4>
                 <div class="flex gap-2">
-                  <!-- OUT Button - Disabled if case folder is OUT -->
+                  <!-- OUT Button -->
                   <button @click="openChecklistTrackerModal('OUT')" 
-                    :disabled="viewCase.is_out"
+                    :disabled="viewCase.is_out || hasPendingChecklistOut"
                     class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
-                    :class="viewCase.is_out ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'"
-                    :title="viewCase.is_out ? 'Cannot release checklist when case folder is OUT' : ''">
+                    :class="(viewCase.is_out || hasPendingChecklistOut) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                     </svg>
                     Release (OUT)
                   </button>
                   
-                  <!-- IN Button - Enabled only if there are OUT items -->
+                  <!-- IN Button -->
                   <button @click="openChecklistTrackerModal('IN')" 
-                    :disabled="!hasOutItems || viewCase.is_out"
+                    :disabled="!hasOutItems || hasPendingChecklistIn || viewCase.is_out"
                     class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
-                    :class="!hasOutItems || viewCase.is_out ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'"
-                    :title="!hasOutItems ? 'No OUT items to receive' : (viewCase.is_out ? 'Cannot receive when case folder is OUT' : '')">
+                    :class="(!hasOutItems || hasPendingChecklistIn || viewCase.is_out) ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
@@ -386,6 +388,12 @@
               <!-- Validation messages -->
               <div v-if="viewCase.is_out" class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700">
                 <span class="font-semibold">Note:</span> Case folder is OUT. You must receive it back before managing checklist movements.
+              </div>
+              <div v-else-if="hasPendingChecklistOut" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                <span class="font-semibold">Note:</span> There is already a pending OUT request awaiting approval.
+              </div>
+              <div v-else-if="hasPendingChecklistIn" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                <span class="font-semibold">Note:</span> There is already a pending IN request awaiting approval.
               </div>
               <div v-else-if="!hasOutItems" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
                 <span class="font-semibold">Note:</span> No checklist items are currently OUT. Release items first before receiving.
@@ -804,18 +812,16 @@ const emit = defineEmits(['close', 'refresh']);
 
 const { user } = useAuth();
 
-// Local case data
+// ========== STATE ==========
 const viewCase = ref(null);
 const checklist = ref([]);
 const folderMovements = ref([]);
 const checklistMovements = ref([]);
 const activityLogs = ref([]);
-const availableUsers = ref([]);
 const stageUpdating = ref(false);
 
-// ── Pagination ─────────────────────────────────────────────────────────────
+// Pagination
 const PAGE_SIZE = 5;
-
 const checklistPage = ref(1);
 const folderPage = ref(1);
 const checklistTrackerPage = ref(1);
@@ -825,258 +831,179 @@ const activityPage = ref(1);
 const tabs = ['Folder Tracker', 'Checklist Tracker', 'Activity Logs'];
 const activeTab = ref('Folder Tracker');
 
-// Task modal
-const taskModal = reactive({
-  show: false,
-  mode: 'add',
-  task: null
+// Modals
+const taskModal = reactive({ show: false, mode: 'add', task: null });
+const folderModal = reactive({ 
+  show: false, 
+  type: 'OUT', 
+  form: { date: '', from_to: '', purpose: '', handled_by: '' } 
+});
+const checklistTrackerModal = reactive({ 
+  show: false, 
+  type: 'OUT', 
+  form: { date: '', checklist_id: '', from_to: '', purpose: '', handled_by: '' } 
 });
 
-// Folder modal
-const folderModal = reactive({
-  show: false,
-  type: 'OUT',
-  form: {
-    date: '',
-    from_to: '',
-    purpose: '',
-    handled_by: ''
-  }
-});
-
-// Checklist tracker modal
-const checklistTrackerModal = reactive({
-  show: false,
-  type: 'OUT',
-  form: {
-    date: '',
-    checklist_id: '',
-    from_to: '',
-    purpose: '',
-    handled_by: ''
-  }
-});
-
-// From/To search states
+// Search states
 const fromToSearch = ref('');
 const fromToDropdownOpen = ref(false);
 const fromToDropdownRef = ref(null);
-
 const ctFromToSearch = ref('');
 const ctFromToDropdownOpen = ref(false);
 const ctFromToDropdownRef = ref(null);
 
-// Computed
-watch(() => folderMovements.value, (newVal) => {
-  console.log('folderMovements updated:', newVal);
-}, { deep: true });
+// ========== SMART POLLING ==========
+let poller = null;
+
+const refreshMovements = async () => {
+  if (!viewCase.value?.id) return;
+  try {
+    const [folderRes, checklistRes] = await Promise.all([
+      caseService.getFolderTracker(viewCase.value.id),
+      caseService.getChecklistTracker(viewCase.value.id)
+    ]);
+    folderMovements.value = folderRes.data || [];
+    checklistMovements.value = checklistRes.data || [];
+  } catch (error) {
+    console.error('Failed to refresh movements:', error);
+  }
+};
+
+const startPolling = () => {
+  stopPolling();
+  poller = setInterval(refreshMovements, 10000); // Poll every 10 seconds
+};
+
+const stopPolling = () => {
+  if (poller) {
+    clearInterval(poller);
+    poller = null;
+  }
+};
+
+// ========== COMPUTED ==========
 const lastFolderHandler = computed(() => {
-  console.log('Calculating lastFolderHandler from from_to...');
-  
-  // First try to get from folderMovements (most accurate)
-  if (folderMovements.value && folderMovements.value.length > 0) {
-    // Sort by date descending (most recent first)
-    const sorted = [...folderMovements.value].sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      return dateB - dateA;
-    });
-    
-    const lastMovement = sorted[0];
-    console.log('Last movement:', lastMovement);
-    
-    // Get the location from from_to field
-    // If it's an OUT movement, the folder is with the "to" person
-    // If it's an IN movement, the folder is with the "from" person
-    if (lastMovement) {
-      if (lastMovement.type === 'OUT') {
-        // For OUT, folder is with the "to" person
-        return lastMovement.from_to || viewCase.value?.clerk || 'Unassigned';
-      } else {
-        // For IN, folder is with the "from" person (where it came from)
-        return lastMovement.from_to || 'Office';
-      }
+  if (folderMovements.value?.length > 0) {
+    const sorted = [...folderMovements.value].sort((a, b) => 
+      new Date(b.date || b.created_at) - new Date(a.date || a.created_at)
+    );
+    const last = sorted[0];
+    if (last) {
+      return last.from_to || viewCase.value?.clerk || 'Unassigned';
     }
   }
-  
-  // Fallback to assigned clerk or Office
-  return viewCase.value?.is_out ? viewCase.value?.clerk || 'Unassigned' : 'Office';
+  return viewCase.value?.clerk || 'Office';
 });
+
 const donePercent = computed(() => {
   if (!checklist.value.length) return 0;
   const done = checklist.value.filter(t => t.status === 'done').length;
   return Math.round((done / checklist.value.length) * 100);
 });
 
-const hasOutItems = computed(() => {
-  return checklist.value.some(task => task.is_out === true);
-});
+const hasOutItems = computed(() => 
+  checklist.value.some(task => task.is_out === true)
+);
 
-// ── Paginated slices ────────────────────────────────────────────────────────
+// Pending checks for folder
+const hasPendingFolderOut = computed(() => 
+  folderMovements.value.some(m => m.type === 'OUT' && m.approval_status === 'PENDING')
+);
+const hasPendingFolderIn = computed(() => 
+  folderMovements.value.some(m => m.type === 'IN' && m.approval_status === 'PENDING')
+);
+
+// Pending checks for checklist
+const hasPendingChecklistOut = computed(() => 
+  checklistMovements.value.some(m => m.type === 'OUT' && m.approval_status === 'PENDING')
+);
+const hasPendingChecklistIn = computed(() => 
+  checklistMovements.value.some(m => m.type === 'IN' && m.approval_status === 'PENDING')
+);
+
+// Pagination
 const paginatedChecklist = computed(() => {
   const start = (checklistPage.value - 1) * PAGE_SIZE;
   return checklist.value.slice(start, start + PAGE_SIZE);
 });
-const checklistTotalPages = computed(() => Math.max(1, Math.ceil(checklist.value.length / PAGE_SIZE)));
 
 const paginatedFolderMovements = computed(() => {
   const start = (folderPage.value - 1) * PAGE_SIZE;
   return folderMovements.value.slice(start, start + PAGE_SIZE);
 });
-const folderTotalPages = computed(() => Math.max(1, Math.ceil(folderMovements.value.length / PAGE_SIZE)));
 
 const paginatedChecklistMovements = computed(() => {
   const start = (checklistTrackerPage.value - 1) * PAGE_SIZE;
   return checklistMovements.value.slice(start, start + PAGE_SIZE);
 });
-const checklistTrackerTotalPages = computed(() => Math.max(1, Math.ceil(checklistMovements.value.length / PAGE_SIZE)));
 
 const paginatedActivityLogs = computed(() => {
   const start = (activityPage.value - 1) * PAGE_SIZE;
   return activityLogs.value.slice(start, start + PAGE_SIZE);
 });
-const activityTotalPages = computed(() => Math.max(1, Math.ceil(activityLogs.value.length / PAGE_SIZE)));
 
-// Reset pages when data changes
-watch(checklist, () => { checklistPage.value = 1; });
-watch(folderMovements, () => { folderPage.value = 1; });
-watch(checklistMovements, () => { checklistTrackerPage.value = 1; });
-watch(activityLogs, () => { activityPage.value = 1; });
-watch(activeTab, () => {
-  folderPage.value = 1;
-  checklistTrackerPage.value = 1;
-  activityPage.value = 1;
-});
+const checklistTotalPages = computed(() => 
+  Math.max(1, Math.ceil(checklist.value.length / PAGE_SIZE))
+);
+const folderTotalPages = computed(() => 
+  Math.max(1, Math.ceil(folderMovements.value.length / PAGE_SIZE))
+);
+const checklistTrackerTotalPages = computed(() => 
+  Math.max(1, Math.ceil(checklistMovements.value.length / PAGE_SIZE))
+);
+const activityTotalPages = computed(() => 
+  Math.max(1, Math.ceil(activityLogs.value.length / PAGE_SIZE))
+);
 
 const filteredUsers = computed(() => {
-  // Get the active search term based on which modal is open
-  const searchTerm = folderModal.show 
-    ? fromToSearch.value.toLowerCase().trim()
-    : checklistTrackerModal.show
-      ? ctFromToSearch.value.toLowerCase().trim()
-      : '';
+  const searchTerm = folderModal.show ? fromToSearch.value.toLowerCase() : ctFromToSearch.value.toLowerCase();
   
-  console.log('Calculating filteredUsers for modal:', {
-    folderModalOpen: folderModal.show,
-    checklistModalOpen: checklistTrackerModal.show,
-    searchTerm,
-    allUsers: props.allUsers,
-    availableUsers: availableUsers.value
-  });
-  
+  // Build users list from props
   let users = [];
-  
-  // 1. Try locally fetched users first (from API)
-  if (availableUsers.value && availableUsers.value.length > 0) {
-    users = availableUsers.value;
-    console.log('Using availableUsers:', users);
-  }
-  // 2. Try props.allUsers
-  else if (props.allUsers && props.allUsers.length > 0) {
+  if (props.allUsers?.length) {
     users = props.allUsers;
-    console.log('Using allUsers:', users);
-  }
-  // 3. Try props.clerks
-  else if (props.clerks && props.clerks.length > 0) {
+  } else if (props.clerks?.length) {
     users = props.clerks.map(c => ({ 
       id: c.id, 
       full_name: c.full_name, 
       role: 'clerk' 
     }));
-    console.log('Using clerks:', users);
   }
-  // 4. Try to get from case data
-  else if (viewCase.value) {
-    console.log('Building users from case data:', viewCase.value);
-    
-    if (viewCase.value.clerk && viewCase.value.clerk !== '—') {
+  
+  // Add lawyer from case if available
+  if (viewCase.value?.lawyer && viewCase.value.lawyer !== '—') {
+    const exists = users.some(u => u.full_name === viewCase.value.lawyer);
+    if (!exists) {
       users.push({
-        id: viewCase.value.assigned_clerk_id || 'clerk-' + Date.now(),
-        full_name: viewCase.value.clerk,
-        role: 'clerk'
-      });
-    }
-    
-    if (viewCase.value.lawyer && viewCase.value.lawyer !== '—') {
-      users.push({
-        id: viewCase.value.assigned_lawyer_id || 'lawyer-' + Date.now(),
+        id: viewCase.value.assigned_lawyer_id || 'lawyer',
         full_name: viewCase.value.lawyer,
         role: 'lawyer'
       });
     }
   }
   
-  // 5. Last resort - sample data
-  if (users.length === 0) {
-    console.warn('No users available, using sample data');
-    users = [
-      { id: 1, full_name: 'John Doe', role: 'clerk' },
-      { id: 2, full_name: 'Jane Smith', role: 'lawyer' },
-      { id: 3, full_name: 'Bob Johnson', role: 'clerk' },
-      { id: 4, full_name: 'Alice Brown', role: 'lawyer' }
-    ];
-  }
-  
-  if (searchTerm && users.length > 0) {
-    const filtered = users.filter(user => 
-      user.full_name?.toLowerCase().includes(searchTerm)
+  // Filter by search term
+  if (searchTerm && users.length) {
+    return users.filter(u => 
+      u.full_name?.toLowerCase().includes(searchTerm)
     );
-    console.log('Filtered users:', filtered);
-    return filtered;
   }
-  
   return users;
 });
 
-// Add a method to refresh users from the parent
-const refreshUsers = async () => {
-  try {
-    // Emit an event to parent to refresh lookups
-    emit('refresh');
-    
-    // Also try to get users from the case data if available
-    if (viewCase.value) {
-      const users = [];
-      
-      // Add clerk from case
-      if (viewCase.value.clerk && viewCase.value.clerk !== '—') {
-        users.push({
-          id: 'clerk-' + viewCase.value.clerk_id || Date.now(),
-          full_name: viewCase.value.clerk,
-          role: 'clerk'
-        });
-      }
-      
-      // Add lawyer from case
-      if (viewCase.value.lawyer && viewCase.value.lawyer !== '—') {
-        users.push({
-          id: 'lawyer-' + viewCase.value.lawyer_id || Date.now(),
-          full_name: viewCase.value.lawyer,
-          role: 'lawyer'
-        });
-      }
-      if (users.length > 0 && (!props.allUsers || props.allUsers.length === 0)) {
-      }
-    }
-  } catch (error) {
-    console.error('Failed to refresh users:', error);
-  }
-};
+// ========== WATCHERS ==========
+watch(checklist, () => { checklistPage.value = 1; });
+watch(folderMovements, () => { folderPage.value = 1; });
+watch(checklistMovements, () => { checklistTrackerPage.value = 1; });
+watch(activityLogs, () => { activityPage.value = 1; });
 
-// Call refreshUsers when the modal opens
-watch(() => folderModal.show, (newVal) => {
-  if (newVal) {
-    refreshUsers();
-  }
+watch(activeTab, () => {
+  folderPage.value = 1;
+  checklistTrackerPage.value = 1;
+  activityPage.value = 1;
 });
 
-watch(() => checklistTrackerModal.show, (newVal) => {
-  if (newVal) {
-    refreshUsers();
-  }
-});
-// Watch for caseData changes
-watch(() => props.caseData, (newVal) => {
+watch(() => props.caseData, async (newVal) => {
   if (newVal) {
     viewCase.value = newVal;
     checklist.value = newVal.checklists || [];
@@ -1086,9 +1013,12 @@ watch(() => props.caseData, (newVal) => {
   }
 }, { immediate: true });
 
-// Watch for modal close
 watch(() => props.show, (newVal) => {
-  if (!newVal) {
+  if (newVal && viewCase.value) {
+    refreshMovements();
+    startPolling();
+  } else {
+    stopPolling();
     taskModal.show = false;
     folderModal.show = false;
     checklistTrackerModal.show = false;
@@ -1096,7 +1026,7 @@ watch(() => props.show, (newVal) => {
   }
 });
 
-// Click outside handler
+// ========== CLICK OUTSIDE ==========
 const handleClickOutside = (e) => {
   if (fromToDropdownRef.value && !fromToDropdownRef.value.contains(e.target)) {
     fromToDropdownOpen.value = false;
@@ -1106,45 +1036,46 @@ const handleClickOutside = (e) => {
   }
 };
 
-onMounted(() => document.addEventListener('mousedown', handleClickOutside));
-onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutside));
+onMounted(() => {
+  document.addEventListener('mousedown', handleClickOutside);
+});
 
-// Helpers
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', handleClickOutside);
+  stopPolling();
+});
+
+// ========== HELPERS ==========
 const getInitials = (name) => {
   if (!name || name === '—') return '?';
   const parts = name.split(' ').filter(Boolean);
   if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0][0].toUpperCase();
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
 const formatDate = (date) => {
   if (!date) return '—';
   return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
+    year: 'numeric'
   });
 };
 
 const formatDateTime = (date) => {
   if (!date) return '—';
   return new Date(date).toLocaleString('en-US', {
-    year: 'numeric',
     month: 'short',
     day: 'numeric',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
   });
 };
 
 const formatStatus = (status) => {
-  const map = {
-    active: 'Active',
-    closed: 'Closed',
-    archived: 'Archived',
-    pending: 'Pending'
-  };
+  const map = { active: 'Active', closed: 'Closed', archived: 'Archived' };
   return map[status] || status;
 };
 
@@ -1152,8 +1083,7 @@ const statusBadgeClass = (status) => {
   const classes = {
     active: 'bg-emerald-100 text-emerald-700',
     closed: 'bg-gray-100 text-gray-700',
-    archived: 'bg-amber-100 text-amber-700',
-    pending: 'bg-yellow-100 text-yellow-700'
+    archived: 'bg-amber-100 text-amber-700'
   };
   return classes[status] || 'bg-gray-100 text-gray-700';
 };
@@ -1162,8 +1092,7 @@ const statusDotClass = (status) => {
   const classes = {
     active: 'bg-emerald-500',
     closed: 'bg-gray-500',
-    archived: 'bg-amber-500',
-    pending: 'bg-yellow-500'
+    archived: 'bg-amber-500'
   };
   return classes[status] || 'bg-gray-400';
 };
@@ -1178,11 +1107,7 @@ const isOverdue = (date) => {
 };
 
 const taskStatusLabel = (status) => {
-  const map = {
-    todo: 'To-do',
-    'in-progress': 'In Progress',
-    done: 'Done'
-  };
+  const map = { todo: 'To-do', 'in-progress': 'In Progress', done: 'Done' };
   return map[status] || status;
 };
 
@@ -1213,50 +1138,7 @@ const approvalStatusClass = (status) => {
   return classes[status] || 'border-gray-300 text-gray-500';
 };
 
-// Stage change
-const onStageChange = async (stageId) => {
-  if (!viewCase.value) return;
-  
-  const stage = props.stages.find(s => s.id === stageId);
-  if (!stage) return;
-
-  stageUpdating.value = true;
-  
-  try {
-    await caseService.updateStage(viewCase.value.id, { stage_id: stageId });
-    
-    // Optimistic update
-    viewCase.value = {
-      ...viewCase.value,
-      current_stage_id: stageId,
-      stage: stage.name
-    };
-    
-    Swal.fire({
-      icon: 'success',
-      title: 'Stage Updated',
-      text: `Case stage changed to ${stage.name}`,
-      timer: 1500,
-      showConfirmButton: false,
-      position: 'top-end',
-      toast: true
-    });
-    
-    emit('refresh');
-    
-  } catch (error) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: 'Failed to update stage',
-      confirmButtonColor: '#dc2626'
-    });
-  } finally {
-    stageUpdating.value = false;
-  }
-};
-
-// Task functions
+// ========== ACTIONS ==========
 const openTaskModal = (task, mode) => {
   taskModal.task = task ? { ...task } : null;
   taskModal.mode = mode;
@@ -1286,7 +1168,6 @@ const onTaskSave = async ({ mode, data }) => {
       position: 'top-end',
       toast: true
     });
-    
   } catch (error) {
     Swal.fire({
       icon: 'error',
@@ -1299,24 +1180,24 @@ const onTaskSave = async ({ mode, data }) => {
 
 const toggleDone = async (task) => {
   const newStatus = task.status === 'done' ? 'todo' : 'done';
+  const oldStatus = task.status;
+  
+  // Optimistic update
+  const index = checklist.value.findIndex(t => t.id === task.id);
+  if (index !== -1) {
+    checklist.value[index].status = newStatus;
+  }
   
   try {
-    // Optimistic update
-    const index = checklist.value.findIndex(t => t.id === task.id);
-    if (index !== -1) {
-      checklist.value[index] = { ...task, status: newStatus };
-    }
-    
     await caseService.updateChecklistTask(viewCase.value.id, task.id, {
       ...task,
       status: newStatus
     });
-    
   } catch (error) {
     // Revert on error
-    const response = await caseService.getChecklist(viewCase.value.id);
-    checklist.value = response.data || [];
-    
+    if (index !== -1) {
+      checklist.value[index].status = oldStatus;
+    }
     Swal.fire({
       icon: 'error',
       title: 'Error',
@@ -1374,13 +1255,17 @@ const openFolderModal = (type) => {
     return;
   }
   
+  // Format date as YYYY-MM-DD for display
+  const today = new Date();
+  const formattedDate = today.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).replace(/\//g, ' / ');
+  
   folderModal.type = type;
   folderModal.form = {
-    date: new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit' 
-    }).replace(/\//g, ' / '), // Format as "03 / 12 / 2026"
+    date: formattedDate,
     from_to: '',
     purpose: '',
     handled_by: viewCase.value?.clerk || ''
@@ -1403,7 +1288,6 @@ const openChecklistTrackerModal = (type) => {
   }
   
   if (type === 'OUT') {
-    // Check if there are any IN items to release
     const inItems = checklist.value.filter(task => !task.is_out);
     if (inItems.length === 0) {
       Swal.fire({
@@ -1415,7 +1299,6 @@ const openChecklistTrackerModal = (type) => {
       return;
     }
   } else {
-    // Check if there are any OUT items to receive
     const outItems = checklist.value.filter(task => task.is_out);
     if (outItems.length === 0) {
       Swal.fire({
@@ -1428,13 +1311,17 @@ const openChecklistTrackerModal = (type) => {
     }
   }
   
+  // Format date as YYYY-MM-DD for display
+  const today = new Date();
+  const formattedDate = today.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).replace(/\//g, ' / ');
+  
   checklistTrackerModal.type = type;
   checklistTrackerModal.form = {
-    date: new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit' 
-    }).replace(/\//g, ' / '), // Format as "03 / 12 / 2026"
+    date: formattedDate,
     checklist_id: '',
     from_to: '',
     purpose: '',
@@ -1458,13 +1345,12 @@ const submitFolderMovement = async () => {
     
     folderModal.show = false;
     
-      const [folderRes, caseRes] = await Promise.all([
-        caseService.getFolderTracker(viewCase.value.id),
-        caseService.getCase(viewCase.value.id)
-        ]);
-
-        folderMovements.value = folderRes.data || [];
-        viewCase.value = caseRes.data;
+    // Refresh data
+    await refreshMovements();
+    
+    // Also refresh case data to update is_out status
+    const caseRes = await caseService.getCase(viewCase.value.id);
+    viewCase.value = caseRes.data;
     
     Swal.fire({
       icon: 'success',
@@ -1503,13 +1389,11 @@ const submitChecklistMovement = async () => {
     
     checklistTrackerModal.show = false;
     
-    // Refresh checklist movements and checklist
-    const [trackerRes, checklistRes] = await Promise.all([
-      caseService.getChecklistTracker(viewCase.value.id),
-      caseService.getChecklist(viewCase.value.id)
-    ]);
+    // Refresh data
+    await refreshMovements();
     
-    checklistMovements.value = trackerRes.data || [];
+    // Also refresh checklist to update is_out status
+    const checklistRes = await caseService.getChecklist(viewCase.value.id);
     checklist.value = checklistRes.data || [];
     
     Swal.fire({

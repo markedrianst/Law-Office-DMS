@@ -304,6 +304,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { debounce } from 'lodash'
 import auditLogService from '@/services/auditLogService'
+import cacheService from '@/services/cacheService'
 import { useAuth } from '@/composables/useAuth'
 import * as XLSX from 'xlsx'
 import Swal from 'sweetalert2'
@@ -331,10 +332,12 @@ const pagination = ref({
   to: 0
 })
 const isLoading = ref(false)
+const isFromCache = ref(false)
 const expanded = ref([])
 const timeFilter = ref('')
 const currentPage = ref(1)
 const perPage = ref(15)
+const isActive = ref(true)
 
 const filters = reactive({
   search: '',
@@ -347,9 +350,6 @@ const filters = reactive({
 // Export
 const showExportMenu = ref(false)
 const isExporting = ref(false)
-
-// Polling timer
-let isActive = ref(true)
 
 // ==================== COMPUTED ====================
 const groupedLogs = computed(() => {
@@ -368,6 +368,7 @@ const displayedPages = computed(() => {
   const max = 5
   const total = pagination.value.last_page || 1
   const current = pagination.value.current_page || 1
+  
   if (total <= max) {
     for (let i = 1; i <= total; i++) pages.push(i)
   } else {
@@ -389,11 +390,45 @@ const timeFilters = [
   { label: 'Month', value: 'month' }
 ]
 
-// ==================== DATA FETCHING ====================
-const loadLogs = async (showRefreshing = false) => {
-  if (!isActive.value) return
+// ==================== LOAD FROM CACHE FIRST ====================
+const loadFromCache = () => {
+  const params = {
+    search: filters.search || undefined,
+    type: filters.type || undefined,
+    status: filters.status || undefined,
+    date_from: filters.date_from || undefined,
+    date_to: filters.date_to || undefined,
+    page: currentPage.value,
+    per_page: perPage.value
+  }
   
-  isLoading.value = true
+  // Get cached logs
+  const cachedLogs = cacheService.getAuditLogs(params)
+  if (cachedLogs) {
+    console.log('📦 Loading audit logs from cache')
+    logs.value = cachedLogs.data || []
+    pagination.value = cachedLogs.meta || {
+      current_page: currentPage.value,
+      last_page: 1,
+      per_page: perPage.value,
+      total: logs.value.length,
+      from: 1,
+      to: logs.value.length
+    }
+    isFromCache.value = true
+  }
+  
+  // Get cached stats
+  const cachedStats = cacheService.getAuditStats()
+  if (cachedStats) {
+    stats.value = cachedStats.data || {}
+  }
+}
+
+// ==================== FETCH FRESH DATA ====================
+const fetchFreshData = async (showLoading = true) => {
+  if (showLoading) isLoading.value = true
+  isFromCache.value = false
 
   try {
     const params = {
@@ -406,7 +441,7 @@ const loadLogs = async (showRefreshing = false) => {
       per_page: perPage.value
     }
 
-    const response = await auditLogService.getCombinedLogs(params)
+    const response = await auditLogService.getCombinedLogs(params, true)
     
     logs.value = response.data || []
     pagination.value = response.meta || {
@@ -419,53 +454,37 @@ const loadLogs = async (showRefreshing = false) => {
     }
 
     // Load stats in background
-    loadStats()
+    loadStats(true)
 
   } catch (error) {
     console.error('Failed to load logs:', error)
-    logs.value = []
     Swal.fire({
       icon: 'error',
       title: 'Error',
       text: error.message || 'Failed to load audit logs',
-      confirmButtonColor: '#dc2626'
+      confirmButtonColor: '#dc2626',
+      timer: 2000,
+      showConfirmButton: false
     })
   } finally {
-    isLoading.value = false
+    if (showLoading) isLoading.value = false
   }
 }
 
-const loadStats = async () => {
+// ==================== LOAD STATS ====================
+const loadStats = async (forceRefresh = false) => {
   try {
-    const response = await auditLogService.getStats()
+    const response = await auditLogService.getStats(forceRefresh)
     stats.value = response.data || {}
   } catch (error) {
     console.error('Failed to load stats:', error)
   }
 }
 
-// ==================== LIFECYCLE ====================
-onMounted(() => {
-  isActive.value = true
-  loadLogs(true)
-  loadStats()
-})
-
-onUnmounted(() => {
-  isActive.value = false
-})
-
-// Watch for page focus
-watch(() => document.visibilityState, () => {
-  if (document.visibilityState === 'visible' && isActive.value) {
-    loadLogs(true)
-  }
-})
-
 // ==================== FILTER METHODS ====================
 const applyFilters = () => {
   currentPage.value = 1
-  loadLogs(true)
+  fetchFreshData()
 }
 
 const debouncedApply = debounce(applyFilters, 450)
@@ -487,14 +506,12 @@ const filterByTime = (period) => {
   if (period === 'today') {
     filters.date_from = formatDateForFilter(now)
     filters.date_to = formatDateForFilter(now)
-  }
-  if (period === 'week') {
+  } else if (period === 'week') {
     const weekAgo = new Date(now)
     weekAgo.setDate(weekAgo.getDate() - 7)
     filters.date_from = formatDateForFilter(weekAgo)
     filters.date_to = formatDateForFilter(now)
-  }
-  if (period === 'month') {
+  } else if (period === 'month') {
     const monthAgo = new Date(now)
     monthAgo.setMonth(monthAgo.getMonth() - 1)
     filters.date_from = formatDateForFilter(monthAgo)
@@ -510,14 +527,14 @@ const formatDateForFilter = (date) => {
 const changePage = (page) => {
   if (page >= 1 && page <= pagination.value.last_page) {
     currentPage.value = page
-    loadLogs(true)
+    fetchFreshData()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
 const changePerPage = () => {
   currentPage.value = 1
-  loadLogs(true)
+  fetchFreshData()
 }
 
 // ==================== UI HELPERS ====================
@@ -580,11 +597,7 @@ const getIconBg = (log) => {
 
 const getTitle = (log) => {
   if (log.type === 'case') {
-    // Use the message if available
-    if (log.details?.message) {
-      return log.details.message
-    }
-    return `${log.actor || 'System'} ${log.action || ''}`
+    return log.details?.message || `${log.actor || 'System'} ${log.action || ''}`
   }
 
   const action = log.action
@@ -678,7 +691,6 @@ const formatUserAgent = (ua) => {
   return ua.slice(0, 20) + '…'
 }
 
-// Simple formatter for system logs
 const formatSystemDetails = (details) => {
   if (!details) return ''
   if (typeof details === 'string') return details
@@ -686,7 +698,6 @@ const formatSystemDetails = (details) => {
   return JSON.stringify(details)
 }
 
-// Simple formatter for case logs (fallback)
 const formatCaseDetails = (details) => {
   if (!details) return ''
   if (details.message) return details.message
@@ -728,15 +739,23 @@ const exportLogs = async (scope) => {
         per_page: 9999
       }
       
-      const response = await auditLogService.getCombinedLogs(params)
+      const response = await auditLogService.getCombinedLogs(params, true)
       rows = response.data || []
     } else {
       rows = logs.value
     }
     
-    if (!rows.length) return
+    if (!rows.length) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Data',
+        text: 'No logs to export',
+        timer: 1500,
+        showConfirmButton: false
+      })
+      return
+    }
 
-    // Transform for Excel
     const excelRows = rows.map(log => {
       if (log.type === 'case') {
         return {
@@ -779,6 +798,30 @@ const exportLogs = async (scope) => {
     isExporting.value = false
   }
 }
+
+// ==================== LIFECYCLE ====================
+onMounted(() => {
+  isActive.value = true
+  
+  // 1. Load from cache INSTANTLY
+  loadFromCache()
+  
+  // 2. Fetch fresh data in background
+  setTimeout(() => {
+    fetchFreshData(false) // Don't show loading for background refresh
+  }, 100)
+})
+
+onUnmounted(() => {
+  isActive.value = false
+})
+
+// Watch for page focus
+watch(() => document.visibilityState, () => {
+  if (document.visibilityState === 'visible' && isActive.value) {
+    fetchFreshData(false)
+  }
+})
 
 // ==================== DIRECTIVE ====================
 const vClickOutside = {

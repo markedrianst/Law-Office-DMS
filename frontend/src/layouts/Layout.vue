@@ -1,147 +1,94 @@
 <template>
-  <div class="app-wrapper">
-    <!-- Sidebar -->
-    <Sidebar 
-      :class="{ 'sidebar-open': sidebarOpen }" 
-      @navigate="closeSidebarOnMobile"
-    />
+  <div class="flex h-screen overflow-hidden bg-[#f5f7fa]">
 
-    <!-- Main Content Area -->
-    <div class="main-content">
-      <!-- Header -->
-      <Header 
-        :sidebar-open="sidebarOpen" 
+    <!-- ══ SIDEBAR ══════════════════════════════════════════════════════════
+         Desktop: static in the flex row (takes up space)
+         Mobile:  fixed overlay, slides in/out
+    ════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Desktop sidebar (md and above) -->
+    <div class="hidden md:flex md:flex-shrink-0">
+      <Sidebar @navigate="closeSidebarOnMobile" />
+    </div>
+
+    <!-- Mobile sidebar (below md) -->
+    <Transition name="slide">
+      <div
+        v-if="sidebarOpen"
+        class="fixed inset-y-0 left-0 z-50 flex md:hidden"
+      >
+        <Sidebar @navigate="closeSidebarOnMobile" />
+      </div>
+    </Transition>
+
+    <!-- Mobile overlay backdrop -->
+    <Transition name="fade">
+      <div
+        v-if="sidebarOpen && isMobile"
+        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+        @click="sidebarOpen = false"
+      />
+    </Transition>
+
+    <!-- ══ MAIN COLUMN ═══════════════════════════════════════════════════════
+         Fills remaining width, header is fixed-height, only main scrolls
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
+
+      <!-- Header — never scrolls -->
+      <Header
+        :sidebar-open="sidebarOpen"
         @toggle-sidebar="toggleSidebar"
       />
 
-      <!-- Page Content - This changes based on route -->
-      <main class="content">
+      <!-- Page content — ONLY this scrolls -->
+      <main class="flex-1 min-h-0 overflow-y-auto bg-[#f5f7fa] p-6 sm:p-4 max-[480px]:p-3">
         <router-view />
       </main>
 
-      <!-- Footer -->
+      <!-- Footer — never scrolls -->
       <Footer />
-    </div>
 
-    <!-- Mobile Overlay -->
-    <div 
-      v-if="sidebarOpen && isMobile" 
-      class="mobile-overlay"
-      @click="sidebarOpen = false"
-    ></div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import Sidebar from '@/components/Sidebar.vue'
-import Header from '@/components/Header.vue'
-import Footer from '@/components/Footer.vue'
+import Header  from '@/components/Header.vue'
+import Footer  from '@/components/Footer.vue'
 
-const sidebarOpen = ref(false)
-const isMobile = ref(false)
+const sidebarOpen  = ref(false)
+const isMobile     = ref(false)
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 768
-  if (isMobile.value) {
-    sidebarOpen.value = false
-  }
+  if (!isMobile.value) sidebarOpen.value = false // auto-close on desktop resize
 }
 
-const toggleSidebar = () => {
-  sidebarOpen.value = !sidebarOpen.value
-}
-
-const closeSidebarOnMobile = () => {
-  if (isMobile.value) {
-    sidebarOpen.value = false
-  }
-}
+const toggleSidebar        = () => { sidebarOpen.value = !sidebarOpen.value }
+const closeSidebarOnMobile = () => { if (isMobile.value) sidebarOpen.value = false }
 
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
 })
-
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
 })
 </script>
 
 <style scoped>
-.app-wrapper {
-  display: flex;
-  min-height: 100vh;
-  background: #f5f7fa;
-  position: relative;
-}
+/* Sidebar slides in from the left on mobile */
+.slide-enter-active,
+.slide-leave-active { transition: transform 0.3s ease; }
+.slide-enter-from,
+.slide-leave-to     { transform: translateX(-100%); }
 
-.sidebar {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  z-index: 50;
-  transition: transform 0.3s ease;
-}
-
-@media (min-width: 768px) {
-  .sidebar {
-    position: relative;
-  }
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  width: 100%;
-}
-
-.content {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-  background: #f5f7fa;
-  min-height: 0;
-}
-
-@media (max-width: 768px) {
-  .content {
-    padding: 16px;
-  }
-}
-
-@media (max-width: 480px) {
-  .content {
-    padding: 12px;
-  }
-}
-
-@media (max-width: 767px) {
-  .sidebar {
-    transform: translateX(-100%);
-    position: fixed;
-    z-index: 100;
-  }
-
-  .sidebar.sidebar-open {
-    transform: translateX(0);
-  }
-}
-
-.mobile-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 90;
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+/* Overlay fades */
+.fade-enter-active,
+.fade-leave-active  { transition: opacity 0.25s ease; }
+.fade-enter-from,
+.fade-leave-to      { opacity: 0; }
 </style>

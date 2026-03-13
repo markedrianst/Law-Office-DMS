@@ -10,11 +10,11 @@ use App\Http\Controllers\Admin\MasterData\DocumentController;
 use App\Http\Controllers\Admin\CaseController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\CaseChecklistController;
-use App\Http\Controllers\Admin\CaseStageController;
 use App\Http\Controllers\Admin\FolderTrackerController;
 use App\Http\Controllers\Admin\ChecklistTrackerController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ApprovalsController; 
+use App\Http\Controllers\Api\AccountController;
 
 // ========== PUBLIC ROUTES ==========
 Route::get('/sanctum/csrf-cookie', function () {
@@ -102,9 +102,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/cases/{id}/archive', [CaseController::class, 'archive']);
         Route::get('/cases/{id}/activity-logs', [CaseController::class, 'getActivityLogs']);
         
-        // Case Stage
-        Route::get('/cases/{caseId}/stages/history', [CaseStageController::class, 'history']);
-        Route::put('/cases/{caseId}/stage', [CaseStageController::class, 'updateCaseStage']);
+        // // Case Stage
+        // Route::get('/cases/{caseId}/stages/history', [CaseStageController::class, 'history']);
+        // Route::put('/cases/{caseId}/stage', [CaseStageController::class, 'updateCaseStage']);
         
         // Case Checklist
         Route::get('/cases/{caseId}/checklist', [CaseChecklistController::class, 'index']);
@@ -142,5 +142,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/approvals/case/{caseId}', [ApprovalsController::class, 'caseHistory']);
             
     });
+    
+   Route::prefix('account')->group(function () {
+        Route::get('/profile', [App\Http\Controllers\Api\AccountController::class, 'profile']);
+        Route::put('/profile', [App\Http\Controllers\Api\AccountController::class, 'updateProfile']);
+        Route::post('/change-password', [App\Http\Controllers\Api\AccountController::class, 'changePassword']);
+        Route::post('/logout-all', [App\Http\Controllers\Api\AccountController::class, 'logoutAllDevices']);
+        Route::get('/sessions', [App\Http\Controllers\Api\AccountController::class, 'activeSessions']);
+    });
 
+    // routes/api.php - Inside your auth:sanctum group
+
+    Route::prefix('notifications')->group(function () {
+        Route::get('/sync', [App\Http\Controllers\Api\NotificationController::class, 'sync']);
+        Route::get('/unread-count', [App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+        Route::post('/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+        Route::post('/mark-all-read', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+    });
 }); 

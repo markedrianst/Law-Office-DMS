@@ -30,92 +30,14 @@
       </div>
     </div>
 
-    <!-- Filters Bar -->
+    <!-- Filters Bar (same as before) -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4">
-      <!-- Search -->
-      <div class="relative mb-3">
-        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-        </div>
-        <input 
-          v-model="filters.search"
-          @input="applyFilters"
-          type="text"
-          placeholder="Search by case code, task, clerk name, purpose..."
-          class="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-        />
-      </div>
-
-      <!-- Filter Dropdowns -->
-      <div class="flex flex-wrap gap-2.5">
-        <select 
-          v-model="filters.status" 
-          @change="applyFilters"
-          class="flex-1 min-w-[120px] px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 bg-white"
-        >
-          <option value="ALL">All Status</option>
-          <option value="PENDING">⏳ Pending</option>
-          <option value="APPROVED">✓ Approved</option>
-          <option value="REJECTED">✗ Rejected</option>
-        </select>
-
-        <select 
-          v-model="filters.type" 
-          @change="applyFilters"
-          class="flex-1 min-w-[100px] px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 bg-white"
-        >
-          <option value="all">All Types</option>
-          <option value="checklist">📋 Checklist</option>
-          <option value="folder">📁 Folder</option>
-        </select>
-
-        <select 
-          v-model="filters.direction" 
-          @change="applyFilters"
-          class="flex-1 min-w-[100px] px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 bg-white"
-        >
-          <option value="ALL">In & Out</option>
-          <option value="OUT">↗ OUT</option>
-          <option value="IN">↙ IN</option>
-        </select>
-
-        <button 
-          v-if="hasActiveFilters" 
-          @click="clearFilters"
-          class="px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-        >
-          Clear Filters
-        </button>
-
-        <button 
-          @click="loadApprovals"
-          class="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
-      </div>
-    </div>
-
-    <!-- Loading State -->
-    <div v-if="loading" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
-      <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin mb-4"></div>
-      <p class="text-sm text-slate-500">Loading approvals...</p>
+      <!-- ... existing filter code ... -->
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="!approvals.length" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
-      <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </div>
-      <p class="text-base font-medium text-slate-700 mb-1">No approvals found</p>
-      <p class="text-sm text-slate-500">Try adjusting your filters</p>
+    <div v-if="!approvals.length" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
+      <!-- ... existing empty state ... -->
     </div>
 
     <!-- Approvals Table -->
@@ -213,6 +135,7 @@
 
               <!-- Actions -->
               <td class="px-4 py-3">
+                <!-- PENDING: Show Approve/Reject buttons -->
                 <div v-if="item.approval_status === 'PENDING'" class="flex items-center gap-2">
                   <button 
                     @click="openApproveModal(item)"
@@ -233,9 +156,22 @@
                     Reject
                   </button>
                 </div>
-                <span v-else class="text-xs text-slate-400 italic">
-                  {{ item.approved_by ? `by ${item.approver?.full_name || 'Unknown'}` : '' }}
-                </span>
+
+                <!-- APPROVED/REJECTED: Show View Details button -->
+                <div v-else class="flex items-center gap-2">
+                  <button 
+                    @click="openViewModal(item)"
+                    class="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors flex items-center gap-1"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    View
+                  </button>
+                  <span v-if="item.approved_by" class="text-xs text-slate-400 italic">
+                    by {{ item.approver?.full_name || 'Unknown' }}
+                  </span>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -256,93 +192,190 @@
 
     <!-- Approval/Rejection Modal -->
     <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeModal">
-      <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-      <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <div class="flex items-start gap-4 mb-4">
+      <!-- ... existing modal code ... -->
+    </div>
+
+<!-- ========== VIEW DETAILS MODAL - HORIZONTAL LAYOUT ========== -->
+<Transition name="modal">
+  <div v-if="viewModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeViewModal">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+    
+    <!-- Modal Container - Wider, shorter -->
+    <div class="relative bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden">
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+        <div class="flex items-center gap-3">
           <div 
-            class="w-12 h-12 rounded-full flex items-center justify-center"
-            :class="modal.action === 'APPROVED' ? 'bg-emerald-100' : 'bg-red-100'"
+            class="w-10 h-10 rounded-full flex items-center justify-center"
+            :class="viewModal.item?.approval_status === 'APPROVED' ? 'bg-emerald-100' : 'bg-red-100'"
           >
             <svg 
-              class="w-6 h-6" 
-              :class="modal.action === 'APPROVED' ? 'text-emerald-600' : 'text-red-600'"
+              class="w-5 h-5" 
+              :class="viewModal.item?.approval_status === 'APPROVED' ? 'text-emerald-600' : 'text-red-600'"
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
             >
-              <path v-if="modal.action === 'APPROVED'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+              <path v-if="viewModal.item?.approval_status === 'APPROVED'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
               <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </div>
-          <div class="flex-1">
-            <h3 class="text-lg font-semibold text-slate-900 mb-1">
-              {{ modal.action === 'APPROVED' ? 'Approve Movement' : 'Reject Movement' }}
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">
+              {{ viewModal.item?.source === 'checklist' ? 'Checklist Movement' : 'Folder Movement' }}
             </h3>
-            <p class="text-sm text-slate-600">
-              {{ modal.action === 'APPROVED' 
-                ? 'This will mark the movement as approved and update the status.'
-                : 'Please provide a reason for rejection.' 
-              }}
+            <p class="text-xs text-slate-500">
+              {{ viewModal.item?.approval_status }} · {{ formatDateTime(viewModal.item?.approved_at) }}
             </p>
           </div>
         </div>
+        <button @click="closeViewModal" class="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
 
-        <!-- Movement Details -->
-        <div class="bg-slate-50 rounded-lg p-3 mb-4 text-sm">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="font-medium text-slate-700">Case:</span>
-            <span class="text-blue-700">{{ modal.item?.case_code || `Case #${modal.item?.case_id}` }}</span>
+      <!-- Body - Horizontal Grid Layout -->
+      <div class="p-6">
+        <!-- Two-column grid -->
+        <div class="grid grid-cols-2 gap-6">
+          
+          <!-- Left Column -->
+          <div class="space-y-4">
+            <!-- Case Info Card -->
+            <div class="bg-slate-50 rounded-lg p-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Case Information</h4>
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Case Code</span>
+                  <span class="text-sm font-semibold text-blue-700">{{ viewModal.item?.case_code || `Case #${viewModal.item?.case_id}` }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Type</span>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 text-xs font-medium rounded" :class="viewModal.item?.source === 'checklist' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'">
+                      {{ viewModal.item?.source === 'checklist' ? 'Checklist' : 'Folder' }}
+                    </span>
+                    <span class="px-2 py-0.5 text-xs font-medium rounded" :class="viewModal.item?.type === 'OUT' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
+                      {{ viewModal.item?.type }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Task Details (for checklist) -->
+            <div v-if="viewModal.item?.source === 'checklist'" class="bg-slate-50 rounded-lg p-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Task Details</h4>
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Task</span>
+                  <span class="text-sm font-medium text-slate-700">{{ viewModal.item?.task_name || viewModal.item?.checklist?.task || '—' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Movement Details -->
+            <div class="bg-slate-50 rounded-lg p-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Movement Details</h4>
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">From / To</span>
+                  <span class="text-sm font-medium text-slate-700">{{ viewModal.item?.from_to || '—' }}</span>
+                </div>
+                <div v-if="viewModal.item?.purpose" class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Purpose</span>
+                  <span class="text-sm text-slate-600">{{ viewModal.item.purpose }}</span>
+                </div>
+                <div v-if="viewModal.item?.handled_by" class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Handled By</span>
+                  <span class="text-sm font-medium text-slate-700">{{ viewModal.item.handled_by }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Movement Date</span>
+                  <span class="text-sm text-slate-600">{{ formatDate(viewModal.item?.date) }}</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="flex items-center gap-4">
-            <span class="px-2 py-0.5 rounded text-xs font-medium" :class="modal.item?.source === 'checklist' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'">
-              {{ modal.item?.source === 'checklist' ? 'Checklist' : 'Folder' }}
-            </span>
-            <span class="px-2 py-0.5 rounded text-xs font-medium" :class="modal.item?.type === 'OUT' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
-              {{ modal.item?.type }}
-            </span>
+
+          <!-- Right Column -->
+          <div class="space-y-4">
+            <!-- People Involved -->
+            <div class="bg-slate-50 rounded-lg p-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">People Involved</h4>
+              <div class="space-y-3">
+                <!-- Recorded By -->
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700">
+                    {{ getInitials(viewModal.item?.recorder?.full_name) }}
+                  </div>
+                  <div>
+                    <p class="text-xs text-slate-500">Recorded By</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ viewModal.item?.recorder?.full_name || '—' }}</p>
+                  </div>
+                </div>
+
+                <!-- Approved By (if available) -->
+                <div v-if="viewModal.item?.approver" class="flex items-center gap-3 pt-2 border-t border-slate-200/50">
+                  <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">
+                    {{ getInitials(viewModal.item.approver.full_name) }}
+                  </div>
+                  <div>
+                    <p class="text-xs text-slate-500">Approved By</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ viewModal.item.approver.full_name }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Status & Dates -->
+            <div class="bg-slate-50 rounded-lg p-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Status & Dates</h4>
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Status</span>
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full" :class="statusClass(viewModal.item?.approval_status)">
+                    <span v-if="viewModal.item?.approval_status === 'PENDING'" class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    {{ viewModal.item?.approval_status }}
+                  </span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Created</span>
+                  <span class="text-sm text-slate-600">{{ formatDateTime(viewModal.item?.created_at) }}</span>
+                </div>
+                <div v-if="viewModal.item?.approved_at" class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">Approved At</span>
+                  <span class="text-sm text-slate-600">{{ formatDateTime(viewModal.item.approved_at) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div v-if="viewModal.item?.notes" class="bg-slate-50 rounded-lg p-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Notes</h4>
+              <div class="bg-white rounded-lg p-3 text-sm text-slate-700 border border-slate-200">
+                {{ viewModal.item.notes }}
+              </div>
+            </div>
           </div>
-        </div>
-
-        <!-- Notes Input (Required for Rejection) -->
-        <div class="mb-6">
-          <label class="block text-sm font-medium text-slate-700 mb-1">
-            Notes <span v-if="modal.action === 'REJECTED'" class="text-red-500">*</span>
-          </label>
-          <textarea
-            v-model="modal.notes"
-            rows="3"
-            :placeholder="modal.action === 'APPROVED' ? 'Optional approval notes...' : 'Required: Reason for rejection'"
-            class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            :class="{ 'border-red-300': modal.action === 'REJECTED' && !modal.notes }"
-          ></textarea>
-          <p v-if="modal.action === 'REJECTED' && !modal.notes" class="text-xs text-red-500 mt-1">
-            Rejection reason is required
-          </p>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex gap-3">
-          <button
-            @click="closeModal"
-            class="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            @click="submitDecision"
-            :disabled="modal.processing || (modal.action === 'REJECTED' && !modal.notes)"
-            class="flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            :class="modal.action === 'APPROVED' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'"
-          >
-            <svg v-if="modal.processing" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-            {{ modal.processing ? 'Processing...' : (modal.action === 'APPROVED' ? 'Approve' : 'Reject') }}
-          </button>
         </div>
       </div>
+
+      <!-- Footer -->
+      <div class="flex justify-end px-6 py-4 border-t border-slate-200 bg-slate-50">
+        <button
+          @click="closeViewModal"
+          class="px-5 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+        >
+          Close
+        </button>
+      </div>
     </div>
+  </div>
+</Transition>
 
     <!-- Toast Notification -->
     <div 
@@ -350,13 +383,7 @@
       class="fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm font-medium"
       :class="toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'"
     >
-      <div class="w-5 h-5 rounded-full flex items-center justify-center" :class="toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'">
-        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path v-if="toast.type === 'success'" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-          <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </div>
-      {{ toast.message }}
+      <!-- ... existing toast code ... -->
     </div>
   </div>
 </template>
@@ -364,10 +391,13 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import approvalService from '@/services/approvalService';
+import cacheService from '@/services/cacheService';
 
 // ========== STATE ==========
 const approvals = ref([]);
 const loading = ref(false);
+const isRefreshing = ref(false);
+const isFromCache = ref(false);
 const stats = ref({
   total: 0,
   pending: 0,
@@ -391,6 +421,12 @@ const modal = reactive({
   processing: false
 });
 
+// ========== NEW: VIEW MODAL STATE ==========
+const viewModal = reactive({
+  show: false,
+  item: null
+});
+
 const toast = reactive({
   show: false,
   message: '',
@@ -405,29 +441,73 @@ const hasActiveFilters = computed(() => {
          filters.search !== '';
 });
 
-// ========== METHODS ==========
-const loadApprovals = async () => {
-  loading.value = true;
+// ========== LOAD FROM CACHE FIRST ==========
+const loadFromCache = () => {
+  const params = {
+    status: filters.status,
+    type: filters.type,
+    direction: filters.direction,
+    search: filters.search || undefined
+  };
+  
+  const cached = cacheService.getApprovalsList(params);
+  if (cached) {
+    console.log('📦 Loading approvals from cache');
+    approvals.value = cached.data || [];
+    stats.value = cached.stats || { total: 0, pending: 0, approved: 0, rejected: 0 };
+    isFromCache.value = true;
+  }
+};
+
+// ========== FETCH FRESH APPROVALS ==========
+const fetchFreshApprovals = async (showLoading = true) => {
+  if (showLoading) loading.value = true;
+  isRefreshing.value = true;
+  
   try {
-    const response = await approvalService.getApprovals({
+    const params = {
       status: filters.status,
       type: filters.type,
       direction: filters.direction,
       search: filters.search || undefined
-    });
+    };
+    
+    const response = await approvalService.getApprovals(params);
     
     approvals.value = response.data || [];
     stats.value = response.stats || { total: 0, pending: 0, approved: 0, rejected: 0 };
     lastUpdated.value = new Date().toLocaleTimeString();
+    
+    // Save to cache
+    cacheService.setApprovalsList({ data: approvals.value, stats: stats.value }, params);
+    isFromCache.value = false;
+    
   } catch (error) {
     showToast(error.message || 'Failed to load approvals', 'error');
   } finally {
-    loading.value = false;
+    if (showLoading) loading.value = false;
+    isRefreshing.value = false;
   }
 };
 
+// ========== LOAD APPROVALS (with cache first) ==========
+const loadApprovals = async (forceRefresh = false) => {
+  if (forceRefresh) {
+    await fetchFreshApprovals(true);
+  } else {
+    // Try cache first
+    loadFromCache();
+    
+    // Fetch fresh in background
+    setTimeout(() => {
+      fetchFreshApprovals(false);
+    }, 100);
+  }
+};
+
+// ========== FILTER METHODS ==========
 const applyFilters = () => {
-  loadApprovals();
+  fetchFreshApprovals(true);
 };
 
 const clearFilters = () => {
@@ -435,9 +515,10 @@ const clearFilters = () => {
   filters.type = 'all';
   filters.direction = 'ALL';
   filters.search = '';
-  loadApprovals();
+  fetchFreshApprovals(true);
 };
 
+// ========== MODAL METHODS ==========
 const openApproveModal = (item) => {
   modal.show = true;
   modal.item = item;
@@ -462,6 +543,17 @@ const closeModal = () => {
   modal.processing = false;
 };
 
+// ========== NEW: VIEW MODAL METHODS ==========
+const openViewModal = (item) => {
+  viewModal.item = item;
+  viewModal.show = true;
+};
+
+const closeViewModal = () => {
+  viewModal.show = false;
+  viewModal.item = null;
+};
+
 const submitDecision = async () => {
   if (modal.action === 'REJECTED' && !modal.notes) {
     showToast('Please provide a reason for rejection', 'error');
@@ -484,9 +576,11 @@ const submitDecision = async () => {
     );
     
     closeModal();
-    loadApprovals(); // Refresh the list
     
-    // Also refresh pending count if you have a store/badge
+    // Invalidate cache and refresh
+    cacheService.invalidateApprovalsCache();
+    await fetchFreshApprovals(true);
+    
   } catch (error) {
     showToast(error.message || `Failed to ${modal.action === 'APPROVED' ? 'approve' : 'reject'} movement`, 'error');
   } finally {
@@ -494,6 +588,7 @@ const submitDecision = async () => {
   }
 };
 
+// ========== TOAST METHODS ==========
 const showToast = (message, type = 'success') => {
   toast.show = true;
   toast.message = message;
@@ -513,6 +608,19 @@ const formatDate = (date) => {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
+  });
+};
+
+const formatDateTime = (date) => {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return date;
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 };
 
@@ -537,7 +645,13 @@ const statusClass = (status) => {
 
 // ========== LIFECYCLE ==========
 onMounted(() => {
-  loadApprovals();
+  // 1. Load from cache INSTANTLY
+  loadFromCache();
+  
+  // 2. Fetch fresh data in background
+  setTimeout(() => {
+    fetchFreshApprovals(false);
+  }, 100);
 });
 </script>
 
@@ -549,5 +663,15 @@ onMounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: all 0.25s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
 }
 </style>
