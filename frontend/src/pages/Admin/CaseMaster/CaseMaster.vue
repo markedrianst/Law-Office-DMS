@@ -269,7 +269,6 @@ import { debounce } from 'lodash';
 import { useAuth } from '@/composables/useAuth';
 import { useMasterData } from '@/composables/useMasterData';
 import caseService from '@/services/caseService';
-import cacheService from '@/services/cacheService';
 import CaseFormModal from '@/components/Modals/Admin/CaseMasterModal/CaseFormModal.vue';
 import CaseViewModal from '@/components/Modals/Admin/CaseMasterModal/CaseViewModal.vue';
 import Swal from 'sweetalert2';
@@ -319,10 +318,8 @@ const currentPage = ref(1);
 
 // Loading states
 const isLoading = ref(false);
-const isRefreshing = ref(false);
 const isLoadingLookups = ref(false);
 const formLoading = ref(false);
-const isFromCache = ref(false);
 
 // Modals
 const showFormModal = ref(false);
@@ -378,70 +375,9 @@ const previewCode = computed(() => {
   return `${year}-${String(nextNum).padStart(4, '0')}`;
 });
 
-// ==================== LOAD FROM CACHE FIRST ====================
-const loadFromCache = () => {
-  // Try to get cached cases
-  const params = {
-    search: searchQuery.value || undefined,
-    case_status: statusFilter.value || undefined,
-    priority: priorityFilter.value || undefined,
-    stage_id: stageFilter.value || undefined,
-    sort_by: sortField.value,
-    sort_direction: sortDirection.value,
-    page: currentPage.value,
-    per_page: pagination.value.per_page
-  };
-  
-  const cachedCases = cacheService.getCasesList(params);
-  if (cachedCases) {
-    console.log('📦 Loading cases from cache');
-    cases.value = cachedCases.data || [];
-    pagination.value = cachedCases.meta || {
-      current_page: currentPage.value,
-      last_page: 1,
-      per_page: 15,
-      total: cases.value.length,
-      from: 1,
-      to: cases.value.length
-    };
-    isFromCache.value = true;
-  }
-  
-  // Try to get cached lookups
-  const cachedCategories = cacheService.getCategories();
-  const cachedStages = cacheService.getStages();
-  const cachedCourts = cacheService.getCourts();
-  const cachedUsers = cacheService.getUsers();
-  const cachedClients = cacheService.getClients();
-  
-  if (cachedCategories.length || cachedStages.length) {
-    console.log('📦 Loading lookups from cache');
-    
-    const lawyers = cachedUsers.filter(u => u.role === 'lawyer' || u.role?.name === 'lawyer');
-    const clerks = cachedUsers.filter(u => u.role === 'clerk' || u.role?.name === 'clerk');
-    
-    lookups.value = {
-      categories: cachedCategories,
-      stages: cachedStages,
-      courts: cachedCourts,
-      clients: cachedClients,
-      users: cachedUsers,
-      lawyers,
-      clerks
-    };
-    
-    // Create combined users array
-    lookups.value.users = [
-      ...lawyers.map(l => ({ id: l.id, full_name: l.full_name, role: 'lawyer' })),
-      ...clerks.map(c => ({ id: c.id, full_name: c.full_name, role: 'clerk' }))
-    ];
-  }
-};
-
-// ==================== FETCH FRESH CASES ====================
-const fetchFreshCases = async (showLoading = true) => {
+// ==================== FETCH CASES ====================
+const fetchCases = async (showLoading = true) => {
   if (showLoading) isLoading.value = true;
-  isRefreshing.value = true;
   
   try {
     const params = {
@@ -467,10 +403,6 @@ const fetchFreshCases = async (showLoading = true) => {
       to: cases.value.length
     };
     
-    // Save to cache
-    cacheService.setCasesList({ data: cases.value, meta: pagination.value }, params);
-    isFromCache.value = false;
-    
   } catch (error) {
     console.error('Failed to load cases:', error);
     Swal.fire({
@@ -483,23 +415,16 @@ const fetchFreshCases = async (showLoading = true) => {
     });
   } finally {
     if (showLoading) isLoading.value = false;
-    isRefreshing.value = false;
   }
 };
 
-// ==================== FETCH FRESH LOOKUPS ====================
-const fetchFreshLookups = async () => {
+// ==================== FETCH LOOKUPS ====================
+const fetchLookups = async () => {
   isLoadingLookups.value = true;
   
   try {
     const response = await caseService.getLookups();
     const data = response.data || {};
-    
-    // Cache all master data
-    if (data.categories) cacheService.setCategories(data.categories);
-    if (data.stages) cacheService.setStages(data.stages);
-    if (data.courts) cacheService.setCourts(data.courts);
-    if (data.users) cacheService.setUsers(data.users);
     
     lookups.value = data;
     
@@ -527,42 +452,15 @@ const fetchFreshLookups = async () => {
   }
 };
 
-// ==================== LOAD CASES (with cache first) ====================
-const loadCases = async (forceRefresh = false) => {
-  if (forceRefresh) {
-    await fetchFreshCases(true);
-  } else {
-    // Try cache first
-    loadFromCache();
-    
-    // Fetch fresh in background
-    setTimeout(() => {
-      fetchFreshCases(false);
-    }, 100);
-  }
-};
-
-// ==================== LOAD LOOKUPS (with cache first) ====================
-const loadLookups = async (forceRefresh = false) => {
-  if (forceRefresh) {
-    await fetchFreshLookups();
-  } else {
-    // Try cache first (already handled in loadFromCache)
-    if (!lookups.value.categories.length) {
-      await fetchFreshLookups();
-    }
-  }
-};
-
 // Filters
 const debouncedSearch = debounce(() => {
   currentPage.value = 1;
-  fetchFreshCases(true);
+  fetchCases(true);
 }, 500);
 
 const handleFilterChange = () => {
   currentPage.value = 1;
-  fetchFreshCases(true);
+  fetchCases(true);
 };
 
 const sortBy = (field) => {
@@ -572,27 +470,27 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  fetchFreshCases(true);
+  fetchCases(true);
 };
 
 // Pagination
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
-    fetchFreshCases(true);
+    fetchCases(true);
   }
 };
 
 const nextPage = () => {
   if (currentPage.value < pagination.value.last_page) {
     currentPage.value++;
-    fetchFreshCases(true);
+    fetchCases(true);
   }
 };
 
 const goToPage = (page) => {
   currentPage.value = page;
-  fetchFreshCases(true);
+  fetchCases(true);
 };
 
 // Helpers
@@ -626,7 +524,7 @@ const statusClass = (s) => ({
 
 // Modal functions
 const openCreateModal = async () => {
-  await loadLookups(true); // Force fresh lookups for form
+  await fetchLookups();
   resetForm();
   isEditing.value = false;
   editingId.value = null;
@@ -634,7 +532,7 @@ const openCreateModal = async () => {
 };
 
 const openEditModal = async (caseItem) => {
-  await loadLookups(true); // Force fresh lookups for form
+  await fetchLookups();
   resetForm();
   isEditing.value = true;
   editingId.value = caseItem.id;
@@ -657,7 +555,7 @@ const openEditModal = async (caseItem) => {
 
 const openViewModal = async (caseItem) => {
   try {
-    await loadLookups(false); // Try cache first
+    await fetchLookups();
     
     const response = await caseService.getCase(caseItem.id);
     selectedCase.value = response.data;
@@ -708,7 +606,6 @@ const clearErrors = () => {
 const onClientCreated = (updatedClients) => {
   lookups.value.clients = updatedClients;
   refreshClients(updatedClients);
-  cacheService.setClients(updatedClients);
 };
 
 // Submit form
@@ -733,22 +630,7 @@ const submitForm = async () => {
     };
 
     if (isEditing.value) {
-      // Optimistic update
-      const index = cases.value.findIndex(c => c.id === editingId.value);
-      if (index !== -1) {
-        cases.value[index] = {
-          ...cases.value[index],
-          ...payload,
-          client: lookups.value.clients.find(c => c.id === payload.client_id)?.full_name || '—',
-          lawyer: lookups.value.lawyers.find(l => l.id === payload.assigned_lawyer_id)?.full_name || '—',
-          clerk: lookups.value.clerks.find(c => c.id === payload.assigned_clerk_id)?.full_name || '—'
-        };
-      }
-
       await caseService.updateCase(editingId.value, payload);
-      
-      // Invalidate cache
-      cacheService.invalidateCasesCache();
       
       Swal.fire({
         icon: 'success',
@@ -760,14 +642,7 @@ const submitForm = async () => {
         toast: true
       });
     } else {
-      const response = await caseService.createCase(payload);
-      
-      if (response.data) {
-        cases.value.unshift(response.data);
-      }
-      
-      // Invalidate cache
-      cacheService.invalidateCasesCache();
+      await caseService.createCase(payload);
 
       Swal.fire({
         icon: 'success',
@@ -781,11 +656,7 @@ const submitForm = async () => {
     }
 
     closeFormModal();
-    
-    // Refresh in background
-    setTimeout(() => {
-      fetchFreshCases(false);
-    }, 500);
+    await fetchCases(true);
 
   } catch (error) {
     if (error.errors) {
@@ -822,13 +693,7 @@ const confirmDelete = async (caseItem) => {
 
   if (result.isConfirmed) {
     try {
-      // Optimistic delete
-      cases.value = cases.value.filter(c => c.id !== caseItem.id);
-
       await caseService.deleteCase(caseItem.id);
-      
-      // Invalidate cache
-      cacheService.invalidateCasesCache();
 
       Swal.fire({
         icon: 'success',
@@ -840,15 +705,9 @@ const confirmDelete = async (caseItem) => {
         toast: true
       });
 
-      // Refresh in background
-      setTimeout(() => {
-        fetchFreshCases(false);
-      }, 500);
+      await fetchCases(true);
 
     } catch (error) {
-      // Revert on error
-      await fetchFreshCases(true);
-
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -861,23 +720,13 @@ const confirmDelete = async (caseItem) => {
 
 // Watch for page changes
 watch(currentPage, () => {
-  fetchFreshCases(true);
+  fetchCases(true);
 });
 
 // Initial load
 onMounted(() => {
-  // 1. Load from cache INSTANTLY
-  loadFromCache();
-  
-  // 2. Fetch fresh lookups in background
-  setTimeout(() => {
-    fetchFreshLookups();
-  }, 100);
-  
-  // 3. Fetch fresh cases in background
-  setTimeout(() => {
-    fetchFreshCases(false);
-  }, 200);
+  fetchCases(true);
+  fetchLookups();
 });
 </script>
 

@@ -1,7 +1,6 @@
 // frontend/src/composables/useMasterData.js
 import { ref, computed } from 'vue';
 
-// Load from sessionStorage with fallback to empty array
 const loadFromStorage = (key) => {
   try {
     const data = sessionStorage.getItem(key);
@@ -11,7 +10,6 @@ const loadFromStorage = (key) => {
   }
 };
 
-// Create shared refs
 const _categories = ref(loadFromStorage('master_categories'));
 const _stages = ref(loadFromStorage('master_stages'));
 const _courts = ref(loadFromStorage('master_courts'));

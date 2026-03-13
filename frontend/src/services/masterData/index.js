@@ -6,9 +6,6 @@ export { default as api } from '@/services/api';
 // Auth
 export { default as authService } from '@/services/auth';
 
-// Cache
-export { default as cacheService } from '@/services/cacheService';
-
 // Core Services
 export { default as caseService } from '@/services/caseService';
 export { default as approvalService } from '@/services/approvalService';

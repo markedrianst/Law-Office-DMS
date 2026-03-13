@@ -265,12 +265,10 @@
     </Transition>
   </div>
 </template>
-
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { debounce } from 'lodash';
 import { caseCategoryService } from '@/services/masterData';
-import cacheService from '@/services/cacheService';
 import ColorPicker from '@/components/ColorPicker.vue';
 import Swal from 'sweetalert2';
 
@@ -302,8 +300,6 @@ const currentPage = ref(1);
 
 // Loading states
 const isLoading = ref(false);
-const isRefreshing = ref(false);
-const isFromCache = ref(false);
 const isAdding = ref(false);
 const editingId = ref(null);
 const togglingId = ref(null);
@@ -346,73 +342,9 @@ const displayedPages = computed(() => {
   return pages;
 });
 
-// ==================== LOAD FROM CACHE FIRST ====================
-const loadFromCache = () => {
-  const params = {
-    search: searchQuery.value || undefined,
-    is_active: statusFilter.value || undefined,
-    sort_by: sortField.value,
-    sort_direction: sortDirection.value,
-    page: currentPage.value,
-    per_page: pagination.value.per_page
-  };
-  
-  // Try to get cached categories
-  const cachedCategories = cacheService.getCategories();
-  if (cachedCategories && cachedCategories.length > 0) {
-    console.log('📦 Loading categories from cache');
-    
-    // Filter and sort cached data based on current params
-    let filtered = [...cachedCategories];
-    
-    if (statusFilter.value) {
-      const isActive = statusFilter.value === 'true';
-      filtered = filtered.filter(c => c.is_active === isActive);
-    }
-    
-    if (searchQuery.value) {
-      const search = searchQuery.value.toLowerCase();
-      filtered = filtered.filter(c => c.name.toLowerCase().includes(search));
-    }
-    
-    // Sort
-    filtered.sort((a, b) => {
-      let aVal = a[sortField.value];
-      let bVal = b[sortField.value];
-      
-      if (sortField.value === 'name') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      
-      if (sortDirection.value === 'asc') {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
-    
-    // Paginate
-    const start = (currentPage.value - 1) * pagination.value.per_page;
-    const end = start + pagination.value.per_page;
-    const paginatedData = filtered.slice(start, end);
-    
-    categories.value = paginatedData;
-    pagination.value = {
-      ...pagination.value,
-      total: filtered.length,
-      from: start + 1,
-      to: Math.min(end, filtered.length)
-    };
-    
-    isFromCache.value = true;
-  }
-};
-
-// ==================== FETCH FRESH CATEGORIES ====================
-const fetchFreshCategories = async (showLoading = true) => {
+// ==================== FETCH CATEGORIES ====================
+const fetchCategories = async (showLoading = true) => {
   if (showLoading) isLoading.value = true;
-  isRefreshing.value = true;
   
   try {
     const params = {
@@ -436,14 +368,6 @@ const fetchFreshCategories = async (showLoading = true) => {
       to: categories.value.length
     };
     
-    // Update cache with all categories (fetch all for caching)
-    if (currentPage.value === 1 && !searchQuery.value && !statusFilter.value) {
-      const allResponse = await caseCategoryService.getCategories({ per_page: 100 });
-      cacheService.setCategories(allResponse.data || []);
-    }
-    
-    isFromCache.value = false;
-    
   } catch (error) {
     console.error('Failed to load categories:', error);
     Swal.fire({
@@ -456,34 +380,18 @@ const fetchFreshCategories = async (showLoading = true) => {
     });
   } finally {
     if (showLoading) isLoading.value = false;
-    isRefreshing.value = false;
-  }
-};
-
-// ==================== LOAD CATEGORIES (with cache first) ====================
-const loadCategories = async (forceRefresh = false) => {
-  if (forceRefresh) {
-    await fetchFreshCategories(true);
-  } else {
-    // Try cache first
-    loadFromCache();
-    
-    // Fetch fresh in background
-    setTimeout(() => {
-      fetchFreshCategories(false);
-    }, 100);
   }
 };
 
 // Filters
 const debouncedSearch = debounce(() => {
   currentPage.value = 1;
-  fetchFreshCategories(true);
+  fetchCategories(true);
 }, 500);
 
 const handleFilterChange = () => {
   currentPage.value = 1;
-  fetchFreshCategories(true);
+  fetchCategories(true);
 };
 
 const sortBy = (field) => {
@@ -493,27 +401,27 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  fetchFreshCategories(true);
+  fetchCategories(true);
 };
 
 // Pagination
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
-    fetchFreshCategories(true);
+    fetchCategories(true);
   }
 };
 
 const nextPage = () => {
   if (currentPage.value < pagination.value.last_page) {
     currentPage.value++;
-    fetchFreshCategories(true);
+    fetchCategories(true);
   }
 };
 
 const goToPage = (page) => {
   currentPage.value = page;
-  fetchFreshCategories(true);
+  fetchCategories(true);
 };
 
 // Format date
@@ -615,9 +523,6 @@ const submitForm = async () => {
       }
 
       await caseCategoryService.updateCategory(editingItemId.value, payload);
-      
-      // Update cache
-      cacheService.remove(cacheService.CACHE_KEYS.CATEGORIES);
 
       await Swal.fire({
         icon: 'success',
@@ -636,9 +541,6 @@ const submitForm = async () => {
       if (response.data) {
         categories.value.unshift(response.data);
       }
-      
-      // Update cache
-      cacheService.remove(cacheService.CACHE_KEYS.CATEGORIES);
 
       await Swal.fire({
         icon: 'success',
@@ -653,10 +555,8 @@ const submitForm = async () => {
 
     closeModal();
     
-    // Refresh in background
-    setTimeout(() => {
-      fetchFreshCategories(false);
-    }, 500);
+    // Refresh
+    await fetchCategories(true);
 
   } catch (error) {
     if (error.errors) {
@@ -670,6 +570,9 @@ const submitForm = async () => {
       text: error.message || 'An error occurred',
       confirmButtonColor: '#dc2626'
     });
+
+    // Refresh to revert optimistic updates
+    await fetchCategories(true);
 
   } finally {
     formLoading.value = false;
@@ -693,9 +596,6 @@ const toggleStatus = async (item) => {
     }
 
     await caseCategoryService.toggleCategory(item.id);
-    
-    // Update cache
-    cacheService.remove(cacheService.CACHE_KEYS.CATEGORIES);
 
     await Swal.fire({
       icon: 'success',
@@ -709,7 +609,7 @@ const toggleStatus = async (item) => {
 
   } catch (error) {
     // Revert on error
-    await fetchFreshCategories(true);
+    await fetchCategories(true);
 
     await Swal.fire({
       icon: 'error',
@@ -744,9 +644,6 @@ const confirmDelete = async (item) => {
       categories.value = categories.value.filter(c => c.id !== item.id);
 
       await caseCategoryService.deleteCategory(item.id);
-      
-      // Update cache
-      cacheService.remove(cacheService.CACHE_KEYS.CATEGORIES);
 
       await Swal.fire({
         icon: 'success',
@@ -758,14 +655,12 @@ const confirmDelete = async (item) => {
         toast: true
       });
 
-      // Refresh in background
-      setTimeout(() => {
-        fetchFreshCategories(false);
-      }, 500);
+      // Refresh
+      await fetchCategories(true);
 
     } catch (error) {
       // Revert on error
-      await fetchFreshCategories(true);
+      await fetchCategories(true);
 
       await Swal.fire({
         icon: 'error',
@@ -782,18 +677,12 @@ const confirmDelete = async (item) => {
 
 // Watch for page changes
 watch(currentPage, () => {
-  fetchFreshCategories(true);
+  fetchCategories(true);
 });
 
 // Initial load
 onMounted(() => {
-  // 1. Load from cache INSTANTLY
-  loadFromCache();
-  
-  // 2. Fetch fresh data in background
-  setTimeout(() => {
-    fetchFreshCategories(false);
-  }, 100);
+  fetchCategories(true);
 });
 </script>
 
