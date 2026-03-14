@@ -26,7 +26,7 @@ Route::put('/changepassword', [AuthenticatedSessionController::class, 'change'])
 
 // ========== PROTECTED ROUTES ==========
 Route::middleware('auth:sanctum')->group(function () {
-    
+    Route::get('/dashboard', [App\Http\Controllers\Api\DashboardController::class, 'index']);
     // Auth
     Route::post('/logout', [AuthenticatedSessionController::class, 'logout']);
     Route::get('/user', [AuthenticatedSessionController::class, 'getUserData']);

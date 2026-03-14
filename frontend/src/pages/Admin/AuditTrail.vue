@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-100 p-6 font-sans">
 
-    <!-- ── Header with Export ── -->
+    <!-- Header with Export -->
     <div class="flex items-start justify-between mb-5">
       <div class="flex items-center gap-3">
         <div class="w-1 h-8 rounded-full bg-gradient-to-b from-[#1a4972] to-[#2d6db5]"></div>
@@ -52,7 +52,7 @@
                 </span>
                 <div>
                   <p class="text-xs font-semibold text-slate-800">Excel — Current page</p>
-                  <p class="text-[11px] text-slate-400 mt-0.5">{{ logs.length }} rows visible</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">{{ logs.length }} rows</p>
                 </div>
               </button>
               <button @click="exportLogs('all')" class="flex items-center gap-3 w-full px-2.5 py-2 rounded-xl hover:bg-slate-50 transition-colors text-left">
@@ -70,7 +70,7 @@
       </div>
     </div>
 
-    <!-- ── Filters ── -->
+    <!-- Filters -->
     <div class="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
       <div class="relative mb-3">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -86,7 +86,6 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <!-- Time chips -->
         <button
           v-for="f in timeFilters" :key="f.value"
           @click="filterByTime(f.value)"
@@ -98,7 +97,6 @@
           ]"
         >{{ f.label }}</button>
 
-        <!-- Type filter -->
         <select
           v-model="filters.type"
           @change="applyFilters"
@@ -109,7 +107,6 @@
           <option value="case">📁 Case Activity</option>
         </select>
 
-        <!-- Status filter (system only) -->
         <select
           v-if="filters.type !== 'case'"
           v-model="filters.status"
@@ -145,7 +142,7 @@
       </div>
     </div>
 
-    <!-- ── Pagination info ── -->
+    <!-- Pagination info -->
     <div v-if="pagination.total > 0" class="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-2 mb-4 text-xs text-slate-500">
       <span>
         Showing <strong class="text-slate-700">{{ pagination.from }}–{{ pagination.to }}</strong>
@@ -167,7 +164,6 @@
     <!-- Timeline view -->
     <div class="flex flex-col">
       <template v-for="(group, date) in groupedLogs" :key="date">
-
         <!-- Date separator -->
         <div class="flex items-center py-5 sticky top-4 z-10">
           <div class="inline-flex items-center gap-2 bg-white border border-[#1a4972]/10 rounded-full px-4 py-1.5 text-xs font-bold text-[#1a4972] shadow-sm">
@@ -188,11 +184,9 @@
 
           <!-- Card -->
           <div class="flex-1 bg-white border border-slate-200 rounded-2xl p-4 my-2 transition-all hover:shadow-lg hover:border-slate-300">
-
             <!-- Header row -->
             <div class="flex items-start justify-between gap-3 mb-2">
               <div class="flex items-center gap-2 flex-wrap min-w-0">
-                <!-- Type badge -->
                 <span v-if="log.type === 'case'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1a4972]/8 text-[#1a4972] text-[10px] font-bold">
                   📁 Case
                 </span>
@@ -209,7 +203,7 @@
               </div>
             </div>
 
-            <!-- Case badge (for case logs) -->
+            <!-- Case badge -->
             <div v-if="log.type === 'case' && log.case_code" class="mb-2">
               <span class="inline-flex items-center gap-1.5 bg-[#1a4972]/5 border border-[#1a4972]/10 text-[#1a4972] rounded-lg px-2.5 py-1 text-[11px] font-bold">
                 {{ log.case_code }}
@@ -227,12 +221,11 @@
               {{ formatSystemDetails(log.details) }}
             </p>
 
-            <!-- Case: HUMAN READABLE MESSAGE - SIMPLE AND CLEAN -->
+            <!-- Case: message -->
             <p v-if="log.type === 'case' && log.details?.message" class="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 mb-2 leading-relaxed">
               {{ log.details.message }}
             </p>
             
-            <!-- Fallback for older logs -->
             <p v-else-if="log.type === 'case' && log.details" class="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 mb-2 leading-relaxed">
               {{ formatCaseDetails(log.details) }}
             </p>
@@ -245,7 +238,7 @@
               <span>📅 {{ formatDateTime(log.created_at) }}</span>
             </div>
 
-            <!-- Expand raw details (system only) -->
+            <!-- Expand details -->
             <div v-if="log.type === 'system' && log.details && String(log.details).length > 150">
               <button @click="toggleExpand(log.id)" class="mt-2 text-[11px] font-bold text-[#1a4972] opacity-70 hover:opacity-100 bg-transparent border-none cursor-pointer">
                 {{ expanded.includes(log.id) ? '▲ Less' : '▼ More' }}
@@ -266,18 +259,10 @@
       </template>
 
       <!-- Empty state -->
-      <div v-if="logs.length === 0 && !isLoading" class="text-center py-16">
+      <div v-if="logs.length === 0" class="text-center py-16">
         <div class="text-5xl mb-3 opacity-30">📋</div>
         <p class="text-base font-bold text-slate-500 mb-1">No activities found</p>
         <p class="text-[13px] text-slate-400">Try adjusting your search or filters</p>
-      </div>
-
-      <!-- Loading state -->
-      <div v-if="isLoading" class="text-center py-16">
-        <svg class="animate-spin w-8 h-8 text-[#1a4972] mx-auto" viewBox="0 0 24 24" fill="none">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
       </div>
 
       <!-- Pagination -->
@@ -318,10 +303,7 @@ if (userRole.value !== 'admin') {
 
 // ==================== STATE ====================
 const logs = ref([])
-const stats = ref({
-  total_logs: 0,
-  login_stats: { success: 0, failed: 0 }
-})
+const stats = ref({ total_logs: 0, login_stats: { success: 0, failed: 0 } })
 const pagination = ref({
   current_page: 1,
   last_page: 1,
@@ -330,7 +312,6 @@ const pagination = ref({
   from: 0,
   to: 0
 })
-const isLoading = ref(false)
 const expanded = ref([])
 const timeFilter = ref('')
 const currentPage = ref(1)
@@ -389,9 +370,7 @@ const timeFilters = [
 ]
 
 // ==================== FETCH DATA ====================
-const fetchData = async (showLoading = true) => {
-  if (showLoading) isLoading.value = true
-
+const fetchData = async () => {
   try {
     const params = {
       search: filters.search || undefined,
@@ -415,21 +394,9 @@ const fetchData = async (showLoading = true) => {
       to: logs.value.length
     }
 
-    // Load stats
-    await fetchStats()
-
   } catch (error) {
     console.error('Failed to load logs:', error)
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: error.message || 'Failed to load audit logs',
-      confirmButtonColor: '#dc2626',
-      timer: 2000,
-      showConfirmButton: false
-    })
-  } finally {
-    if (showLoading) isLoading.value = false
+    logs.value = []
   }
 }
 
@@ -565,7 +532,7 @@ const getTitle = (log) => {
   const action = log.action
   let name = 'Unknown User'
   
-  if (log.user?.name) name = log.user.name
+  if (log.user_name) name = log.user_name
   else if (log.email_attempted) {
     const parts = log.email_attempted.split('@')[0]
     name = parts.charAt(0).toUpperCase() + parts.slice(1)
@@ -733,7 +700,7 @@ const exportLogs = async (scope) => {
         return {
           'Type': 'System',
           'Date/Time': log.created_at ? new Date(log.created_at).toLocaleString() : '',
-          'Actor': log.user?.name || log.email_attempted || '',
+          'Actor': log.user_name || log.email_attempted || '',
           'Action': log.action || '',
           'Status': log.status || '',
           'Details': log.details?.message || (typeof log.details === 'string' ? log.details : JSON.stringify(log.details)) || '',
@@ -775,7 +742,7 @@ onUnmounted(() => {
 // Watch for page focus
 watch(() => document.visibilityState, () => {
   if (document.visibilityState === 'visible' && isActive.value) {
-    fetchData(false)
+    fetchData()
   }
 })
 
@@ -788,6 +755,7 @@ const vClickOutside = {
   unmounted(el) { document.removeEventListener('mousedown', el._out) }
 }
 </script>
+
 <style scoped>
 @keyframes slideIn {
   from {

@@ -4,35 +4,35 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\User;
-use App\Models\LoginLog;
-use App\Models\Role;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rules\Password;
 
 class UserManagementController extends Controller
 {
     /**
-     * Get available roles for dropdown
+     * Get available roles - Cached for 1 hour
      */
     public function getRoles()
     {
         try {
-            $roles = Role::select('id', 'name')
-                ->whereIn('name', ['lawyer', 'clerk'])
-                ->orderBy('name')
-                ->get()
-                ->map(function ($role) {
-                    return [
-                        'id' => $role->id,
-                        'name' => ucfirst($role->name),
-                    ];
-                });
+            $roles = Cache::remember('user_roles', 3600, function() {
+                return DB::table('roles')
+                    ->select('id', 'name')
+                    ->whereIn('name', ['lawyer', 'clerk'])
+                    ->orderBy('name')
+                    ->get()
+                    ->map(function ($role) {
+                        return [
+                            'id' => $role->id,
+                            'name' => ucfirst($role->name),
+                        ];
+                    });
+            });
 
-            return response()->json([
-                'data' => $roles
-            ]);
+            return response()->json(['data' => $roles]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to fetch roles',
@@ -42,64 +42,63 @@ class UserManagementController extends Controller
     }
 
     /**
-     * Display a listing of users
+     * Display a listing of users - Fixed: Removed address and contact_number
      */
     public function index(Request $request)
     {
         try {
-            $query = User::with('role');
-
-            // Filter by role
-            if ($request->filled('role')) {
-                $query->whereHas('role', function ($q) use ($request) {
-                    $q->where('name', strtolower($request->role));
-                });
-            } else {
-                $query->whereHas('role', function ($q) {
-                    $q->whereIn('name', ['lawyer', 'clerk']);
-                });
-            }
-
-            // Search
-            if ($request->filled('search')) {
-                $search = $request->search;
-                $query->where(function ($q) use ($search) {
-                    $q->where('full_name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
-                });
-            }
-
-            // Sorting
+            $perPage = $request->get('per_page', 10);
+            $search = $request->get('search');
+            $role = $request->get('role');
             $sortField = $request->get('sort_by', 'created_at');
             $sortDirection = $request->get('sort_direction', 'desc');
-            
+
+            // Map sort fields to database columns
             $fieldMap = [
-                'name' => 'full_name',
-                'email' => 'email',
-                'role' => 'role_id',
-                'status' => 'status',
-                'last_login' => 'last_login',
-                'created_at' => 'created_at',
+                'name' => 'u.full_name',
+                'email' => 'u.email',
+                'role' => 'r.name',
+                'status' => 'u.status',
+                'last_login' => 'u.last_login',
+                'created_at' => 'u.created_at',
             ];
-            
-            $dbField = $fieldMap[$sortField] ?? 'created_at';
-            $query->orderBy($dbField, $sortDirection);
+            $orderBy = $fieldMap[$sortField] ?? 'u.created_at';
 
-            // Pagination
-            $perPage = $request->get('per_page', 10);
-            $users = $query->paginate($perPage);
+            // Build the query with proper joins and pagination - REMOVED address and contact_number
+            $users = DB::table('users as u')
+                ->join('roles as r', 'r.id', '=', 'u.role_id')
+                ->whereIn('r.name', ['lawyer', 'clerk'])
+                ->when($role, function($query, $role) {
+                    return $query->where('r.name', strtolower($role));
+                })
+                ->when($search, function($query, $search) {
+                    return $query->where(function($q) use ($search) {
+                        $q->where('u.full_name', 'like', "%{$search}%")
+                          ->orWhere('u.email', 'like', "%{$search}%");
+                    });
+                })
+                ->select(
+                    'u.id',
+                    'u.full_name as name',
+                    'u.email',
+                    'u.status',
+                    'u.created_at',
+                    'u.last_login',
+                    'r.name as role'
+                )
+                ->orderBy($orderBy, $sortDirection)
+                ->paginate($perPage);
 
-            $transformedUsers = $users->map(function ($user) {
+            // Transform the data - removed address and contact_number
+            $transformedUsers = collect($users->items())->map(function ($user) {
                 return [
                     'id' => $user->id,
-                    'name' => $user->full_name,
+                    'name' => $user->name,
                     'email' => $user->email,
-                    'role' => ucfirst($user->role->name),
+                    'role' => ucfirst($user->role),
                     'status' => ucfirst($user->status),
                     'created_at' => $user->created_at,
                     'last_login' => $user->last_login,
-                    'address' => $user->address ?? '',
-                    'contact_number' => $user->contact_number ?? '',
                 ];
             });
 
@@ -124,17 +123,14 @@ class UserManagementController extends Controller
     }
 
     /**
-     * Store a newly created user
+     * Store a newly created user - Fixed: Removed address and contact_number
      */
     public function store(Request $request)
     {
-        // Validate all inputs
         $validator = Validator::make($request->all(), [
             'firstName' => 'required|string|max:50',
             'middleName' => 'nullable|string|max:50',
             'lastName' => 'required|string|max:50',
-            'address' => 'nullable|string',
-            'contact' => 'nullable|string|max:13',
             'email' => 'required|string|email|max:255|unique:users,email',
             'role' => 'required|in:Lawyer,Clerk',
             'password' => ['required', 'string', Password::min(6)],
@@ -149,13 +145,12 @@ class UserManagementController extends Controller
         }
 
         try {
-            // Combine name fields
+            DB::beginTransaction();
+
             $fullName = trim($request->firstName . ' ' . $request->middleName . ' ' . $request->lastName);
-            $fullName = preg_replace('/\s+/', ' ', $fullName); // Remove extra spaces
+            $fullName = preg_replace('/\s+/', ' ', $fullName);
             
-            // Get role ID
-            $roleName = strtolower($request->role);
-            $roleId = Role::where('name', $roleName)->value('id');
+            $roleId = DB::table('roles')->where('name', strtolower($request->role))->value('id');
 
             if (!$roleId) {
                 return response()->json([
@@ -164,22 +159,29 @@ class UserManagementController extends Controller
                 ], 422);
             }
 
-            // Create user
-            $user = User::create([
+            $userId = DB::table('users')->insertGetId([
                 'role_id' => $roleId,
                 'full_name' => $fullName,
                 'email' => $request->email,
                 'password_hash' => Hash::make($request->password),
                 'status' => strtolower($request->status),
-                'address' => $request->address,
-                'contact_number' => $request->contact ? preg_replace('/\D/', '', $request->contact) : null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
-            // Log the action
+            // Get the created user - removed address and contact_number
+            $user = DB::table('users as u')
+                ->join('roles as r', 'r.id', '=', 'u.role_id')
+                ->where('u.id', $userId)
+                ->select('u.id', 'u.full_name as name', 'u.email', 'u.status', 'u.created_at', 'u.last_login', 'r.name as role')
+                ->first();
+
+            DB::commit();
+
             $this->logUserAction($request, 'user_create', 'success', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'name' => $user->full_name,
+                'user_id' => $userId,
+                'email' => $request->email,
+                'name' => $fullName,
                 'role' => $request->role
             ]);
 
@@ -187,18 +189,17 @@ class UserManagementController extends Controller
                 'message' => 'User created successfully',
                 'data' => [
                     'id' => $user->id,
-                    'name' => $user->full_name,
+                    'name' => $user->name,
                     'email' => $user->email,
-                    'role' => ucfirst($user->role->name),
+                    'role' => ucfirst($user->role),
                     'status' => ucfirst($user->status),
                     'created_at' => $user->created_at,
                     'last_login' => $user->last_login,
-                    'address' => $user->address ?? '',
-                    'contact_number' => $user->contact_number ?? '',
                 ],
             ], 201);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             $this->logUserAction($request, 'user_create', 'failed', [
                 'email' => $request->email,
                 'error' => $e->getMessage()
@@ -212,52 +213,24 @@ class UserManagementController extends Controller
     }
 
     /**
-     * Display the specified user
-     */
-    public function show(Request $request, $id)
-    {
-        try {
-            $user = User::with('role')->findOrFail($id);
-
-            return response()->json([
-                'data' => [
-                    'id' => $user->id,
-                    'firstName' => $this->extractFirstName($user->full_name),
-                    'middleName' => $this->extractMiddleName($user->full_name),
-                    'lastName' => $this->extractLastName($user->full_name),
-                    'email' => $user->email,
-                    'role' => ucfirst($user->role->name),
-                    'status' => ucfirst($user->status),
-                    'address' => $user->address ?? '',
-                    'contact' => $user->contact_number ?? '',
-                    'created_at' => $user->created_at,
-                    'last_login' => $user->last_login,
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'User not found',
-                'errors' => ['id' => ['User not found']]
-            ], 404);
-        }
-    }
-
-    /**
-     * Update the specified user
+     * Update the specified user - Fixed: Removed address and contact_number
      */
     public function update(Request $request, $id)
     {
         try {
-            $user = User::with('role')->findOrFail($id);
+            $user = DB::table('users')->where('id', $id)->first();
 
-            // Validate inputs
+            if (!$user) {
+                return response()->json([
+                    'message' => 'User not found',
+                    'errors' => ['id' => ['User not found']]
+                ], 404);
+            }
+
             $validator = Validator::make($request->all(), [
                 'firstName' => 'sometimes|required|string|max:50',
                 'middleName' => 'nullable|string|max:50',
                 'lastName' => 'sometimes|required|string|max:50',
-                'address' => 'nullable|string',
-                'contact' => 'nullable|string|max:13',
                 'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
                 'role' => 'sometimes|required|in:Lawyer,Clerk',
                 'password' => ['nullable', 'string', Password::min(6)],
@@ -271,30 +244,38 @@ class UserManagementController extends Controller
                 ], 422);
             }
 
+            DB::beginTransaction();
+
             $updateData = [];
+            $changes = [];
 
             // Update name if provided
             if ($request->has('firstName') || $request->has('lastName')) {
-                $firstName = $request->get('firstName', $this->extractFirstName($user->full_name));
-                $middleName = $request->get('middleName', $this->extractMiddleName($user->full_name));
-                $lastName = $request->get('lastName', $this->extractLastName($user->full_name));
+                $currentName = $user->full_name;
+                $parts = explode(' ', trim($currentName));
+                
+                $firstName = $request->get('firstName', $parts[0] ?? '');
+                $middleName = $request->get('middleName', count($parts) > 2 ? implode(' ', array_slice($parts, 1, -1)) : '');
+                $lastName = $request->get('lastName', count($parts) > 1 ? end($parts) : '');
                 
                 $fullName = trim($firstName . ' ' . $middleName . ' ' . $lastName);
                 $fullName = preg_replace('/\s+/', ' ', $fullName);
                 $updateData['full_name'] = $fullName;
+                $changes[] = 'name';
             }
 
             // Update email
             if ($request->has('email') && $request->email !== $user->email) {
                 $updateData['email'] = $request->email;
+                $changes[] = 'email';
             }
 
             // Update role
             if ($request->has('role')) {
-                $roleName = strtolower($request->role);
-                $roleId = Role::where('name', $roleName)->value('id');
-                if ($roleId) {
+                $roleId = DB::table('roles')->where('name', strtolower($request->role))->value('id');
+                if ($roleId && $roleId != $user->role_id) {
                     $updateData['role_id'] = $roleId;
+                    $changes[] = 'role';
                 }
             }
 
@@ -302,52 +283,56 @@ class UserManagementController extends Controller
             if ($request->filled('password')) {
                 $updateData['password_hash'] = Hash::make($request->password);
                 $updateData['must_change_password'] = true;
-                // Revoke all tokens for security
-                $user->tokens()->delete();
-            }
-
-            // Update address
-            if ($request->has('address')) {
-                $updateData['address'] = $request->address;
-            }
-
-            // Update contact
-            if ($request->has('contact')) {
-                $updateData['contact_number'] = $request->contact ? preg_replace('/\D/', '', $request->contact) : null;
+                $changes[] = 'password';
+                
+                // Delete all tokens for security
+                DB::table('personal_access_tokens')
+                    ->where('tokenable_id', $id)
+                    ->where('tokenable_type', 'App\Models\User')
+                    ->delete();
             }
 
             // Update status
             if ($request->has('status')) {
                 $updateData['status'] = strtolower($request->status);
+                $changes[] = 'status';
             }
 
             if (!empty($updateData)) {
-                $user->update($updateData);
-                $user->load('role');
-
-                $this->logUserAction($request, 'user_update', 'success', [
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                    'changes' => array_keys($updateData)
-                ]);
+                $updateData['updated_at'] = now();
+                DB::table('users')->where('id', $id)->update($updateData);
             }
+
+            // Get updated user - removed address and contact_number
+            $updatedUser = DB::table('users as u')
+                ->join('roles as r', 'r.id', '=', 'u.role_id')
+                ->where('u.id', $id)
+                ->select('u.id', 'u.full_name as name', 'u.email', 'u.status', 'u.created_at', 'u.last_login', 'r.name as role')
+                ->first();
+
+            DB::commit();
+
+            $this->logUserAction($request, 'user_update', 'success', [
+                'user_id' => $id,
+                'email' => $updatedUser->email,
+                'changes' => $changes
+            ]);
 
             return response()->json([
                 'message' => 'User updated successfully',
                 'data' => [
-                    'id' => $user->id,
-                    'name' => $user->full_name,
-                    'email' => $user->email,
-                    'role' => ucfirst($user->role->name),
-                    'status' => ucfirst($user->status),
-                    'created_at' => $user->created_at,
-                    'last_login' => $user->last_login,
-                    'address' => $user->address ?? '',
-                    'contact_number' => $user->contact_number ?? '',
+                    'id' => $updatedUser->id,
+                    'name' => $updatedUser->name,
+                    'email' => $updatedUser->email,
+                    'role' => ucfirst($updatedUser->role),
+                    'status' => ucfirst($updatedUser->status),
+                    'created_at' => $updatedUser->created_at,
+                    'last_login' => $updatedUser->last_login,
                 ],
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'message' => 'Failed to update user',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -361,21 +346,31 @@ class UserManagementController extends Controller
     public function destroy(Request $request, $id)
     {
         try {
-            $user = User::findOrFail($id);
+            $user = DB::table('users')->where('id', $id)->first();
 
-            // Store info for logging
-            $userEmail = $user->email;
-            $userName = $user->full_name;
+            if (!$user) {
+                return response()->json([
+                    'message' => 'User not found',
+                    'errors' => ['id' => ['User not found']]
+                ], 404);
+            }
 
-            // Revoke all tokens
-            $user->tokens()->delete();
+            DB::beginTransaction();
+
+            // Delete tokens
+            DB::table('personal_access_tokens')
+                ->where('tokenable_id', $id)
+                ->where('tokenable_type', 'App\Models\User')
+                ->delete();
 
             // Delete user
-            $user->delete();
+            DB::table('users')->where('id', $id)->delete();
+
+            DB::commit();
 
             $this->logUserAction($request, 'user_delete', 'success', [
-                'email' => $userEmail,
-                'name' => $userName
+                'email' => $user->email,
+                'name' => $user->full_name
             ]);
 
             return response()->json([
@@ -383,6 +378,7 @@ class UserManagementController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'message' => 'Failed to delete user',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -396,13 +392,24 @@ class UserManagementController extends Controller
     public function toggleStatus(Request $request, $id)
     {
         try {
-            $user = User::findOrFail($id);
+            $user = DB::table('users')->where('id', $id)->first();
+            
+            if (!$user) {
+                return response()->json([
+                    'message' => 'User not found',
+                    'errors' => ['id' => ['User not found']]
+                ], 404);
+            }
+
             $newStatus = $user->status === 'active' ? 'inactive' : 'active';
             
-            $user->update(['status' => $newStatus]);
+            DB::table('users')->where('id', $id)->update([
+                'status' => $newStatus,
+                'updated_at' => now()
+            ]);
 
             $this->logUserAction($request, 'user_toggle_status', 'success', [
-                'user_id' => $user->id,
+                'user_id' => $id,
                 'email' => $user->email,
                 'new_status' => $newStatus
             ]);
@@ -410,7 +417,7 @@ class UserManagementController extends Controller
             return response()->json([
                 'message' => 'User status updated successfully',
                 'data' => [
-                    'id' => $user->id,
+                    'id' => (int)$id,
                     'status' => ucfirst($newStatus)
                 ]
             ]);
@@ -429,7 +436,7 @@ class UserManagementController extends Controller
     private function logUserAction(Request $request, $action, $status, $details)
     {
         try {
-            LoginLog::create([
+            DB::table('login_logs')->insert([
                 'user_id' => $request->user()?->id,
                 'action' => $action,
                 'email_attempted' => $details['email'] ?? 'system',
@@ -442,29 +449,5 @@ class UserManagementController extends Controller
         } catch (\Exception $e) {
             \Log::error('Failed to write log: ' . $e->getMessage());
         }
-    }
-
-    /**
-     * Helper: Extract name parts
-     */
-    private function extractFirstName($fullName)
-    {
-        $parts = explode(' ', trim($fullName));
-        return $parts[0] ?? '';
-    }
-
-    private function extractLastName($fullName)
-    {
-        $parts = explode(' ', trim($fullName));
-        return count($parts) > 1 ? end($parts) : '';
-    }
-
-    private function extractMiddleName($fullName)
-    {
-        $parts = explode(' ', trim($fullName));
-        if (count($parts) > 2) {
-            return implode(' ', array_slice($parts, 1, -1));
-        }
-        return '';
     }
 }
