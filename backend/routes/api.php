@@ -16,7 +16,7 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ApprovalsController; 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Admin\HearingController;
-
+use App\Http\Controllers\Admin\ImportController;
 // ========== PUBLIC ROUTES ==========
 Route::get('/sanctum/csrf-cookie', function () {
     return response()->json(['message' => 'CSRF cookie set']);
@@ -103,7 +103,7 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Case Lookups
         Route::get('/case-lookups', [CaseController::class, 'getLookups']);
-        
+        Route::post('/case/import', [ImportController::class, 'import']);
         // Cases CRUD
         Route::get('/cases', [CaseController::class, 'index']);
         Route::post('/cases', [CaseController::class, 'store']);

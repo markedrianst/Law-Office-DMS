@@ -7,6 +7,14 @@
         <h1 class="text-2xl font-bold tracking-tight text-[#1a4972]">Case Master</h1>
       </div>
       <p class="text-sm ml-4 pl-3 text-slate-500">Manage and track all legal cases</p>
+      <!-- Add this after the New Case button in the filters section -->
+<button @click="openImportModal" 
+  class="text-white px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md hover:shadow-lg transition-all">
+  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+  </svg>
+  Import Excel
+</button>
     </div>
 
     <!-- Filters and Actions -->
@@ -240,7 +248,12 @@
         </div>
       </div>
     </div>
-
+<!-- Import Modal -->
+    <ImportModal
+      :show="showImportModal"
+      @close="closeImportModal"
+      @imported="handleImportComplete"
+    />
     <!-- Modals -->
     <CaseFormModal
       ref="formModalRef"
@@ -282,6 +295,7 @@ import { useMasterData } from '@/composables/useMasterData';
 import caseService from '@/services/caseService';
 import CaseFormModal from '@/components/Modals/Admin/CaseMasterModal/CaseFormModal.vue';
 import CaseViewModal from '@/components/Modals/Admin/CaseMasterModal/CaseViewModal.vue';
+import ImportModal from '@/components/Modals/Admin/CaseMasterModal/ImportModal.vue';
 import Swal from 'sweetalert2';
 
 // Import from appUtils
@@ -353,7 +367,21 @@ const showViewModal = ref(false);
 const isEditing = ref(false);
 const editingId = ref(null);
 const selectedCase = ref(null);
+// Add this with your other refs
+const showImportModal = ref(false);
 
+// Add this method
+const openImportModal = () => {
+  showImportModal.value = true;
+};
+
+const closeImportModal = () => {
+  showImportModal.value = false;
+};
+
+const handleImportComplete = () => {
+  fetchCases(true); // Refresh the cases list
+};
 // Form
 const form = reactive({
   case_no: '',
