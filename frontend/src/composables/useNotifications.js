@@ -1,7 +1,7 @@
 // src/composables/useNotifications.js
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import notificationService from '@/services/notificationService';
-import AppUtils from '@/utils/appUtils';
+import * as AppUtils from '@/utils/appUtils';
 import { useAuth } from './Useauth';
 
 export function useNotifications() {
@@ -9,37 +9,66 @@ export function useNotifications() {
   const notifications = ref(AppUtils.getNotifications() || []);
   const unreadCount = ref(AppUtils.getUnreadCount() || 0);
   const isLoading = ref(false);
+  const lastSyncTime = ref(null);
   let poller = null;
 
+  // For dropdown - ONLY unread notifications
+  const unreadNotifications = computed(() => {
+    return notifications.value.filter(n => !n.is_read).slice(0, 5);
+  });
+
+  // For full page - all notifications
+  const allNotifications = computed(() => {
+    return notifications.value;
+  });
+
   // Load initial notifications
-  const loadNotifications = async () => {
+  const loadNotifications = async (showLoading = false) => {
     if (!user.value) return;
     
-    isLoading.value = true;
+    if (showLoading) isLoading.value = true;
     try {
-      const response = await notificationService.sync();
+      const response = await notificationService.sync(lastSyncTime.value);
       if (response.data) {
         AppUtils.setNotifications(response.data);
         notifications.value = response.data;
         unreadCount.value = response.unread_count || 0;
+        lastSyncTime.value = new Date().toISOString();
       }
     } catch (error) {
       console.error('Failed to load notifications:', error);
     } finally {
-      isLoading.value = false;
+      if (showLoading) isLoading.value = false;
     }
   };
 
-  // Poll for updates
+  // Poll for updates - PREVENTS DUPLICATES
   const pollUpdates = async () => {
     if (!user.value) return;
     
     try {
-      const response = await notificationService.sync();
-      if (response.data?.length > 0) {
-        response.data.forEach(notif => AppUtils.addNotification(notif));
-        notifications.value = AppUtils.getNotifications();
-        unreadCount.value = AppUtils.getUnreadCount();
+      const response = await notificationService.sync(lastSyncTime.value);
+      
+      if (response.data && response.data.length > 0) {
+        const currentNotifications = AppUtils.getNotifications() || [];
+        const newNotifications = [];
+        
+        // Only add notifications that don't already exist
+        response.data.forEach(newNotif => {
+          const exists = currentNotifications.some(existing => existing.id === newNotif.id);
+          if (!exists) {
+            newNotifications.push(newNotif);
+          }
+        });
+        
+        // Add only new unique notifications
+        if (newNotifications.length > 0) {
+          newNotifications.forEach(notif => AppUtils.addNotification(notif));
+          notifications.value = AppUtils.getNotifications();
+          unreadCount.value = AppUtils.getUnreadCount();
+        }
+        
+        lastSyncTime.value = new Date().toISOString();
       }
     } catch (error) {
       console.error('Polling failed:', error);
@@ -71,7 +100,7 @@ export function useNotifications() {
   };
 
   // Start polling
-  const startPolling = (interval = 3000) => {
+  const startPolling = (interval = 5000) => {
     stopPolling();
     poller = setInterval(pollUpdates, interval);
   };
@@ -84,7 +113,11 @@ export function useNotifications() {
     }
   };
 
-  // Lifecycle hooks - MUST be called directly in setup function
+  // Manual refresh
+  const refresh = async () => {
+    await loadNotifications(true);
+  };
+
   onMounted(() => {
     loadNotifications();
     startPolling();
@@ -95,11 +128,13 @@ export function useNotifications() {
   });
 
   return {
+    unreadNotifications,
+    allNotifications,
     notifications,
     unreadCount,
     isLoading,
     markAsRead,
     markAllAsRead,
-    refresh: loadNotifications
+    refresh
   };
 }

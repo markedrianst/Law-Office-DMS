@@ -61,8 +61,18 @@
       </div>
     </div>
 
+    <!-- Loading State (only shows on first load if no cache) -->
+    <div v-if="initialLoading" class="bg-white rounded-2xl shadow-sm border border-slate-100 py-24 flex flex-col items-center">
+      <div class="relative mb-6">
+        <div class="w-16 h-16 rounded-full border-4 border-blue-100 absolute"></div>
+        <div class="w-16 h-16 rounded-full border-4 border-[#1a4972] border-t-transparent animate-spin"></div>
+      </div>
+      <p class="text-base font-semibold text-slate-700 mb-2">Loading Cases</p>
+      <p class="text-sm text-slate-500">Please wait while we fetch the data...</p>
+    </div>
+
     <!-- Cases Table -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div v-else class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-slate-100 bg-[#1a4972]/5">
@@ -84,7 +94,7 @@
         </thead>
 
         <tbody class="divide-y divide-slate-50">
-          <tr v-for="(item, index) in cases" :key="item.id" 
+          <tr v-for="(item, index) in displayedCases" :key="item.id" 
             class="transition-all duration-300 hover:bg-blue-50/30 group"
             :style="{ animation: `fadeIn 0.3s ease-out ${index * 0.03}s both` }">
             
@@ -158,6 +168,7 @@
                 {{ capitalize(item.case_status) }}
               </span>
             </td>
+
             <!-- Actions -->
             <td class="px-5 py-4">
               <div class="flex items-center gap-2">
@@ -187,7 +198,7 @@
           </tr>
 
           <!-- Empty state -->
-          <tr v-if="cases.length === 0">
+          <tr v-if="filteredCases.length === 0">
             <td :colspan="columns.length" class="px-6 py-16 text-center">
               <div class="flex flex-col items-center">
                 <div class="w-14 h-14 rounded-2xl bg-[#1a4972]/10 flex items-center justify-center mb-3">
@@ -204,7 +215,7 @@
       </table>
 
       <!-- Pagination -->
-      <div v-if="pagination.total > 0" class="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 bg-slate-50/50">
+      <div v-if="filteredCases.length > 0" class="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 bg-slate-50/50">
         <p class="text-xs text-slate-500">
           Showing <span class="font-semibold text-slate-700">{{ pagination.from }}</span> to
           <span class="font-semibold text-slate-700">{{ pagination.to }}</span> of
@@ -245,7 +256,7 @@
       :clerks="lookups.clerks"
       :clients="lookups.clients"
       :preview-code="previewCode"
-      :is-loading="isLoadingLookups"
+      :is-loading="false"
       @close="closeFormModal"
       @submit="submitForm"
       @client-created="onClientCreated"
@@ -264,7 +275,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { debounce } from 'lodash';
 import { useAuth } from '@/composables/useAuth';
 import { useMasterData } from '@/composables/useMasterData';
@@ -272,6 +283,15 @@ import caseService from '@/services/caseService';
 import CaseFormModal from '@/components/Modals/Admin/CaseMasterModal/CaseFormModal.vue';
 import CaseViewModal from '@/components/Modals/Admin/CaseMasterModal/CaseViewModal.vue';
 import Swal from 'sweetalert2';
+
+// Import from appUtils
+import { 
+  getCases,
+  setCases,
+  listenForUpdates,
+  getInitials,
+  formatDate
+} from '@/utils/appUtils';
 
 const { userRole } = useAuth();
 const { refreshClients } = useMasterData();
@@ -287,8 +307,11 @@ const columns = [
   { label: 'Actions', field: 'actions', sortable: false },
 ];
 
-// State
-const cases = ref([]);
+// ========== STATE ==========
+// Get initial data from appUtils
+const initialCases = getCases();
+
+const allCases = ref(initialCases || []);
 const lookups = ref({
   categories: [],
   stages: [],
@@ -298,6 +321,11 @@ const lookups = ref({
   courts: [],
   users: []
 });
+
+// Loading state
+const initialLoading = ref(!initialCases || initialCases.length === 0);
+
+// Pagination
 const pagination = ref({
   current_page: 1,
   last_page: 1,
@@ -314,12 +342,10 @@ const priorityFilter = ref('');
 const stageFilter = ref('');
 const sortField = ref('created_at');
 const sortDirection = ref('desc');
-const currentPage = ref(1);
 
 // Loading states
-const isLoading = ref(false);
-const isLoadingLookups = ref(false);
 const formLoading = ref(false);
+const isRefreshing = ref(false);
 
 // Modals
 const showFormModal = ref(false);
@@ -351,7 +377,66 @@ const errors = reactive({
   assigned_lawyer_id: ''
 });
 
-// Computed
+// Flag to track if lookups are loaded
+let lookupsLoaded = false;
+
+// ========== COMPUTED ==========
+// Filter cases based on current filters
+const filteredCases = computed(() => {
+  let filtered = allCases.value;
+
+  // Filter by status
+  if (statusFilter.value) {
+    filtered = filtered.filter(item => item.case_status === statusFilter.value);
+  }
+
+  // Filter by priority
+  if (priorityFilter.value) {
+    filtered = filtered.filter(item => item.priority === priorityFilter.value);
+  }
+
+  // Filter by stage
+  if (stageFilter.value) {
+    filtered = filtered.filter(item => item.current_stage_id === stageFilter.value);
+  }
+
+  // Filter by search
+  if (searchQuery.value) {
+    const searchLower = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(item => {
+      return (item.case_code?.toLowerCase().includes(searchLower)) ||
+             (item.title?.toLowerCase().includes(searchLower)) ||
+             (item.client?.toLowerCase().includes(searchLower)) ||
+             (item.case_no?.toLowerCase().includes(searchLower));
+    });
+  }
+
+  // Sort
+  filtered.sort((a, b) => {
+    let aVal = a[sortField.value];
+    let bVal = b[sortField.value];
+    
+    if (sortField.value === 'created_at') {
+      aVal = new Date(aVal);
+      bVal = new Date(bVal);
+    }
+    
+    if (aVal < bVal) return sortDirection.value === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  return filtered;
+});
+
+// Paginated cases
+const displayedCases = computed(() => {
+  const start = (pagination.value.current_page - 1) * pagination.value.per_page;
+  const end = start + pagination.value.per_page;
+  return filteredCases.value.slice(start, end);
+});
+
+// Display pages for pagination
 const displayedPages = computed(() => {
   const pages = [];
   const max = 5;
@@ -361,23 +446,35 @@ const displayedPages = computed(() => {
   if (total <= max) {
     for (let i = 1; i <= total; i++) pages.push(i);
   } else {
-    let s = Math.max(1, current - 2);
-    let e = Math.min(total, s + max - 1);
-    if (e - s + 1 < max) s = Math.max(1, e - max + 1);
-    for (let i = s; i <= e; i++) pages.push(i);
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + max - 1);
+    if (end - start + 1 < max) start = Math.max(1, end - max + 1);
+    
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push('...');
+    }
+    
+    for (let i = start; i <= end; i++) pages.push(i);
+    
+    if (end < total) {
+      if (end < total - 1) pages.push('...');
+      pages.push(total);
+    }
   }
   return pages;
 });
 
 const previewCode = computed(() => {
   const year = new Date().getFullYear();
-  const nextNum = (pagination.value.total || 0) + 1;
+  const nextNum = (filteredCases.value.length || 0) + 1;
   return `${year}-${String(nextNum).padStart(4, '0')}`;
 });
 
-// ==================== FETCH CASES ====================
-const fetchCases = async (showLoading = true) => {
-  if (showLoading) isLoading.value = true;
+// ========== FETCH CASES ==========
+const fetchCases = async (showLoading = false) => {
+  if (showLoading) initialLoading.value = true;
+  isRefreshing.value = true;
   
   try {
     const params = {
@@ -387,21 +484,22 @@ const fetchCases = async (showLoading = true) => {
       stage_id: stageFilter.value || undefined,
       sort_by: sortField.value,
       sort_direction: sortDirection.value,
-      page: currentPage.value,
-      per_page: pagination.value.per_page
+      per_page: 100 // Get more items for cache
     };
 
     const response = await caseService.getCases(params);
     
-    cases.value = response.data || [];
-    pagination.value = response.meta || {
-      current_page: currentPage.value,
-      last_page: 1,
-      per_page: 15,
-      total: cases.value.length,
-      from: 1,
-      to: cases.value.length
-    };
+    if (response.data) {
+      // Store in appUtils
+      setCases(response.data);
+      allCases.value = response.data;
+      
+      // Update pagination
+      updatePagination();
+      
+      // Turn off loading
+      if (initialLoading.value) initialLoading.value = false;
+    }
     
   } catch (error) {
     console.error('Failed to load cases:', error);
@@ -414,25 +512,27 @@ const fetchCases = async (showLoading = true) => {
       showConfirmButton: false
     });
   } finally {
-    if (showLoading) isLoading.value = false;
+    if (showLoading) initialLoading.value = false;
+    isRefreshing.value = false;
   }
 };
 
-// ==================== FETCH LOOKUPS ====================
+// ========== FETCH LOOKUPS (ONCE) ==========
 const fetchLookups = async () => {
-  isLoadingLookups.value = true;
+  // Skip if already loaded
+  if (lookupsLoaded) {
+    return;
+  }
   
   try {
     const response = await caseService.getLookups();
     const data = response.data || {};
     
-    lookups.value = data;
-    
     // Ensure users array exists (combine lawyers and clerks)
-    const lawyers = lookups.value.lawyers || [];
-    const clerks = lookups.value.clerks || [];
+    const lawyers = data.lawyers || [];
+    const clerks = data.clerks || [];
     
-    lookups.value.users = [
+    data.users = [
       ...lawyers.map(l => ({ 
         id: l.id, 
         full_name: l.full_name, 
@@ -445,22 +545,61 @@ const fetchLookups = async () => {
       }))
     ];
     
+    lookups.value = data;
+    lookupsLoaded = true;
+    
   } catch (error) {
     console.error('Failed to load lookups:', error);
-  } finally {
-    isLoadingLookups.value = false;
   }
 };
 
-// Filters
+// ========== INITIALIZE ==========
+const initialize = async () => {
+  console.log('🚀 Initializing Case Master...');
+  console.log('📊 Cases in cache:', allCases.value.length);
+  
+  // Update pagination based on cached data
+  updatePagination();
+  
+  // If no cached data, show loading and fetch
+  if (!allCases.value || allCases.value.length === 0) {
+    console.log('📡 No cached data, fetching...');
+    await fetchCases(true);
+  } else {
+    // Fetch fresh data in background
+    console.log('📡 Fetching fresh data in background...');
+    fetchCases(false);
+  }
+  
+  // Fetch lookups once
+  await fetchLookups();
+};
+
+// Update pagination based on filtered cases
+const updatePagination = () => {
+  const total = filteredCases.value.length;
+  const last_page = Math.ceil(total / pagination.value.per_page) || 1;
+  const current = Math.min(pagination.value.current_page, last_page);
+  
+  pagination.value = {
+    current_page: current,
+    last_page: last_page,
+    per_page: pagination.value.per_page,
+    total: total,
+    from: total > 0 ? (current - 1) * pagination.value.per_page + 1 : 0,
+    to: total > 0 ? Math.min(current * pagination.value.per_page, total) : 0
+  };
+};
+
+// ========== FILTER METHODS ==========
 const debouncedSearch = debounce(() => {
-  currentPage.value = 1;
-  fetchCases(true);
+  pagination.value.current_page = 1;
+  updatePagination();
 }, 500);
 
 const handleFilterChange = () => {
-  currentPage.value = 1;
-  fetchCases(true);
+  pagination.value.current_page = 1;
+  updatePagination();
 };
 
 const sortBy = (field) => {
@@ -470,38 +609,31 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  fetchCases(true);
+  pagination.value.current_page = 1;
+  updatePagination();
 };
 
 // Pagination
 const previousPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
-    fetchCases(true);
+  if (pagination.value.current_page > 1) {
+    pagination.value.current_page--;
+    updatePagination();
   }
 };
 
 const nextPage = () => {
-  if (currentPage.value < pagination.value.last_page) {
-    currentPage.value++;
-    fetchCases(true);
+  if (pagination.value.current_page < pagination.value.last_page) {
+    pagination.value.current_page++;
+    updatePagination();
   }
 };
 
 const goToPage = (page) => {
-  currentPage.value = page;
-  fetchCases(true);
+  pagination.value.current_page = page;
+  updatePagination();
 };
 
 // Helpers
-const getInitials = (name) => {
-  if (!name || name === '—') return '?';
-  const parts = name.split(' ').filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
-
 const capitalize = (s) => s ? s[0].toUpperCase() + s.slice(1) : '';
 
 const priorityClass = (p) => ({
@@ -523,40 +655,38 @@ const statusClass = (s) => ({
 }[s] || 'bg-slate-100 text-slate-500');
 
 // Modal functions
-const openCreateModal = async () => {
-  await fetchLookups();
+const openCreateModal = () => {
   resetForm();
   isEditing.value = false;
   editingId.value = null;
   showFormModal.value = true;
 };
 
-const openEditModal = async (caseItem) => {
-  await fetchLookups();
+const openEditModal = (caseItem) => {
   resetForm();
   isEditing.value = true;
   editingId.value = caseItem.id;
   
-  form.case_no = caseItem.case_no;
-  form.title = caseItem.title;
-  form.category_id = caseItem.category_id || '';
-  form.client_id = caseItem.client_id;
-  form.court_or_office = caseItem.court_or_office || '';
-  form.docket_no = caseItem.docket_no || '';
-  form.assigned_lawyer_id = caseItem.assigned_lawyer_id;
-  form.assigned_clerk_id = caseItem.assigned_clerk_id || '';
-  form.priority = caseItem.priority;
-  form.case_status = caseItem.case_status;
-  form.current_stage_id = caseItem.current_stage_id || '';
-  form.summary = caseItem.summary || '';
+  Object.assign(form, {
+    case_no: caseItem.case_no,
+    title: caseItem.title,
+    category_id: caseItem.category_id || '',
+    client_id: caseItem.client_id,
+    court_or_office: caseItem.court_or_office || '',
+    docket_no: caseItem.docket_no || '',
+    assigned_lawyer_id: caseItem.assigned_lawyer_id,
+    assigned_clerk_id: caseItem.assigned_clerk_id || '',
+    priority: caseItem.priority,
+    case_status: caseItem.case_status,
+    current_stage_id: caseItem.current_stage_id || '',
+    summary: caseItem.summary || ''
+  });
   
   showFormModal.value = true;
 };
 
 const openViewModal = async (caseItem) => {
   try {
-    await fetchLookups();
-    
     const response = await caseService.getCase(caseItem.id);
     selectedCase.value = response.data;
     showViewModal.value = true;
@@ -576,30 +706,36 @@ const closeFormModal = () => {
 };
 
 const resetForm = () => {
-  form.case_no = '';
-  form.title = '';
-  form.category_id = '';
-  form.client_id = '';
-  form.court_or_office = '';
-  form.docket_no = '';
-  form.assigned_lawyer_id = '';
-  form.assigned_clerk_id = '';
-  form.priority = 'normal';
-  form.case_status = 'active';
-  form.current_stage_id = '';
-  form.summary = '';
+  Object.assign(form, {
+    case_no: '',
+    title: '',
+    category_id: '',
+    client_id: '',
+    court_or_office: '',
+    docket_no: '',
+    assigned_lawyer_id: '',
+    assigned_clerk_id: '',
+    priority: 'normal',
+    case_status: 'active',
+    current_stage_id: '',
+    summary: ''
+  });
   
-  errors.case_no = '';
-  errors.title = '';
-  errors.client_id = '';
-  errors.assigned_lawyer_id = '';
+  Object.assign(errors, {
+    case_no: '',
+    title: '',
+    client_id: '',
+    assigned_lawyer_id: ''
+  });
 };
 
 const clearErrors = () => {
-  errors.case_no = '';
-  errors.title = '';
-  errors.client_id = '';
-  errors.assigned_lawyer_id = '';
+  Object.assign(errors, {
+    case_no: '',
+    title: '',
+    client_id: '',
+    assigned_lawyer_id: ''
+  });
 };
 
 // Client created handler
@@ -608,7 +744,7 @@ const onClientCreated = (updatedClients) => {
   refreshClients(updatedClients);
 };
 
-// ==================== FIXED SUBMIT FORM WITH PROPER ERROR HANDLING ====================
+// Submit form
 const submitForm = async () => {
   formLoading.value = true;
   clearErrors();
@@ -656,38 +792,21 @@ const submitForm = async () => {
     }
 
     closeFormModal();
-    await fetchCases(true);
+    await fetchCases(false);
 
   } catch (error) {
     console.error('Form submission error:', error);
     
-    // Handle validation errors (422)
     if (error.response?.status === 422) {
       const validationErrors = error.response.data.errors || {};
       
-      // Map Laravel validation errors to your form errors object
-      if (validationErrors.case_no) {
-        errors.case_no = Array.isArray(validationErrors.case_no) 
-          ? validationErrors.case_no[0] 
-          : validationErrors.case_no;
-      }
-      if (validationErrors.title) {
-        errors.title = Array.isArray(validationErrors.title) 
-          ? validationErrors.title[0] 
-          : validationErrors.title;
-      }
-      if (validationErrors.client_id) {
-        errors.client_id = Array.isArray(validationErrors.client_id) 
-          ? validationErrors.client_id[0] 
-          : validationErrors.client_id;
-      }
-      if (validationErrors.assigned_lawyer_id) {
-        errors.assigned_lawyer_id = Array.isArray(validationErrors.assigned_lawyer_id) 
-          ? validationErrors.assigned_lawyer_id[0] 
-          : validationErrors.assigned_lawyer_id;
-      }
+      Object.assign(errors, {
+        case_no: validationErrors.case_no ? (Array.isArray(validationErrors.case_no) ? validationErrors.case_no[0] : validationErrors.case_no) : '',
+        title: validationErrors.title ? (Array.isArray(validationErrors.title) ? validationErrors.title[0] : validationErrors.title) : '',
+        client_id: validationErrors.client_id ? (Array.isArray(validationErrors.client_id) ? validationErrors.client_id[0] : validationErrors.client_id) : '',
+        assigned_lawyer_id: validationErrors.assigned_lawyer_id ? (Array.isArray(validationErrors.assigned_lawyer_id) ? validationErrors.assigned_lawyer_id[0] : validationErrors.assigned_lawyer_id) : ''
+      });
       
-      // Show a small notification that validation failed
       Swal.fire({
         icon: 'error',
         title: 'Validation Error',
@@ -698,7 +817,6 @@ const submitForm = async () => {
         toast: true
       });
     } else {
-      // Handle other errors
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -739,7 +857,7 @@ const confirmDelete = async (caseItem) => {
         toast: true
       });
 
-      await fetchCases(true);
+      await fetchCases(false);
 
     } catch (error) {
       Swal.fire({
@@ -752,15 +870,41 @@ const confirmDelete = async (caseItem) => {
   }
 };
 
-// Watch for page changes
-watch(currentPage, () => {
-  fetchCases(true);
+// ========== MANUAL REFRESH ==========
+const manualRefresh = async () => {
+  isRefreshing.value = true;
+  await fetchCases(true);
+  
+  Swal.fire({
+    icon: 'success',
+    title: 'Refreshed!',
+    text: 'Cases list updated',
+    timer: 1500,
+    showConfirmButton: false,
+    position: 'top-end',
+    toast: true
+  });
+};
+
+// ========== LISTEN FOR UPDATES ==========
+const handleCasesUpdated = (event) => {
+  console.log('🔄 Cases updated event received');
+  allCases.value = event.detail;
+  updatePagination();
+};
+
+let cleanupCases = null;
+
+// ========== LIFECYCLE ==========
+onMounted(async () => {
+  await initialize();
+  
+  // Listen for updates from appUtils
+  cleanupCases = listenForUpdates('cases-updated', handleCasesUpdated);
 });
 
-// Initial load
-onMounted(() => {
-  fetchCases(true);
-  fetchLookups();
+onUnmounted(() => {
+  if (cleanupCases) cleanupCases();
 });
 </script>
 

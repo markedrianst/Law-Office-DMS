@@ -9,101 +9,93 @@
       <span class="text-xs font-medium text-blue-600">Syncing...</span>
     </div>
 
-    <!-- Header Section - Matching User Management -->
+    <!-- Header Section with New Event Button -->
     <div class="mb-4 sm:mb-7">
-      <div class="flex items-center gap-3 mb-1">
-        <div class="w-1 h-8 rounded-full bg-gradient-to-b from-[#1a4972] to-[#2d6db5]"></div>
-        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[#1a4972]">Calendar</h1>
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-3">
+          <div class="w-1 h-8 rounded-full bg-gradient-to-b from-[#1a4972] to-[#2d6db5]"></div>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[#1a4972]">Calendar</h1>
+        </div>
       </div>
       <p class="text-xs sm:text-sm ml-4 pl-3 text-slate-500">Manage hearings, meetings, and deadlines</p>
     </div>
 
-    <!-- Filters Bar - Responsive -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 sm:p-4 mb-4">
-      <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
-        <!-- Month Navigation -->
-        <div class="flex items-center gap-2 bg-slate-50 rounded-xl border border-slate-200 p-1 flex-shrink-0">
-          <button @click="previousMonth" class="p-2 hover:bg-white rounded-lg transition">
-            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-            </svg>
-          </button>
-          <span class="text-xs sm:text-sm font-semibold text-slate-700 px-2 whitespace-nowrap">{{ currentMonthName }} {{ currentYear }}</span>
-          <button @click="nextMonth" class="p-2 hover:bg-white rounded-lg transition">
-            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-          </button>
-          <button @click="goToToday" class="px-2 sm:px-3 py-1 text-xs font-medium bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
-            Today
-          </button>
-        </div>
-
-        <!-- Type Filter -->
-        <select v-model="filters.type" @change="applyFilters"
-          class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-1 sm:flex-initial sm:min-w-[120px]">
-          <option value="">All Types</option>
-          <option value="hearing">⚖️ Hearing</option>
-          <option value="meeting">🤝 Meeting</option>
-          <option value="deadline">⏰ Deadline</option>
-          <option value="task">✅ Task</option>
-          <option value="personal">📌 Personal</option>
-          <option value="other">📅 Other</option>
-        </select>
-
-        <!-- Status Filter -->
-        <select v-model="filters.status" @change="applyFilters"
-          class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-1 sm:flex-initial sm:min-w-[120px]">
-          <option value="">All Status</option>
-          <option value="scheduled">📅 Scheduled</option>
-          <option value="completed">✅ Completed</option>
-          <option value="cancelled">❌ Cancelled</option>
-          <option value="rescheduled">🔄 Rescheduled</option>
-        </select>
-
-        <!-- Case Filter -->
-        <select v-model="filters.case_id" @change="applyFilters"
-          class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-1 sm:flex-initial sm:min-w-[200px]">
-          <option value="">All Cases</option>
-          <option v-for="caseItem in userCases" :key="caseItem.id" :value="caseItem.id">
-            {{ caseItem.case_code }} - {{ caseItem.title }}
-          </option>
-        </select>
-
-        <!-- Personal Only Checkbox -->
-        <label class="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl cursor-pointer flex-shrink-0">
-          <input type="checkbox" v-model="filters.personal_only" @change="applyFilters" class="rounded border-slate-300 text-[#1a4972]">
-          <span class="text-xs sm:text-sm text-slate-600 whitespace-nowrap">Personal only</span>
-        </label>
-
-        <!-- Action Buttons - Responsive -->
-        <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0 w-full sm:w-auto sm:ml-auto">
-          <!-- Refresh Button -->
-          <button @click="manualRefresh" :disabled="isRefreshing"
-            class="flex-1 sm:flex-initial px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-all duration-200 whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5">
-            <svg v-if="isRefreshing" class="animate-spin w-3 h-3 sm:w-4 sm:h-4 mr-2" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-            <svg v-else class="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-            <span class="hidden sm:inline">Refresh</span>
-            <span class="sm:hidden">Sync</span>
-          </button>
-
-          <!-- New Event Button -->
-          <button v-if="canCreateEvents" @click="openCreateModal"
-            class="flex-1 sm:flex-initial px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-all duration-200 whitespace-nowrap hover:shadow-lg active:scale-95 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white shadow-md shadow-[#1a4972]/30">
-            <svg class="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-            </svg>
-            <span class="hidden sm:inline">New Event</span>
-            <span class="sm:hidden">New</span>
-          </button>
-        </div>
-      </div>
+<!-- Filters Bar - Single Row with Horizontal Scroll -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 sm:p-4 mb-4">
+  <div class="flex items-center gap-2 sm:gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <!-- Month Navigation -->
+    <div class="flex items-center gap-2 bg-slate-50 rounded-xl border border-slate-200 p-1 flex-shrink-0">
+      <button @click="previousMonth" class="p-2 hover:bg-white rounded-lg transition">
+        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span class="text-xs sm:text-sm font-semibold text-slate-700 px-2 whitespace-nowrap">{{ currentMonthName }} {{ currentYear }}</span>
+      <button @click="nextMonth" class="p-2 hover:bg-white rounded-lg transition">
+        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <button @click="goToToday" class="px-2 sm:px-3 py-1 text-xs font-medium bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+        Today
+      </button>
     </div>
+
+    <!-- Type Filter -->
+    <select v-model="filters.type" @change="applyFilters"
+      class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-shrink-0 min-w-[110px] sm:min-w-[120px]">
+      <option value="">All Types</option>
+      <option value="hearing">⚖️ Hearing</option>
+      <option value="meeting">🤝 Meeting</option>
+      <option value="deadline">⏰ Deadline</option>
+      <option value="task">✅ Task</option>
+      <option value="personal">📌 Personal</option>
+      <option value="other">📅 Other</option>
+    </select>
+
+    <!-- Status Filter -->
+    <select v-model="filters.status" @change="applyFilters"
+      class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-shrink-0 min-w-[110px] sm:min-w-[120px]">
+      <option value="">All Status</option>
+      <option value="scheduled">📅 Scheduled</option>
+      <option value="completed">✅ Completed</option>
+      <option value="cancelled">❌ Cancelled</option>
+      <option value="rescheduled">🔄 Rescheduled</option>
+    </select>
+
+    <!-- Case Filter -->
+    <select v-model="filters.case_id" @change="applyFilters"
+      class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-shrink-0 min-w-[180px] sm:min-w-[200px]">
+      <option value="">All Cases</option>
+      <option v-for="caseItem in userCases" :key="caseItem.id" :value="caseItem.id">
+        {{ caseItem.case_code }} - {{ caseItem.title }}
+      </option>
+    </select>
+    <!-- New Event Button -->
+    <button @click="openCreateModal"
+      class="px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-all duration-200 whitespace-nowrap hover:shadow-lg active:scale-95 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white shadow-md shadow-[#1a4972]/30 flex-shrink-0">
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+      </svg>
+      <span class="hidden sm:inline">New Event</span>
+      <span class="sm:hidden">New</span>
+    </button>
+
+    <!-- Refresh Button -->
+    <button @click="manualRefresh" :disabled="isRefreshing"
+      class="px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-all duration-200 whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5 flex-shrink-0">
+      <svg v-if="isRefreshing" class="animate-spin w-3 h-3 sm:w-4 sm:h-4 mr-2" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+      </svg>
+      <svg v-else class="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      <span class="hidden sm:inline">Refresh</span>
+      <span class="sm:hidden">Sync</span>
+    </button>
+  </div>
+</div>
 
     <!-- Calendar Table - Responsive -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">

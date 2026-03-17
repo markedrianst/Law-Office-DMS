@@ -629,7 +629,6 @@ const handleSave = () => {
     payload.id = props.task.id;
   }
   
-  console.log('Saving payload:', payload);
   emit('save', { mode: props.mode, data: payload });
 };
 
@@ -674,7 +673,6 @@ const formatDateTime = (d) => {
 };
 // Add this watch
 watch(() => props.clerks, (newVal) => {
-  console.log('TaskModal clerks received:', newVal);
 }, { immediate: true, deep: true });
 const taskStatusLabel = (s) => ({ todo: 'To-do', 'in-progress': 'In-progress', done: 'Done' }[s] || s);
 const taskStatusClass = (s) => ({ 

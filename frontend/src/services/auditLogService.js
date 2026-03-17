@@ -8,20 +8,15 @@ import {
 } from '@/utils/appUtils';
 
 class AuditLogService {
-  constructor() {
-    // No cache needed - using appUtils instead
-    console.log('📋 AuditLogService initialized');
-  }
+  constructor() { }
 
   async getCombinedLogs(params = {}) {
     try {
-      console.log('📡 Fetching combined logs from API...');
       const { data } = await api.get('/admin/audit-logs/combined', { params });
       
       // Store in appUtils
       if (data.data) {
         setAuditLogs(data.data);
-        console.log('✅ Audit logs stored in appUtils:', data.data.length);
       }
       
       return data;
@@ -44,13 +39,11 @@ class AuditLogService {
 
   async getStats(forceRefresh = false) {
     try {
-      console.log('📡 Fetching audit stats from API...');
       const { data } = await api.get('/admin/audit-logs/stats');
       
       // Store in appUtils
       if (data.data) {
         setAuditStats(data.data);
-        console.log('✅ Audit stats stored in appUtils');
       }
       
       return data;

@@ -316,10 +316,6 @@ if (userRole.value !== 'admin') {
 // Get initial data from appUtils (INSTANT!)
 const initialLogs = getAuditLogs();
 const initialStats = getAuditStats();
-
-console.log('📊 Initial audit logs from appUtils:', initialLogs?.length);
-console.log('📊 Initial audit stats from appUtils:', initialStats);
-
 const logs = ref(initialLogs || []);
 const stats = ref(initialStats || { total_logs: 0, login_stats: { success: 0, failed: 0 } });
 const isLoading = ref(!initialLogs || initialLogs.length === 0); // Only show loading if no data
@@ -456,18 +452,14 @@ let cleanupStats = null;
 
 // ==================== LOAD DATA ONLY IF NEEDED ====================
 const initialize = async () => {
-  console.log('🚀 Initializing AuditTrail...');
-  console.log('📊 Logs in ref:', logs.value.length);
   
   // Fetch stats first (they're small)
   await fetchStats();
   
   // ONLY fetch logs if we have no data
   if (logs.value.length === 0) {
-    console.log('📡 No logs in appUtils, fetching from API...');
     await fetchData(true);
   } else {
-    console.log('✅ Using existing logs from appUtils');
     isLoading.value = false;
   }
 };
@@ -762,7 +754,6 @@ const exportLogs = async (scope) => {
 
 // ==================== LIFECYCLE ====================
 onMounted(async () => {
-  console.log('🚀 AuditTrail mounted');
   
   // Initialize - only fetches if no data
   await initialize();

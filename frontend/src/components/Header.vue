@@ -24,7 +24,7 @@
           </span>
         </button>
 
-        <!-- Notifications Dropdown -->
+        <!-- Notifications Dropdown - ONLY UNREAD -->
         <Transition name="dropdown">
           <div
             v-if="isNotificationOpen"
@@ -40,70 +40,78 @@
               </div>
               <button
                 v-if="unreadCount > 0"
-                @click="markAllAsRead"
+                @click="handleMarkAllRead"
                 class="text-xs font-semibold text-[#1a4972] hover:bg-slate-200 px-2 py-1 rounded-lg transition-colors"
               >
                 Mark all read
               </button>
             </div>
 
-            <!-- List -->
+            <!-- List - UNREAD ONLY (no duplicates) -->
             <div class="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
-              <!-- Empty state -->
-              <div v-if="notifications.length === 0" class="p-12 flex flex-col items-center gap-3 text-center">
+              <!-- Loading state -->
+              <div v-if="loadingNotifications" class="p-8 flex justify-center">
+                <svg class="animate-spin w-6 h-6 text-[#1a4972]" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              </div>
+
+              <!-- Empty state - No unread notifications -->
+              <div v-else-if="unreadNotifications.length === 0" class="p-12 flex flex-col items-center gap-3 text-center">
                 <div class="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
                   <svg class="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                   </svg>
                 </div>
                 <div>
-                  <p class="text-sm font-semibold text-slate-500">You're all caught up!</p>
-                  <p class="text-xs text-slate-400 mt-0.5">No notifications yet</p>
+                  <p class="text-sm font-semibold text-slate-500">All caught up!</p>
+                  <p class="text-xs text-slate-400 mt-0.5">No unread notifications</p>
                 </div>
               </div>
 
-              <!-- Notification Items -->
+              <!-- Notification Items - UNREAD ONLY -->
               <div
                 v-else
-                v-for="item in notifications"
+                v-for="item in unreadNotifications"
                 :key="item.id"
-                class="flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-all duration-150 relative"
-                :class="item.is_read ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/70 hover:bg-blue-50 border-l-[3px] border-[#1a4972]'"
+                class="flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-all duration-150 relative bg-blue-50/70 hover:bg-blue-50 border-l-[3px] border-[#1a4972]"
                 @click="goToNotification(item)"
               >
                 <!-- Icon badge -->
                 <div
                   class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm z-10"
-                  :class="getNotificationIconClass(item.type)"
+                  :class="getIconClass(item)"
                 >
-                  {{ getNotificationIcon(item.type) }}
+                  {{ getIcon(item) }}
                 </div>
 
                 <!-- Content -->
                 <div class="flex-1 min-w-0 z-10">
                   <div class="flex items-start justify-between gap-2">
-                    <p class="text-xs font-bold leading-snug" :class="item.is_read ? 'text-slate-700' : 'text-slate-900'">
+                    <p class="text-xs font-bold leading-snug text-slate-900">
                       {{ item.title }}
                     </p>
-                    <span
-                      v-if="!item.is_read"
-                      class="w-2 h-2 rounded-full bg-[#1a4972] flex-shrink-0 mt-1"
-                    ></span>
+                    <span class="w-2 h-2 rounded-full bg-[#1a4972] flex-shrink-0 mt-1 animate-pulse"></span>
                   </div>
 
-                  <p class="text-xs mt-0.5 line-clamp-2" :class="item.is_read ? 'text-slate-500' : 'text-slate-600'">
+                  <p class="text-xs mt-0.5 line-clamp-2 text-slate-600">
                     {{ item.message }}
                   </p>
 
-                  <p class="text-[10px] mt-1.5 font-medium" :class="item.is_read ? 'text-slate-400' : 'text-[#1a4972]/70'">
+                  <p v-if="item.data?.notes" class="text-[10px] text-slate-400 mt-1 italic">
+                    📝 {{ item.data.notes }}
+                  </p>
+
+                  <p class="text-[10px] mt-1.5 font-medium text-[#1a4972]/70">
                     {{ formatTimeAgo(item.created_at) }}
                   </p>
                 </div>
               </div>
             </div>
 
-            <!-- Footer -->
-            <div v-if="notifications.length > 0" class="px-4 py-3 border-t border-slate-100 bg-slate-50 text-center">
+            <!-- Footer - Link to view all -->
+            <div class="px-4 py-3 border-t border-slate-100 bg-slate-50 text-center">
               <button @click="viewAll" class="text-xs font-semibold text-[#1a4972] hover:underline transition-all">
                 View all notifications →
               </button>
@@ -199,49 +207,15 @@
       </button>
     </div>
   </header>
-
-  <!-- LOGOUT CONFIRMATION MODAL -->
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="showLogoutModal"
-        class="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
-        @click.self="showLogoutModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 pt-6 flex flex-col items-center text-center gap-4 max-sm:max-w-[90%] max-sm:p-6">
-          <div class="w-14 h-14 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </div>
-          <div>
-            <h2 class="text-lg font-bold text-slate-900">Sign out?</h2>
-            <p class="text-sm text-slate-500 mt-1">You'll need to log back in to access the system.</p>
-          </div>
-          <div class="flex gap-2 w-full mt-2 max-sm:flex-col">
-            <button
-              class="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-xl hover:bg-slate-200 transition-colors"
-              @click="showLogoutModal = false"
-            >
-              Cancel
-            </button>
-            <button
-              class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-              @click="confirmLogout"
-            >
-              {{ isLoggingOut ? 'Signing out…' : 'Yes, sign out' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
 </template>
+
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import Swal from 'sweetalert2';
+
+// Import from useNotifications composable
+import { useNotifications } from '@/composables/useNotifications';
 
 // Import appUtils
 import { 
@@ -249,44 +223,45 @@ import {
   getUserRole,
   getUserInitials,
   getRoleLabel,
-  getNotifications,
-  getUnreadCount,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  getNotificationIcon,
-  getNotificationIconClass,
   formatTimeAgo,
-  clearData,
-  listenForUpdates
-} from '@/utils/appUtils'
+  clearData
+} from '@/utils/appUtils';
 
-import authService from '@/services/auth'
+import authService from '@/services/auth';
 
-const router = useRouter()
-const route = useRoute()
+const router = useRouter();
+const route = useRoute();
+
+// ==================== USE NOTIFICATIONS COMPOSABLE ====================
+const { 
+  unreadNotifications,  // Only unread for dropdown
+  unreadCount, 
+  markAsRead, 
+  markAllAsRead,
+  refresh: refreshNotifications,
+  isLoading: loadingNotifications
+} = useNotifications();
 
 // ==================== STATE ====================
-const userName = ref(getUserName() || 'User')
-const userRole = ref(getUserRole() || 'user')
-const userRoleLabel = ref(getRoleLabel(userRole.value) || 'User')
-const userInitials = ref(getUserInitials() || 'U')
-const notifications = ref(getNotifications() || [])
-const unreadCount = ref(getUnreadCount() || 0)
+const userName = ref(getUserName() || 'User');
+const userRole = ref(getUserRole() || 'user');
+const userRoleLabel = ref(getRoleLabel(userRole.value) || 'User');
+const userInitials = ref(getUserInitials() || 'U');
 
 // UI State
-const isUserMenuOpen = ref(false)
-const dropdownRef = ref(null)
-const isNotificationOpen = ref(false)
-const notificationDropdownRef = ref(null)
-const showLogoutModal = ref(false)
-const isLoggingOut = ref(false)
-const showHamburger = ref(false)
+const isUserMenuOpen = ref(false);
+const dropdownRef = ref(null);
+const isNotificationOpen = ref(false);
+const notificationDropdownRef = ref(null);
+const showLogoutModal = ref(false);
+const isLoggingOut = ref(false);
+const showHamburger = ref(false);
 
 // Props
 const props = defineProps({
   sidebarOpen: { type: Boolean, default: false }
-})
-const emit = defineEmits(['toggle-sidebar'])
+});
+const emit = defineEmits(['toggle-sidebar']);
 
 // ==================== COMPUTED ====================
 const pageTitle = computed(() => {
@@ -300,131 +275,162 @@ const pageTitle = computed(() => {
     '/casecategories': 'Case Categories',
     '/courts': 'Courts & Offices',
     '/documents': 'Document Types',
-  }
-  return titles[route.path] || 'Dashboard'
-})
-
-// ==================== UPDATE FUNCTIONS ====================
-const updateUserData = () => {
-  userName.value = getUserName() || 'User'
-  userRole.value = getUserRole() || 'user'
-  userRoleLabel.value = getRoleLabel(userRole.value) || 'User'
-  userInitials.value = getUserInitials() || 'U'
-}
-
-const updateNotifications = () => {
-  notifications.value = getNotifications() || []
-  unreadCount.value = getUnreadCount() || 0
-}
+    '/notifications': 'Notifications'
+  };
+  return titles[route.path] || 'Dashboard';
+});
 
 // ==================== NOTIFICATION METHODS ====================
 const toggleNotification = () => {
-  isNotificationOpen.value = !isNotificationOpen.value
-  if (isNotificationOpen.value) isUserMenuOpen.value = false
-}
+  isNotificationOpen.value = !isNotificationOpen.value;
+  if (isNotificationOpen.value) {
+    isUserMenuOpen.value = false;
+    // Refresh notifications when opening
+    refreshNotifications();
+  }
+};
 
 const goToNotification = async (item) => {
   if (!item.is_read) {
-    markNotificationAsRead(item.id)
-    updateNotifications()
+    await markAsRead(item.id);
   }
-  isNotificationOpen.value = false
+  isNotificationOpen.value = false;
   
   if (item.action_url) {
-    router.push(item.action_url)
+    router.push(item.action_url);
   } else if (item.data?.case_id) {
-    router.push(`/casemaster`)
+    router.push(`/casemaster`);
   } else if (item.type?.includes('approval')) {
-    router.push('/approvals')
+    router.push('/approvals');
+  } else {
+    router.push('/notifications');
   }
-}
+};
 
 const viewAll = () => {
-  isNotificationOpen.value = false
-  router.push('/notifications')
-}
+  isNotificationOpen.value = false;
+  router.push('/notifications');
+};
 
-const markAllAsRead = async () => {
-  markAllNotificationsAsRead()
-  updateNotifications()
-}
+const handleMarkAllRead = async () => {
+  await markAllAsRead();
+};
 
 // ==================== USER MENU METHODS ====================
 const askLogout = () => {
-  isUserMenuOpen.value = false
-  showLogoutModal.value = true
-}
+  isUserMenuOpen.value = false;
+  
+  Swal.fire({
+    title: 'Sign out?',
+    text: "You'll need to log back in to access the system.",
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Yes, sign out',
+    cancelButtonText: 'Cancel',
+    background: '#fff',
+    backdrop: 'rgba(0,0,0,0.5)',
+    customClass: {
+      title: 'text-lg font-bold text-slate-900',
+      htmlContainer: 'text-sm text-slate-500',
+      confirmButton: 'px-4 py-2 text-sm font-semibold rounded-lg',
+      cancelButton: 'px-4 py-2 text-sm font-semibold rounded-lg'
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        await authService.logout();
+        clearData();
+        router.replace('/');
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Signed out',
+          text: 'You have been successfully logged out.',
+          timer: 1500,
+          showConfirmButton: false,
+          position: 'top-end',
+          toast: true
+        });
+      } catch (error) {
+        console.error('Logout error:', error);
+        clearData();
+        router.replace('/');
+      }
+    }
+  });
+};
 
-const confirmLogout = async () => {
-  isLoggingOut.value = true
-  try {
-    await authService.logout()
-    clearData()
-    router.replace('/')
-  } catch (error) {
-    console.error('Logout error:', error)
-    clearData()
-    router.replace('/')
-  } finally {
-    isLoggingOut.value = false
-    showLogoutModal.value = false
-  }
-}
+// ==================== ICON HELPERS ====================
+const getIcon = (item) => {
+  if (item.type?.includes('approved'))  return '✅';
+  if (item.type?.includes('rejected'))  return '❌';
+  if (item.type?.includes('pending'))   return '⏳';
+  if (item.type?.includes('folder'))    return '📂';
+  if (item.type?.includes('checklist')) return '📋';
+  if (item.type?.includes('task'))      return '📝';
+  if (item.type?.includes('case'))      return '📁';
+  return '🔔';
+};
+
+const getIconClass = (item) => {
+  if (item.type?.includes('approved'))  return 'bg-emerald-100';
+  if (item.type?.includes('rejected'))  return 'bg-red-100';
+  if (item.type?.includes('pending'))   return 'bg-amber-100';
+  if (item.type?.includes('task'))      return 'bg-blue-100';
+  return 'bg-slate-100';
+};
 
 // ==================== UI HELPERS ====================
 const handleOutside = (e) => {
   if (dropdownRef.value && !dropdownRef.value.contains(e.target)) {
-    isUserMenuOpen.value = false
+    isUserMenuOpen.value = false;
   }
   if (notificationDropdownRef.value && !notificationDropdownRef.value.contains(e.target)) {
-    isNotificationOpen.value = false
+    isNotificationOpen.value = false;
   }
-}
+};
 
 const handleResize = () => { 
-  showHamburger.value = window.innerWidth < 768 
-}
+  showHamburger.value = window.innerWidth < 768; 
+};
+
+// ==================== UPDATE USER DATA ====================
+const updateUserData = () => {
+  userName.value = getUserName() || 'User';
+  userRole.value = getUserRole() || 'user';
+  userRoleLabel.value = getRoleLabel(userRole.value) || 'User';
+  userInitials.value = getUserInitials() || 'U';
+};
 
 // ==================== LIFECYCLE ====================
-let cleanupUser = null
-let cleanupNotifications = null
-
 onMounted(() => {
-  console.log('📌 Header mounted')
+  console.log('📌 Header mounted');
   
-  // Initial updates
-  updateUserData()
-  updateNotifications()
-  
-  // Listen for updates from appUtils
-  cleanupUser = listenForUpdates('user-updated', updateUserData)
-  cleanupNotifications = listenForUpdates('notifications-updated', updateNotifications)
-  
-  // Storage events for multi-tab
-  const handleStorageChange = (e) => {
-    if (e.key === 'user') {
-      updateUserData()
-    } else if (e.key === 'notifications') {
-      updateNotifications()
-    }
-  }
+  // Initial user data
+  updateUserData();
   
   // Event listeners
-  document.addEventListener('mousedown', handleOutside)
-  window.addEventListener('resize', handleResize)
-  window.addEventListener('storage', handleStorageChange)
+  document.addEventListener('mousedown', handleOutside);
+  window.addEventListener('resize', handleResize);
   
-  handleResize()
+  // Listen for storage events (for multi-tab support)
+  const handleStorageChange = (e) => {
+    if (e.key === 'user') {
+      updateUserData();
+    }
+  };
+  window.addEventListener('storage', handleStorageChange);
   
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (cleanupUser) cleanupUser()
-    if (cleanupNotifications) cleanupNotifications()
-    document.removeEventListener('mousedown', handleOutside)
-    window.removeEventListener('resize', handleResize)
-    window.removeEventListener('storage', handleStorageChange)
-  })
-})
+  handleResize();
+});
+
+onUnmounted(() => {
+  document.removeEventListener('mousedown', handleOutside);
+  window.removeEventListener('resize', handleResize);
+  window.removeEventListener('storage', handleStorageChange);
+});
 </script>
 
 <style scoped>

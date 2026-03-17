@@ -647,9 +647,7 @@ const fetchApprovals = async (showLoading = false) => {
       search: filters.search || undefined
     };
     
-    console.log('Fetching approvals with params:', params);
     const response = await approvalService.getApprovals(params);
-    console.log('Approvals response:', response);
     
     lastUpdated.value = new Date().toLocaleTimeString();
     
@@ -664,7 +662,6 @@ const fetchApprovals = async (showLoading = false) => {
 
 // ========== INITIALIZE ==========
 const initialize = async () => {
-  console.log('🚀 Initializing Approvals...');
   fetchApprovals(false);
 };
 
@@ -825,12 +822,10 @@ const manualRefresh = async () => {
 
 // ========== LISTEN FOR UPDATES ==========
 const handleApprovalsUpdated = (event) => {
-  console.log('🔄 Approvals updated event received');
   approvals.value = event.detail;
 };
 
 const handleStatsUpdated = (event) => {
-  console.log('🔄 Approval stats updated event received');
   stats.value = event.detail;
 };
 
@@ -839,7 +834,6 @@ let cleanupStats = null;
 
 // ========== LIFECYCLE ==========
 onMounted(async () => {
-  console.log('🚀 Approvals mounted');
   await initialize();
   
   cleanupApprovals = listenForUpdates('approvals-updated', handleApprovalsUpdated);
