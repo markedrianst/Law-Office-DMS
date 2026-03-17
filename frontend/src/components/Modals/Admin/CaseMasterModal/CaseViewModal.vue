@@ -964,7 +964,6 @@ watch(activeTab, () => {
 // MAIN FIX: Properly process case data when received
 watch(() => props.caseData, async (newVal) => {
   if (newVal) {
-    console.log('📊 CaseViewModal received caseData:', newVal);
     viewCase.value = newVal;
     
     // Process checklists with proper mapping - NO 'task' field
@@ -991,10 +990,6 @@ watch(() => props.caseData, async (newVal) => {
     folderMovements.value = newVal.folder_movements || [];
     checklistMovements.value = newVal.checklist_movements || [];
     activityLogs.value = newVal.activity_logs || [];
-    
-    console.log('✅ Processed checklist:', checklist.value.length, 'items');
-    console.log('📋 OUT items:', checklist.value.filter(t => t.is_out));
-    console.log('📋 IN items:', checklist.value.filter(t => !t.is_out));
   }
 }, { immediate: true });
 watch(() => props.show, (newVal) => {

@@ -11,7 +11,6 @@ const approvalService = {
 
   async getApprovals(params = {}) {
     try {
-      console.log('📡 Fetching approvals from API...');
       const { data } = await api.get("/admin/approvals", { params });
       
       if (data.success && data.data) {
@@ -20,7 +19,6 @@ const approvalService = {
         if (data.stats) {
           setApprovalStats(data.stats);
         }
-        console.log('✅ Approvals stored in appUtils:', data.data.length);
       }
       
       return data;
