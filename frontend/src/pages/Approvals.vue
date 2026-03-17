@@ -11,22 +11,6 @@
           </div>
           <p class="text-sm text-slate-500">Review and manage pending requests</p>
         </div>
-        
-        <!-- Stats Cards -->
-        <div class="flex gap-3">
-          <div class="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
-            <span class="text-xs text-slate-500">Pending</span>
-            <div class="text-xl font-bold text-amber-600">{{ stats.pending }}</div>
-          </div>
-          <div class="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
-            <span class="text-xs text-slate-500">Approved</span>
-            <div class="text-xl font-bold text-emerald-600">{{ stats.approved }}</div>
-          </div>
-          <div class="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-2">
-            <span class="text-xs text-slate-500">Rejected</span>
-            <div class="text-xl font-bold text-red-600">{{ stats.rejected }}</div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -90,10 +74,10 @@
         </button>
 
         <button 
-          @click="loadApprovals"
+          @click="manualRefresh"
           class="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4" :class="{ 'animate-spin': isRefreshing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
           Refresh
@@ -101,31 +85,24 @@
       </div>
     </div>
 
-   <!-- Enhanced Loading State -->
-<div v-if="loading" class="bg-white rounded-xl shadow-sm border border-slate-200 py-24 flex flex-col items-center">
-  <!-- Animated Spinner -->
-  <div class="relative mb-6">
-    <!-- Outer ring -->
-    <div class="w-16 h-16 rounded-full border-4 border-blue-100 absolute"></div>
-    <!-- Spinning ring -->
-    <div class="w-16 h-16 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
-    <!-- Inner pulse -->
-    <div class="absolute inset-0 flex items-center justify-center">
-      <div class="w-4 h-4 rounded-full bg-blue-600 animate-pulse"></div>
+    <!-- Enhanced Loading State -->
+    <div v-if="loading" class="bg-white rounded-xl shadow-sm border border-slate-200 py-24 flex flex-col items-center">
+      <!-- Animated Spinner -->
+      <div class="relative mb-6">
+        <div class="w-16 h-16 rounded-full border-4 border-blue-100 absolute"></div>
+        <div class="w-16 h-16 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="w-4 h-4 rounded-full bg-blue-600 animate-pulse"></div>
+        </div>
+      </div>
+      <p class="text-base font-semibold text-slate-700 mb-2 animate-pulse">Loading Approvals</p>
+      <p class="text-sm text-slate-500">Please wait while we fetch the data...</p>
+      <div class="flex gap-2 mt-4">
+        <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 0ms;"></div>
+        <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 150ms;"></div>
+        <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 300ms;"></div>
+      </div>
     </div>
-  </div>
-  
-  <!-- Loading text with animation -->
-  <p class="text-base font-semibold text-slate-700 mb-2 animate-pulse">Loading Approvals</p>
-  <p class="text-sm text-slate-500">Please wait while we fetch the data...</p>
-  
-  <!-- Progress dots -->
-  <div class="flex gap-2 mt-4">
-    <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 0ms;"></div>
-    <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 150ms;"></div>
-    <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 300ms;"></div>
-  </div>
-</div>
 
     <!-- Empty State -->
     <div v-else-if="!approvals.length" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
@@ -162,12 +139,9 @@
               class="hover:bg-slate-50 transition-colors"
               :class="{ 'bg-amber-50/30': item.approval_status === 'PENDING' }"
             >
-              <!-- Case -->
               <td class="px-4 py-3">
                 <span class="text-sm font-medium text-blue-700">{{ item.case_code || `Case #${item.case_id}` }}</span>
               </td>
-
-              <!-- Type -->
               <td class="px-4 py-3">
                 <span 
                   class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium"
@@ -176,8 +150,6 @@
                   {{ item.source === 'checklist' ? '📋 Checklist' : '📁 Folder' }}
                 </span>
               </td>
-
-              <!-- Direction -->
               <td class="px-4 py-3">
                 <span 
                   class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium"
@@ -186,23 +158,17 @@
                   {{ item.type }}
                 </span>
               </td>
-
-              <!-- Details -->
               <td class="px-4 py-3 max-w-[200px]">
                 <div class="text-sm font-medium text-slate-800 truncate">
-                  {{ item.source === 'checklist' ? (item.task_name || item.checklist?.task) : 'Folder Movement' }}
+                  {{ getTaskDisplay(item) }}
                 </div>
                 <div v-if="item.purpose" class="text-xs text-slate-500 truncate">
                   {{ item.purpose }}
                 </div>
               </td>
-
-              <!-- From/To -->
               <td class="px-4 py-3">
                 <span class="text-sm text-slate-600">{{ item.from_to || '—' }}</span>
               </td>
-
-              <!-- Recorded By -->
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700">
@@ -211,13 +177,9 @@
                   <span class="text-sm text-slate-700">{{ item.recorder?.full_name || '—' }}</span>
                 </div>
               </td>
-
-              <!-- Date -->
               <td class="px-4 py-3">
                 <span class="text-sm text-slate-600">{{ formatDateHelper(item.date) }}</span>
               </td>
-
-              <!-- Status -->
               <td class="px-4 py-3">
                 <span 
                   class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium"
@@ -230,32 +192,39 @@
                   📝 {{ item.notes }}
                 </div>
               </td>
-
-              <!-- Actions -->
               <td class="px-4 py-3">
-                <div v-if="item.approval_status === 'PENDING'" class="flex items-center gap-2">
+                <div class="flex items-center gap-2">
+                  <template v-if="item.approval_status === 'PENDING'">
+                    <button 
+                      @click="openApproveModal(item)"
+                      class="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                      </svg>
+                      Approve
+                    </button>
+                    <button 
+                      @click="openRejectModal(item)"
+                      class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors flex items-center gap-1"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                      Reject
+                    </button>
+                  </template>
                   <button 
-                    @click="openApproveModal(item)"
-                    class="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1"
+                    v-else
+                    @click="openActionView(item)"
+                    class="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors flex items-center gap-1"
                   >
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                     </svg>
-                    Approve
-                  </button>
-                  <button 
-                    @click="openRejectModal(item)"
-                    class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors flex items-center gap-1"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                    Reject
+                    View
                   </button>
                 </div>
-                <span v-else class="text-xs text-slate-400 italic">
-                  {{ item.approved_by ? `by ${item.approver?.full_name || 'Unknown'}` : '' }}
-                </span>
               </td>
             </tr>
           </tbody>
@@ -274,6 +243,230 @@
       </div>
     </div>
 
+    <!-- ========== ACTION VIEW MODAL (ADDED) ========== -->
+      <!-- ========== ENHANCED ACTION VIEW MODAL - NO CUT OFF ========== -->
+    <Transition name="modal">
+      <div v-if="actionView.show" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" @click.self="closeActionView">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+        
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col overflow-hidden">
+          
+          <!-- Header - Fixed -->
+          <div class="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-white">
+            <div class="flex items-center gap-2 sm:gap-3">
+              <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-base sm:text-lg font-semibold text-slate-900">Movement Details</h3>
+                <p class="text-xs sm:text-sm text-slate-500">Complete information about this movement</p>
+              </div>
+            </div>
+            <button @click="closeActionView" class="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Body - Scrollable -->
+          <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 bg-slate-50">
+            <div v-if="actionView.item" class="space-y-4 sm:space-y-5">
+              
+              <!-- Case Information Card -->
+              <div class="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                  <span class="w-1 h-4 bg-blue-600 rounded-full mr-2"></span>
+                  CASE INFORMATION
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Case Code</p>
+                    <p class="text-base font-bold text-blue-700">{{ actionView.item.case_code || `Case #${actionView.item.case_id}` }}</p>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Movement Type</p>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium"
+                        :class="actionView.item.source === 'checklist' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'">
+                        {{ actionView.item.source === 'checklist' ? '📋 Checklist' : '📁 Folder' }}
+                      </span>
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium"
+                        :class="actionView.item.type === 'OUT' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
+                        {{ actionView.item.type }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Task Details Card (for checklist) -->
+              <div v-if="actionView.item.source === 'checklist'" class="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                  <span class="w-1 h-4 bg-indigo-600 rounded-full mr-2"></span>
+                  TASK DETAILS
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Task Name</p>
+                    <p class="text-sm font-semibold text-slate-800 break-words">{{ getTaskDisplay(actionView.item) }}</p>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Document Type</p>
+                    <p class="text-sm text-slate-700 break-words">{{ actionView.item.checklist?.document_type || actionView.item.task_name || '—' }}</p>
+                  </div>
+                  <div v-if="actionView.item.checklist?.status" class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Task Status</p>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium"
+                      :class="{
+                        'bg-slate-100 text-slate-600': actionView.item.checklist.status === 'todo',
+                        'bg-amber-100 text-amber-700': actionView.item.checklist.status === 'in-progress',
+                        'bg-emerald-100 text-emerald-700': actionView.item.checklist.status === 'done'
+                      }">
+                      {{ actionView.item.checklist.status === 'todo' ? 'To-do' : 
+                         actionView.item.checklist.status === 'in-progress' ? 'In Progress' : 
+                         actionView.item.checklist.status === 'done' ? 'Done' : actionView.item.checklist.status }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Movement Details Card -->
+              <div class="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                  <span class="w-1 h-4 bg-emerald-600 rounded-full mr-2"></span>
+                  MOVEMENT DETAILS
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Date</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ formatDateHelper(actionView.item.date) }}</p>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">From / To</p>
+                    <p class="text-sm text-slate-800 break-words">{{ actionView.item.from_to || '—' }}</p>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Handled By</p>
+                    <p class="text-sm text-slate-800 break-words">{{ actionView.item.handled_by || '—' }}</p>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Purpose</p>
+                    <p class="text-sm text-slate-700 break-words">{{ actionView.item.purpose || '—' }}</p>
+                  </div>
+                  <div class="col-span-1 sm:col-span-2">
+                    <div class="bg-slate-50 rounded-lg p-3">
+                      <p class="text-xs text-slate-500 mb-1">Notes</p>
+                      <p class="text-sm text-slate-700 italic bg-white p-2 rounded border border-slate-100 break-words">
+                        {{ actionView.item.notes || 'No notes provided' }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Personnel Card -->
+              <div class="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                  <span class="w-1 h-4 bg-amber-600 rounded-full mr-2"></span>
+                  PERSONNEL
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Recorded By</p>
+                    <div class="flex items-center gap-2">
+                      <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700 flex-shrink-0">
+                        {{ getInitialsHelper(actionView.item.recorder?.full_name) }}
+                      </div>
+                      <p class="text-sm text-slate-800 break-words">{{ actionView.item.recorder?.full_name || '—' }}</p>
+                    </div>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-slate-500 mb-1">Recorded At</p>
+                    <p class="text-sm text-slate-800">{{ formatDateTimeHelper(actionView.item.created_at) }}</p>
+                  </div>
+                  
+                  <template v-if="actionView.item.approval_status !== 'PENDING'">
+                    <div class="bg-slate-50 rounded-lg p-3">
+                      <p class="text-xs text-slate-500 mb-1">
+                        {{ actionView.item.approval_status === 'APPROVED' ? 'Approved By' : 'Rejected By' }}
+                      </p>
+                      <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700 flex-shrink-0">
+                          {{ getInitialsHelper(actionView.item.approver?.full_name) }}
+                        </div>
+                        <p class="text-sm text-slate-800 break-words">{{ actionView.item.approver?.full_name || '—' }}</p>
+                      </div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3">
+                      <p class="text-xs text-slate-500 mb-1">Decision Date</p>
+                      <p class="text-sm text-slate-800">{{ formatDateTimeHelper(actionView.item.approved_at) }}</p>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Status Timeline Card -->
+              <div class="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                  <span class="w-1 h-4 bg-purple-600 rounded-full mr-2"></span>
+                  STATUS TIMELINE
+                </h4>
+                <div class="space-y-4">
+                  <!-- Recorded Event -->
+                  <div class="flex items-start gap-3">
+                    <div class="relative">
+                      <div class="w-3 h-3 rounded-full bg-emerald-500 mt-1.5"></div>
+                      <div v-if="actionView.item.approval_status !== 'PENDING'" 
+                           class="absolute top-4 left-1.5 w-0.5 h-12 bg-slate-200"></div>
+                    </div>
+                    <div class="flex-1 bg-slate-50 rounded-lg p-3">
+                      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <p class="text-sm font-semibold text-slate-800">Movement Recorded</p>
+                        <p class="text-xs text-slate-500">{{ formatDateTimeHelper(actionView.item.created_at) }}</p>
+                      </div>
+                      <p class="text-xs text-slate-600 mt-1">by {{ actionView.item.recorder?.full_name || 'System' }}</p>
+                    </div>
+                  </div>
+                  
+                  <!-- Decision Event -->
+                  <div v-if="actionView.item.approval_status !== 'PENDING'" class="flex items-start gap-3">
+                    <div class="w-3 h-3 rounded-full mt-1.5"
+                      :class="{
+                        'bg-emerald-500': actionView.item.approval_status === 'APPROVED',
+                        'bg-red-500': actionView.item.approval_status === 'REJECTED'
+                      }">
+                    </div>
+                    <div class="flex-1 bg-slate-50 rounded-lg p-3">
+                      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <p class="text-sm font-semibold text-slate-800">
+                          {{ actionView.item.approval_status === 'APPROVED' ? 'Movement Approved' : 'Movement Rejected' }}
+                        </p>
+                        <p class="text-xs text-slate-500">{{ formatDateTimeHelper(actionView.item.approved_at) }}</p>
+                      </div>
+                      <p class="text-xs text-slate-600 mt-1">by {{ actionView.item.approver?.full_name || 'Unknown' }}</p>
+                      <div v-if="actionView.item.notes" class="mt-2 p-2 bg-white rounded border border-slate-100">
+                        <p class="text-xs text-slate-600 italic break-words">"{{ actionView.item.notes }}"</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer - Fixed -->
+          <div class="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 bg-white">
+            <button @click="closeActionView" 
+                    class="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
     <!-- Approval/Rejection Modal -->
     <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeModal">
       <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
@@ -390,8 +583,6 @@ import Swal from 'sweetalert2';
 import { 
   getApprovals,
   getApprovalStats,
-  setApprovals,
-  setApprovalStats,
   listenForUpdates,
   formatDate,
   formatDateTime,
@@ -399,16 +590,12 @@ import {
 } from '@/utils/appUtils';
 
 // ========== STATE ==========
-// Get initial data from appUtils (INSTANT!)
 const initialApprovals = getApprovals();
 const initialStats = getApprovalStats();
 
-console.log('📊 Initial approvals from appUtils:', initialApprovals?.length);
-console.log('📊 Initial stats from appUtils:', initialStats);
-
 const approvals = ref(initialApprovals || []);
 const stats = ref(initialStats || { total: 0, pending: 0, approved: 0, rejected: 0 });
-const loading = ref(false); // ⬅️ ALWAYS FALSE - we have cached data
+const loading = ref(false);
 const isRefreshing = ref(false);
 const lastUpdated = ref('');
 
@@ -427,7 +614,8 @@ const modal = reactive({
   processing: false
 });
 
-const viewModal = reactive({
+// ========== ADDED ACTION VIEW STATE ==========
+const actionView = reactive({
   show: false,
   item: null
 });
@@ -446,9 +634,8 @@ const hasActiveFilters = computed(() => {
          filters.search !== '';
 });
 
-// ========== FETCH APPROVALS (Background Refresh) ====================
+// ========== FETCH APPROVALS ==========
 const fetchApprovals = async (showLoading = false) => {
-  // Don't show loading spinner when refreshing in background
   if (showLoading) loading.value = true;
   isRefreshing.value = true;
   
@@ -464,7 +651,6 @@ const fetchApprovals = async (showLoading = false) => {
     const response = await approvalService.getApprovals(params);
     console.log('Approvals response:', response);
     
-    // approvals are automatically updated via appUtils
     lastUpdated.value = new Date().toLocaleTimeString();
     
   } catch (error) {
@@ -476,20 +662,15 @@ const fetchApprovals = async (showLoading = false) => {
   }
 };
 
-// ========== INITIALIZE ====================
+// ========== INITIALIZE ==========
 const initialize = async () => {
   console.log('🚀 Initializing Approvals...');
-  console.log('📊 Approvals in ref (cached):', approvals.value.length);
-  
-  // ALWAYS fetch fresh data in background WITHOUT showing loading
-  // User sees cached data instantly, then it updates silently
-  console.log('📡 Fetching fresh approvals in background...');
-  fetchApprovals(false); // ⬅️ Pass false to hide loading spinner
+  fetchApprovals(false);
 };
 
-// ========== FILTER METHODS ====================
+// ========== FILTER METHODS ==========
 const applyFilters = () => {
-  fetchApprovals(true); // ⬅️ Show loading when manually filtering
+  fetchApprovals(true);
 };
 
 const clearFilters = () => {
@@ -497,10 +678,10 @@ const clearFilters = () => {
   filters.type = 'all';
   filters.direction = 'ALL';
   filters.search = '';
-  fetchApprovals(true); // ⬅️ Show loading when clearing filters
+  fetchApprovals(true);
 };
 
-// ========== MODAL METHODS ====================
+// ========== MODAL METHODS ==========
 const openApproveModal = (item) => {
   console.log('Opening approve modal for:', item);
   modal.show = true;
@@ -527,17 +708,18 @@ const closeModal = () => {
   modal.processing = false;
 };
 
-const openViewModal = (item) => {
-  viewModal.item = item;
-  viewModal.show = true;
+// ========== ADDED ACTION VIEW METHODS ==========
+const openActionView = (item) => {
+  actionView.item = item;
+  actionView.show = true;
 };
 
-const closeViewModal = () => {
-  viewModal.show = false;
-  viewModal.item = null;
+const closeActionView = () => {
+  actionView.show = false;
+  actionView.item = null;
 };
 
-// ========== SUBMIT DECISION ====================
+// ========== SUBMIT DECISION ==========
 const submitDecision = async () => {
   console.log('Submitting decision:', {
     source: modal.item.source,
@@ -569,7 +751,7 @@ const submitDecision = async () => {
     );
     
     closeModal();
-    await fetchApprovals(false); // ⬅️ Refresh in background after action
+    await fetchApprovals(false);
     
   } catch (error) {
     console.error('Review error:', error);
@@ -584,7 +766,7 @@ const submitDecision = async () => {
   }
 };
 
-// ========== TOAST METHODS ====================
+// ========== TOAST METHODS ==========
 const showToast = (message, type = 'success') => {
   toast.show = true;
   toast.message = message;
@@ -595,21 +777,14 @@ const showToast = (message, type = 'success') => {
   }, 3000);
 };
 
-// ========== LISTEN FOR UPDATES ====================
-const handleApprovalsUpdated = (event) => {
-  console.log('🔄 Approvals updated event received');
-  approvals.value = event.detail;
+// ========== HELPER FUNCTIONS ==========
+const getTaskDisplay = (item) => {
+  if (item.source === 'checklist') {
+    return item.task_name || item.checklist?.task || 'Checklist Item';
+  }
+  return 'Folder Movement';
 };
 
-const handleStatsUpdated = (event) => {
-  console.log('🔄 Approval stats updated event received');
-  stats.value = event.detail;
-};
-
-let cleanupApprovals = null;
-let cleanupStats = null;
-
-// ========== HELPER FUNCTIONS (FOR TEMPLATE USE) ==========
 const formatDateHelper = (date) => {
   return formatDate(date);
 };
@@ -631,10 +806,10 @@ const statusClassHelper = (status) => {
   return classes[status] || 'bg-slate-100 text-slate-600';
 };
 
-// ========== MANUAL REFRESH ====================
+// ========== MANUAL REFRESH ==========
 const manualRefresh = async () => {
   isRefreshing.value = true;
-  await fetchApprovals(true); // ⬅️ Show loading on manual refresh
+  await fetchApprovals(true);
   isRefreshing.value = false;
   
   Swal.fire({
@@ -648,7 +823,21 @@ const manualRefresh = async () => {
   });
 };
 
-// ========== LIFECYCLE ====================
+// ========== LISTEN FOR UPDATES ==========
+const handleApprovalsUpdated = (event) => {
+  console.log('🔄 Approvals updated event received');
+  approvals.value = event.detail;
+};
+
+const handleStatsUpdated = (event) => {
+  console.log('🔄 Approval stats updated event received');
+  stats.value = event.detail;
+};
+
+let cleanupApprovals = null;
+let cleanupStats = null;
+
+// ========== LIFECYCLE ==========
 onMounted(async () => {
   console.log('🚀 Approvals mounted');
   await initialize();
@@ -671,5 +860,13 @@ onUnmounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.modal-enter-active, .modal-leave-active {
+  transition: all 0.25s ease;
+}
+.modal-enter-from, .modal-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
 }
 </style>

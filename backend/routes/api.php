@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ChecklistTrackerController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ApprovalsController; 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Admin\HearingController;
 
 // ========== PUBLIC ROUTES ==========
 Route::get('/sanctum/csrf-cookie', function () {
@@ -40,6 +41,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
     Route::patch('/users/{id}/toggle-status', [UserManagementController::class, 'toggleStatus']);
     
+   // ========== HEARING ROUTES ==========
+   Route::get('/hearings', [HearingController::class, 'index']);
+    Route::get('/hearings/stats', [HearingController::class, 'getStats']);
+    Route::get('/hearings/{id}', [HearingController::class, 'show']);
+    Route::post('/hearings', [HearingController::class, 'store']);
+    Route::put('/hearings/{id}', [HearingController::class, 'update']);
+    Route::patch('/hearings/{id}/status', [HearingController::class, 'updateStatus']); // This was missing
+    Route::post('/hearings/{id}/reschedule', [HearingController::class, 'reschedule']);
+    Route::post('/hearings/{id}/cancel', [HearingController::class, 'cancel']);
+    Route::delete('/hearings/{id}', [HearingController::class, 'destroy']);
     // ========== ADMIN ROUTES ==========
     Route::prefix('admin')->group(function () {
         

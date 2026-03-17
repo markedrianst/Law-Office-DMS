@@ -23,29 +23,31 @@ public function index($caseId)
     try {
         $case = Cases::findOrFail($caseId);
         
-$items = CaseChecklist::where('case_id', $caseId)
-    ->with('document') // eager load to avoid N+1
-    ->orderBy('created_at', 'desc')
-    ->get()
-    ->map(function($item) {
-        return [
-            'id' => $item->id,
-            'case_id' => $item->case_id,
-            'document_type_id' => $item->document_type_id,
-            'document_type' => $item->document?->type,
-            'document_category' => $item->document?->category,
-            'document_color' => $item->document?->color,
-            'status' => $item->status,
-            'due_date' => $item->due_date?->format('Y-m-d'),
-            'assigned_clerk_id' => $item->assigned_clerk_id,
-            'assigned_to' => $item->assigned_to,
-            'notes' => $item->notes,
-            'is_out' => $item->is_out,
-            'completed_at' => $item->completed_at,
-            'created_at' => $item->created_at,
-            'updated_at' => $item->updated_at,
-        ];
-    });
+        $items = CaseChecklist::where('case_id', $caseId)
+            ->with('document') // eager load the document relationship
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'case_id' => $item->case_id,
+                    'document_type_id' => $item->document_type_id,
+                    // ✅ These come from the relationship, NOT from $item directly
+                    'document_type' => $item->document?->type,
+                    'document_category' => $item->document?->category,
+                    'document_color' => $item->document?->color,
+                    'status' => $item->status,
+                    'due_date' => $item->due_date?->format('Y-m-d'),
+                    'assigned_clerk_id' => $item->assigned_clerk_id,
+                    'assigned_to' => $item->assigned_to,
+                    'notes' => $item->notes,
+                    'is_out' => $item->is_out,
+                    'completed_at' => $item->completed_at,
+                    'created_at' => $item->created_at,
+                    'updated_at' => $item->updated_at,
+                ];
+            });
+            
         return response()->json(['data' => $items]);
 
     } catch (\Exception $e) {
@@ -54,7 +56,7 @@ $items = CaseChecklist::where('case_id', $caseId)
             'errors' => ['server' => [$e->getMessage()]]
         ], 500);
     }
-}
+} 
 
     /**
      * Store a new checklist item

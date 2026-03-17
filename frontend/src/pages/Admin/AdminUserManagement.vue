@@ -235,17 +235,40 @@
           <div class="px-8 py-6 space-y-6 overflow-y-auto">
             <!-- Name fields -->
             <div class="grid grid-cols-3 gap-4">
-              <div v-for="(field, index) in ['firstName', 'middleName', 'lastName']" :key="field">
+              <!-- First Name -->
+              <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">
-                  {{ ['First Name', 'Middle Name', 'Last Name'][index] }}
-                  <span v-if="field !== 'middleName'" class="text-red-500">*</span>
-                  <span v-else class="text-slate-400 font-normal text-xs ml-1">(Optional)</span>
+                  First Name <span class="text-red-500">*</span>
                 </label>
-                <input v-model="form[field]" type="text" :disabled="formLoading"
-                  :placeholder="'Enter ' + ['first name','middle name','last name'][index]"
+                <input v-model="form.firstName" @input="clearFieldError('firstName')" type="text" :disabled="formLoading"
+                  placeholder="Enter first name"
                   class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  :class="{ 'border-red-400': errors[field] }" />
-                <p v-if="errors[field]" class="text-sm text-red-500 mt-1">{{ errors[field] }}</p>
+                  :class="{ 'border-red-400': errors.firstName }" />
+                <p v-if="errors.firstName" class="text-sm text-red-500 mt-1">{{ errors.firstName }}</p>
+              </div>
+              
+              <!-- Middle Name -->
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Middle Name <span class="text-slate-400 font-normal text-xs ml-1">(Optional)</span>
+                </label>
+                <input v-model="form.middleName" @input="clearFieldError('middleName')" type="text" :disabled="formLoading"
+                  placeholder="Enter middle name"
+                  class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="{ 'border-red-400': errors.middleName }" />
+                <p v-if="errors.middleName" class="text-sm text-red-500 mt-1">{{ errors.middleName }}</p>
+              </div>
+              
+              <!-- Last Name -->
+              <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Last Name <span class="text-red-500">*</span>
+                </label>
+                <input v-model="form.lastName" @input="clearFieldError('lastName')" type="text" :disabled="formLoading"
+                  placeholder="Enter last name"
+                  class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="{ 'border-red-400': errors.lastName }" />
+                <p v-if="errors.lastName" class="text-sm text-red-500 mt-1">{{ errors.lastName }}</p>
               </div>
             </div>
 
@@ -255,15 +278,19 @@
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">
                   Complete Address <span class="text-slate-400 font-normal text-xs ml-1">(Optional)</span>
                 </label>
-                <input v-model="form.address" type="text" :disabled="formLoading" placeholder="Enter complete address"
-                  class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed" />
+                <input v-model="form.address" @input="clearFieldError('address')" type="text" :disabled="formLoading" placeholder="Enter complete address"
+                  class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="{ 'border-red-400': errors.address }" />
+                <p v-if="errors.address" class="text-sm text-red-500 mt-1">{{ errors.address }}</p>
               </div>
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">
                   Contact Number <span class="text-slate-400 font-normal text-xs ml-1">(Optional)</span>
                 </label>
-                <input v-model="form.contact" type="text" :disabled="formLoading" placeholder="09XX XXX XXXX"
-                  class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed" />
+                <input v-model="form.contact" @input="clearFieldError('contact')" type="text" :disabled="formLoading" placeholder="09XX XXX XXXX"
+                  class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="{ 'border-red-400': errors.contact }" />
+                <p v-if="errors.contact" class="text-sm text-red-500 mt-1">{{ errors.contact }}</p>
               </div>
             </div>
 
@@ -271,14 +298,14 @@
             <div class="grid grid-cols-3 gap-4">
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email Address <span class="text-red-500">*</span></label>
-                <input v-model="form.email" type="email" :disabled="formLoading" placeholder="Enter email address"
+                <input v-model="form.email" @input="clearFieldError('email')" type="email" :disabled="formLoading" placeholder="Enter email address"
                   class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed"
                   :class="{ 'border-red-400': errors.email }" />
                 <p v-if="errors.email" class="text-sm text-red-500 mt-1">{{ errors.email }}</p>
               </div>
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">Role <span class="text-red-500">*</span></label>
-                <select v-model="form.role" :disabled="formLoading"
+                <select v-model="form.role" @change="clearFieldError('role')" :disabled="formLoading"
                   class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 text-slate-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   :class="{ 'border-red-400': errors.role }">
                   <option value="" disabled>Select role</option>
@@ -291,7 +318,7 @@
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">Password <span class="text-red-500">*</span></label>
                 <div class="relative">
-                  <input v-model="form.password"
+                  <input v-model="form.password" @input="clearFieldError('password')"
                     :type="showPassword ? 'text' : 'password'"
                     :placeholder="isEditing && !resetPassword ? '•••••••• (unchanged)' : 'Enter new password'"
                     class="w-full px-4 py-3 pr-10 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none transition-all duration-200 hover:border-[#1a4972] focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -338,6 +365,7 @@
                   <span class="text-sm text-slate-700 font-medium group-hover:text-[#1a4972] transition-colors duration-200">{{ status }}</span>
                 </label>
               </div>
+              <p v-if="errors.status" class="text-sm text-red-500 mt-1">{{ errors.status }}</p>
             </div>
           </div>
 
@@ -390,12 +418,11 @@ const columns = [
 // ==================== STATE ====================
 // Get initial data from appUtils
 const initialUsers = getUsers();
-console.log('📊 Initial users from appUtils:', initialUsers?.length);
 
 const users = ref(initialUsers || []); 
-const isLoading = ref(false); // Start with false
+const isLoading = ref(false);
 const isRefreshing = ref(false);
-const initialLoadDone = ref(false); // Track if initial load is done
+const initialLoadDone = ref(false);
 
 const pagination = ref({
   current_page: 1,
@@ -434,8 +461,9 @@ const form = reactive({
 });
 
 const errors = reactive({
-  firstName: '', lastName: '', address: '', contact: '',
-  email: '', role: '', password: '',
+  firstName: '', middleName: '', lastName: '',
+  address: '', contact: '',
+  email: '', role: '', password: '', status: ''
 });
 
 // ==================== COMPUTED ====================
@@ -523,77 +551,59 @@ const fetchRoles = async () => {
 
 // ==================== LOAD USERS ====================
 const loadUsers = async () => {
-  console.log('📡 loadUsers() STARTED - isLoading = true');
   isLoading.value = true;
-   isRefreshing.value = true;
+  isRefreshing.value = true;
   try {
-    console.log('📡 Calling API...');
     const response = await userService.getUsers({ per_page: 100 });
-    console.log('📡 API Response:', response);
     
     if (response.data && response.data.data) {
       users.value = response.data.data;
-      console.log('✅ Users loaded, count:', users.value.length);
-    } else {
-      console.warn('⚠️ No data in response');
     }
   } catch (error) {
-    console.error('❌ Failed to load users:', error);
+    console.error('Failed to load users:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Failed to load users. Please try again.',
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
+    });
   } finally {
-    console.log('📡 loadUsers() FINISHED - isLoading = false');
     isLoading.value = false;
+    isRefreshing.value = false;
     initialLoadDone.value = true;
   }
 };
 
 // ==================== INITIALIZE ====================
 const initialize = async () => {
-  console.log('🚀 initialize() STARTED');
-  console.log('📊 users.value.length:', users.value.length);
-  console.log('📊 initialLoadDone:', initialLoadDone.value);
-  
-  // Always fetch roles
   await fetchRoles();
   
-  // ONLY load if users array is empty AND we haven't loaded before
   if (users.value.length === 0 && !initialLoadDone.value) {
-    console.log('📡 No users found, calling loadUsers()...');
-    manualRefresh();
+    await loadUsers();
   } else {
-    console.log('✅ Using existing users - no API call needed');
-    console.log('📊 Users count:', users.value.length);
-    // Make sure loading is false
     isLoading.value = false;
   }
-  
-  console.log('🚀 initialize() FINISHED');
 };
 
 // ==================== MANUAL REFRESH ====================
 const manualRefresh = async () => {
-  console.log('🔄 Manual refresh started');
   isRefreshing.value = true;
   await loadUsers();
-  isRefreshing.value = false;
-  
 };
 
 // ==================== LISTEN FOR UPDATES ====================
 const handleUsersUpdated = (event) => {
-  console.log('🔄 Users updated event received');
   users.value = event.detail;
 };
 
 let cleanup = null;
 
 onMounted(async () => {
-  console.log('🚀 UserManagement mounted');
-  console.log('📊 Initial users from getUsers():', getUsers()?.length);
-  
-  await initialize();
-  
+ initialize();
   cleanup = listenForUpdates('users-updated', handleUsersUpdated);
-  console.log('✅ UserManagement setup complete');
 });
 
 onUnmounted(() => {
@@ -620,15 +630,11 @@ const sortBy = (field) => {
 };
 
 const previousPage = () => { 
-  if (currentPage.value > 1) { 
-    currentPage.value--; 
-  } 
+  if (currentPage.value > 1) currentPage.value--; 
 };
 
 const nextPage = () => { 
-  if (currentPage.value < pagination.value.last_page) { 
-    currentPage.value++; 
-  } 
+  if (currentPage.value < pagination.value.last_page) currentPage.value++; 
 };
 
 const goToPage = (page) => { 
@@ -671,7 +677,16 @@ const resetForm = () => {
   showPassword.value = false;
 };
 
-const clearErrors = () => Object.keys(errors).forEach(k => errors[k] = '');
+const clearErrors = () => {
+  Object.keys(errors).forEach(k => errors[k] = '');
+};
+
+// ==================== NEW: Clear specific field error ====================
+const clearFieldError = (field) => {
+  if (errors[field]) {
+    errors[field] = '';
+  }
+};
 
 const openAddUserModal = () => {
   resetForm();
@@ -711,15 +726,10 @@ const toggleResetPassword = () => {
   if (!resetPassword.value) errors.password = '';
 };
 
-// ==================== SUBMIT FORM ====================
+// ==================== SUBMIT FORM WITH BETTER ERROR HANDLING ====================
 const submitForm = async () => {
   formLoading.value = true;
   clearErrors();
-  
-  const fullName = [form.firstName, form.middleName, form.lastName]
-    .filter(part => part?.trim())
-    .join(' ')
-    .trim();
   
   const payload = {
     firstName: form.firstName,
@@ -768,7 +778,52 @@ const submitForm = async () => {
     closeModal();
     
   } catch (error) {
-    handleSubmitError(error);
+    // Handle validation errors
+    if (error.errors) {
+      // Map backend field names to frontend field names
+      const fieldMapping = {
+        'firstName': 'firstName',
+        'lastName': 'lastName',
+        'middleName': 'middleName',
+        'email': 'email',
+        'role': 'role',
+        'password': 'password',
+        'address': 'address',
+        'contact': 'contact',
+        'contact_number': 'contact',
+        'status': 'status'
+      };
+      
+      // Set errors on the corresponding form fields
+      Object.keys(error.errors).forEach(key => {
+        const fieldName = fieldMapping[key] || key;
+        if (fieldName in errors) {
+          errors[fieldName] = error.errors[key];
+        }
+      });
+      
+      // Show a toast for validation error
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: 'Please check the form for errors',
+        timer: 2000,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
+      });
+    } else {
+      // Generic error message
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: error.message || 'An error occurred. Please try again.',
+        timer: 2000,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
+      });
+    }
   } finally {
     formLoading.value = false;
     isAdding.value = false;
@@ -776,39 +831,7 @@ const submitForm = async () => {
   }
 };
 
-// Error handler
-const handleSubmitError = (error) => {
-  if (error.errors) {
-    const fieldMap = {
-      'firstName': 'firstName',
-      'lastName': 'lastName',
-      'email': 'email',
-      'role': 'role',
-      'password': 'password',
-      'address': 'address',
-      'contact': 'contact'
-    };
-    
-    Object.keys(error.errors).forEach(key => {
-      const field = fieldMap[key] || key;
-      if (field in errors) {
-        errors[field] = error.errors[key][0] || error.errors[key];
-      }
-    });
-  }
-  
-  Swal.fire({
-    icon: 'error',
-    title: 'Error!',
-    text: error.message || 'An error occurred',
-    timer: 2000,
-    showConfirmButton: false,
-    position: 'top-end',
-    toast: true
-  });
-};
-
-// ==================== DELETE USER ====================
+// ==================== DELETE USER WITH BETTER ERROR HANDLING ====================
 const confirmDeleteUser = async (user) => {
   const result = await Swal.fire({
     title: 'Delete User?',
@@ -838,11 +861,21 @@ const confirmDeleteUser = async (user) => {
       });
       
     } catch (error) {
+      let errorMessage = 'Failed to delete user';
+      
+      if (error.status === 403) {
+        errorMessage = 'You do not have permission to delete this user';
+      } else if (error.status === 404) {
+        errorMessage = 'User not found';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       Swal.fire({
         icon: 'error',
         title: 'Error!',
-        text: error.message || 'Failed to delete user',
-        timer: 1500,
+        text: errorMessage,
+        timer: 2000,
         showConfirmButton: false,
         position: 'top-end',
         toast: true
@@ -875,4 +908,4 @@ const confirmDeleteUser = async (user) => {
     transform: translateY(0);
   }
 }
-</style>
+</style>  

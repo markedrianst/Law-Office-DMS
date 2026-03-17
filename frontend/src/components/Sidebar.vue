@@ -326,6 +326,7 @@ onMounted(() => {
   
   // Cleanup on unmount
   onUnmounted(() => {
+    console.log('📌 Sidebar unmounting')
     if (cleanupUser) cleanupUser()
     if (cleanupNotifications) cleanupNotifications()
     window.removeEventListener('resize', handleResize)

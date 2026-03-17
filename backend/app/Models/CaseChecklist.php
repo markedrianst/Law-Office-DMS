@@ -40,9 +40,6 @@ class CaseChecklist extends Model
         return $this->belongsTo(Cases::class, 'case_id');
     }
 
-
-    
-
     /**
      * Get the user who created the checklist.
      */
@@ -67,14 +64,20 @@ class CaseChecklist extends Model
         return $this->belongsTo(Document::class, 'document_type_id');
     }
 
-    
-
     /**
      * Get the movements for this checklist.
      */
     public function movements()
     {
         return $this->hasMany(ChecklistMovement::class, 'checklist_id');
+    }
+
+    /**
+     * Get the task name (from document type)
+     */
+    public function getTaskNameAttribute()
+    {
+        return $this->document?->type ?? 'Untitled Task';
     }
 
     /**
@@ -120,7 +123,7 @@ class CaseChecklist extends Model
     /**
      * Scope a query to filter by document type.
      */
-       public function scopeOfDocumentType($query, $documentTypeId)
+    public function scopeOfDocumentType($query, $documentTypeId)
     {
         return $query->where('document_type_id', $documentTypeId);
     }
@@ -130,9 +133,9 @@ class CaseChecklist extends Model
      */
     public function getTaskWithDocumentAttribute()
     {
-        if ($this->document_type) {
-            return "{$this->document_type}: {$this->task}";
+        if ($this->document) {
+            return $this->document->type;
         }
-        return $this->task;
+        return 'Untitled Task';
     }
 }

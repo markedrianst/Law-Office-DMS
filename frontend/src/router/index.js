@@ -14,6 +14,7 @@ const AuditTrail = () => import("@/pages/Admin/AuditTrail.vue");
 const Approvals = () => import("@/pages/Approvals.vue");
 const AccountSetting = () => import("@/pages/AccountSetting.vue");
 const Notifications = () => import("@/pages/Notifications.vue");
+const CalendarView = () => import("@/components/Calendar/CalendarView.vue");
 
 const routes = [
   {
@@ -31,6 +32,12 @@ const routes = [
         path: "dashboard", 
         name: "Dashboard", 
         component: Dashboard
+      },
+      {
+        path: '/calendar',
+        name: 'calendar',
+        component: CalendarView,
+        meta: { requiresAuth: true }
       },
       {
         path: "usermanagement",

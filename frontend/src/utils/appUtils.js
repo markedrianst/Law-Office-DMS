@@ -17,6 +17,21 @@ const dataStore = {
   documents: null,
   users: null,
   clients: null,
+  cases: null,
+  approvals: null,
+  approvalStats: null,
+  auditLogs: null,
+  auditStats: null,
+  hearings: [],
+  hearingStats: {
+    today: 0,
+    tomorrow: 0,
+    this_week: 0,
+    this_month: 0,
+    upcoming: 0,
+    past: 0,
+    by_type: {}
+  },
   
   // Notifications
   notifications: null,
@@ -79,14 +94,13 @@ export const updateDashboardStats = (stats) => {
   }
 };
 
-// ==================== USERS METHODS (COMPLETE CRUD) ====================
+// ==================== USERS METHODS ====================
 export const setUsers = (users) => {
   dataStore.users = users;
   dataStore.timestamp = Date.now();
   dispatchEvent('users-updated', users);
 };
 
-// Add this function in your USERS METHODS section
 export const getUserNameById = (id) => {
   if (!id || !dataStore.users) return '—';
   const found = dataStore.users.find(u => u.id === id);
@@ -101,15 +115,16 @@ export const addUser = (user) => {
   dataStore.timestamp = Date.now();
   dispatchEvent('users-updated', dataStore.users);
   
-  // Also update dashboard stats if needed
-  updateDashboardStats({
-    adminStats: {
-      ...dataStore.dashboard?.adminStats,
-      total_users: (dataStore.dashboard?.adminStats?.total_users || 0) + 1,
-      [user.role?.toLowerCase() === 'lawyer' ? 'lawyers' : 'clerks']: 
-        (dataStore.dashboard?.adminStats?.[user.role?.toLowerCase() === 'lawyer' ? 'lawyers' : 'clerks'] || 0) + 1
-    }
-  });
+  if (dataStore.dashboard?.adminStats) {
+    updateDashboardStats({
+      adminStats: {
+        ...dataStore.dashboard.adminStats,
+        total_users: (dataStore.dashboard.adminStats.total_users || 0) + 1,
+        [user.role?.toLowerCase() === 'lawyer' ? 'lawyers' : 'clerks']: 
+          (dataStore.dashboard.adminStats[user.role?.toLowerCase() === 'lawyer' ? 'lawyers' : 'clerks'] || 0) + 1
+      }
+    });
+  }
 };
 
 export const updateUserInStore = (id, updatedUser) => {
@@ -123,13 +138,12 @@ export const updateUserInStore = (id, updatedUser) => {
     dataStore.timestamp = Date.now();
     dispatchEvent('users-updated', dataStore.users);
     
-    // Update dashboard stats if role changed
     if (oldRole !== newRole && dataStore.dashboard?.adminStats) {
       const stats = { ...dataStore.dashboard.adminStats };
-      if (oldRole?.toLowerCase() === 'lawyer') stats.lawyers--;
-      if (oldRole?.toLowerCase() === 'clerk') stats.clerks--;
-      if (newRole?.toLowerCase() === 'lawyer') stats.lawyers++;
-      if (newRole?.toLowerCase() === 'clerk') stats.clerks++;
+      if (oldRole?.toLowerCase() === 'lawyer') stats.lawyers = Math.max(0, stats.lawyers - 1);
+      if (oldRole?.toLowerCase() === 'clerk') stats.clerks = Math.max(0, stats.clerks - 1);
+      if (newRole?.toLowerCase() === 'lawyer') stats.lawyers = (stats.lawyers || 0) + 1;
+      if (newRole?.toLowerCase() === 'clerk') stats.clerks = (stats.clerks || 0) + 1;
       
       updateDashboardStats({ adminStats: stats });
     }
@@ -143,7 +157,6 @@ export const removeUserFromStore = (id) => {
   dataStore.timestamp = Date.now();
   dispatchEvent('users-updated', dataStore.users);
   
-  // Update dashboard stats
   if (removedUser && dataStore.dashboard?.adminStats) {
     const stats = { ...dataStore.dashboard.adminStats };
     stats.total_users = Math.max(0, stats.total_users - 1);
@@ -161,26 +174,19 @@ export const getUserById = (id) => {
 
 export const getLawyers = () => {
   if (!dataStore.users) return [];
-  return dataStore.users.filter(u => 
-    u.role?.toLowerCase() === 'lawyer' || u.role?.name?.toLowerCase() === 'lawyer'
-  );
+  return dataStore.users.filter(u => u.role?.toLowerCase() === 'lawyer');
 };
 
 export const getClerks = () => {
   if (!dataStore.users) return [];
-  return dataStore.users.filter(u => 
-    u.role?.toLowerCase() === 'clerk' || u.role?.name?.toLowerCase() === 'clerk'
-  );
+  return dataStore.users.filter(u => u.role?.toLowerCase() === 'clerk');
 };
 
-// ==================== CATEGORIES METHODS ====================
 // ==================== CATEGORIES METHODS ====================
 export const setCategories = (categories) => {
   dataStore.categories = categories;
   dataStore.timestamp = Date.now();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('categories-updated', { detail: categories }));
-  }
+  dispatchEvent('categories-updated', categories);
 };
 
 export const getCategories = () => dataStore.categories || [];
@@ -189,7 +195,7 @@ export const addCategory = (category) => {
   if (!dataStore.categories) dataStore.categories = [];
   dataStore.categories.unshift(category);
   dataStore.timestamp = Date.now();
-  window.dispatchEvent(new CustomEvent('categories-updated', { detail: dataStore.categories }));
+  dispatchEvent('categories-updated', dataStore.categories);
 };
 
 export const updateCategoryInStore = (id, updatedCategory) => {
@@ -198,7 +204,7 @@ export const updateCategoryInStore = (id, updatedCategory) => {
   if (index !== -1) {
     dataStore.categories[index] = { ...dataStore.categories[index], ...updatedCategory };
     dataStore.timestamp = Date.now();
-    window.dispatchEvent(new CustomEvent('categories-updated', { detail: dataStore.categories }));
+    dispatchEvent('categories-updated', dataStore.categories);
   }
 };
 
@@ -206,7 +212,7 @@ export const removeCategoryFromStore = (id) => {
   if (!dataStore.categories) return;
   dataStore.categories = dataStore.categories.filter(c => c.id !== id);
   dataStore.timestamp = Date.now();
-  window.dispatchEvent(new CustomEvent('categories-updated', { detail: dataStore.categories }));
+  dispatchEvent('categories-updated', dataStore.categories);
 };
 
 export const getCategoryName = (id) => {
@@ -220,6 +226,7 @@ export const getCategoryColor = (id) => {
   const found = dataStore.categories.find(c => c.id === id);
   return found?.color || '#1a4972';
 };
+
 // ==================== STAGES METHODS ====================
 export const setStages = (stages) => {
   dataStore.stages = stages;
@@ -340,13 +347,14 @@ export const addClient = (client) => {
   dataStore.timestamp = Date.now();
   dispatchEvent('clients-updated', dataStore.clients);
   
-  // Update dashboard stats
-  updateDashboardStats({
-    stats: {
-      ...dataStore.dashboard?.stats,
-      total_clients: (dataStore.dashboard?.stats?.total_clients || 0) + 1
-    }
-  });
+  if (dataStore.dashboard?.stats) {
+    updateDashboardStats({
+      stats: {
+        ...dataStore.dashboard.stats,
+        total_clients: (dataStore.dashboard.stats.total_clients || 0) + 1
+      }
+    });
+  }
 };
 
 export const updateClientInStore = (id, updatedClient) => {
@@ -366,7 +374,6 @@ export const removeClientFromStore = (id) => {
   dataStore.timestamp = Date.now();
   dispatchEvent('clients-updated', dataStore.clients);
   
-  // Update dashboard stats
   if (removedClient && dataStore.dashboard?.stats) {
     updateDashboardStats({
       stats: {
@@ -403,17 +410,10 @@ export const getUnreadCount = () => dataStore.unreadCount;
 export const addNotification = (notification) => {
   if (!dataStore.notifications) dataStore.notifications = [];
   dataStore.notifications.unshift(notification);
-  if (!notification.is_read) {
-    dataStore.unreadCount++;
-  }
-  if (dataStore.notifications.length > 50) {
-    dataStore.notifications = dataStore.notifications.slice(0, 50);
-  }
+  if (!notification.is_read) dataStore.unreadCount++;
+  if (dataStore.notifications.length > 50) dataStore.notifications = dataStore.notifications.slice(0, 50);
   dataStore.timestamp = Date.now();
-  dispatchEvent('notifications-updated', { 
-    notifications: dataStore.notifications, 
-    unreadCount: dataStore.unreadCount 
-  });
+  dispatchEvent('notifications-updated', { notifications: dataStore.notifications, unreadCount: dataStore.unreadCount });
 };
 
 export const markNotificationAsRead = (id) => {
@@ -423,10 +423,7 @@ export const markNotificationAsRead = (id) => {
     dataStore.notifications[index].is_read = true;
     dataStore.unreadCount = Math.max(0, dataStore.unreadCount - 1);
     dataStore.timestamp = Date.now();
-    dispatchEvent('notifications-updated', { 
-      notifications: dataStore.notifications, 
-      unreadCount: dataStore.unreadCount 
-    });
+    dispatchEvent('notifications-updated', { notifications: dataStore.notifications, unreadCount: dataStore.unreadCount });
   }
 };
 
@@ -435,10 +432,7 @@ export const markAllNotificationsAsRead = () => {
   dataStore.notifications.forEach(n => n.is_read = true);
   dataStore.unreadCount = 0;
   dataStore.timestamp = Date.now();
-  dispatchEvent('notifications-updated', { 
-    notifications: dataStore.notifications, 
-    unreadCount: 0 
-  });
+  dispatchEvent('notifications-updated', { notifications: dataStore.notifications, unreadCount: 0 });
 };
 
 export const updateNotificationInStore = (id, updatedNotification) => {
@@ -448,11 +442,203 @@ export const updateNotificationInStore = (id, updatedNotification) => {
     dataStore.notifications[index] = { ...dataStore.notifications[index], ...updatedNotification };
     dataStore.unreadCount = dataStore.notifications.filter(n => !n.is_read).length;
     dataStore.timestamp = Date.now();
-    dispatchEvent('notifications-updated', { 
-      notifications: dataStore.notifications, 
-      unreadCount: dataStore.unreadCount 
+    dispatchEvent('notifications-updated', { notifications: dataStore.notifications, unreadCount: dataStore.unreadCount });
+  }
+};
+
+// ==================== CASES METHODS ====================
+export const setCases = (cases) => {
+  dataStore.cases = cases;
+  dataStore.timestamp = Date.now();
+  dispatchEvent('cases-updated', cases);
+};
+
+export const getCases = () => dataStore.cases || [];
+
+export const addCase = (caseItem) => {
+  if (!dataStore.cases) dataStore.cases = [];
+  dataStore.cases.unshift(caseItem);
+  dataStore.timestamp = Date.now();
+  dispatchEvent('cases-updated', dataStore.cases);
+  
+  if (dataStore.dashboard?.stats) {
+    updateDashboardStats({
+      stats: {
+        ...dataStore.dashboard.stats,
+        total_cases: (dataStore.dashboard.stats.total_cases || 0) + 1,
+        active_cases: caseItem.case_status === 'active' 
+          ? (dataStore.dashboard.stats.active_cases || 0) + 1 
+          : dataStore.dashboard.stats.active_cases || 0
+      }
     });
   }
+};
+
+export const updateCaseInStore = (id, updatedCase) => {
+  if (!dataStore.cases) return;
+  const index = dataStore.cases.findIndex(c => c.id === id);
+  if (index !== -1) {
+    const oldStatus = dataStore.cases[index].case_status;
+    dataStore.cases[index] = { ...dataStore.cases[index], ...updatedCase };
+    dataStore.timestamp = Date.now();
+    dispatchEvent('cases-updated', dataStore.cases);
+    
+    if (oldStatus !== updatedCase.case_status && dataStore.dashboard?.stats) {
+      const stats = { ...dataStore.dashboard.stats };
+      if (oldStatus === 'active') stats.active_cases = Math.max(0, stats.active_cases - 1);
+      if (updatedCase.case_status === 'active') stats.active_cases = (stats.active_cases || 0) + 1;
+      updateDashboardStats({ stats });
+    }
+  }
+};
+
+export const removeCaseFromStore = (id) => {
+  if (!dataStore.cases) return;
+  const removedCase = dataStore.cases.find(c => c.id === id);
+  dataStore.cases = dataStore.cases.filter(c => c.id !== id);
+  dataStore.timestamp = Date.now();
+  dispatchEvent('cases-updated', dataStore.cases);
+  
+  if (removedCase && dataStore.dashboard?.stats) {
+    const stats = { ...dataStore.dashboard.stats };
+    stats.total_cases = Math.max(0, stats.total_cases - 1);
+    if (removedCase.case_status === 'active') stats.active_cases = Math.max(0, stats.active_cases - 1);
+    updateDashboardStats({ stats });
+  }
+};
+
+export const getCaseById = (id) => {
+  if (!dataStore.cases) return null;
+  return dataStore.cases.find(c => c.id === id);
+};
+
+export const getCasesByStatus = (status) => {
+  if (!dataStore.cases) return [];
+  return dataStore.cases.filter(c => c.case_status === status);
+};
+
+export const getCasesByLawyer = (lawyerId) => {
+  if (!dataStore.cases) return [];
+  return dataStore.cases.filter(c => c.assigned_lawyer_id === lawyerId);
+};
+
+export const getCasesByClerk = (clerkId) => {
+  if (!dataStore.cases) return [];
+  return dataStore.cases.filter(c => c.assigned_clerk_id === clerkId);
+};
+
+export const getCaseCode = (id) => {
+  if (!id || !dataStore.cases) return '—';
+  const found = dataStore.cases.find(c => c.id === id);
+  return found?.case_code || '—';
+};
+
+export const getCaseTitle = (id) => {
+  if (!id || !dataStore.cases) return '—';
+  const found = dataStore.cases.find(c => c.id === id);
+  return found?.title || '—';
+};
+
+// ==================== APPROVALS METHODS ====================
+export const setApprovals = (approvals) => {
+  dataStore.approvals = approvals;
+  dataStore.timestamp = Date.now();
+  dispatchEvent('approvals-updated', approvals);
+  
+  const stats = {
+    total: approvals.length,
+    pending: approvals.filter(a => a.approval_status === 'PENDING').length,
+    approved: approvals.filter(a => a.approval_status === 'APPROVED').length,
+    rejected: approvals.filter(a => a.approval_status === 'REJECTED').length
+  };
+  setApprovalStats(stats);
+};
+
+export const getApprovals = () => dataStore.approvals || [];
+
+export const setApprovalStats = (stats) => {
+  dataStore.approvalStats = stats;
+  dataStore.timestamp = Date.now();
+  dispatchEvent('approval-stats-updated', stats);
+};
+
+export const getApprovalStats = () => dataStore.approvalStats || { total: 0, pending: 0, approved: 0, rejected: 0 };
+
+export const updateApprovalInStore = (id, updatedApproval) => {
+  if (!dataStore.approvals) return;
+  const index = dataStore.approvals.findIndex(a => a.id === id);
+  if (index !== -1) {
+    dataStore.approvals[index] = { ...dataStore.approvals[index], ...updatedApproval };
+    dataStore.timestamp = Date.now();
+    
+    const stats = {
+      total: dataStore.approvals.length,
+      pending: dataStore.approvals.filter(a => a.approval_status === 'PENDING').length,
+      approved: dataStore.approvals.filter(a => a.approval_status === 'APPROVED').length,
+      rejected: dataStore.approvals.filter(a => a.approval_status === 'REJECTED').length
+    };
+    dataStore.approvalStats = stats;
+    
+    dispatchEvent('approvals-updated', dataStore.approvals);
+    dispatchEvent('approval-stats-updated', stats);
+  }
+};
+
+export const removeApprovalFromStore = (id) => {
+  if (!dataStore.approvals) return;
+  dataStore.approvals = dataStore.approvals.filter(a => a.id !== id);
+  dataStore.timestamp = Date.now();
+  
+  const stats = {
+    total: dataStore.approvals.length,
+    pending: dataStore.approvals.filter(a => a.approval_status === 'PENDING').length,
+    approved: dataStore.approvals.filter(a => a.approval_status === 'APPROVED').length,
+    rejected: dataStore.approvals.filter(a => a.approval_status === 'REJECTED').length
+  };
+  dataStore.approvalStats = stats;
+  
+  dispatchEvent('approvals-updated', dataStore.approvals);
+  dispatchEvent('approval-stats-updated', stats);
+};
+
+export const clearApprovalsCache = () => {
+  dataStore.approvals = null;
+  dataStore.approvalStats = null;
+  dataStore.timestamp = Date.now();
+  dispatchEvent('approvals-updated', []);
+  dispatchEvent('approval-stats-updated', { total: 0, pending: 0, approved: 0, rejected: 0 });
+};
+
+// ==================== AUDIT LOGS METHODS ====================
+export const setAuditLogs = (logs) => {
+  dataStore.auditLogs = logs;
+  dataStore.timestamp = Date.now();
+  dispatchEvent('audit-logs-updated', logs);
+};
+
+export const getAuditLogs = () => dataStore.auditLogs || [];
+
+export const setAuditStats = (stats) => {
+  dataStore.auditStats = stats;
+  dataStore.timestamp = Date.now();
+  dispatchEvent('audit-stats-updated', stats);
+};
+
+export const getAuditStats = () => dataStore.auditStats || { total_logs: 0, login_stats: { success: 0, failed: 0 } };
+
+export const addAuditLog = (log) => {
+  if (!dataStore.auditLogs) dataStore.auditLogs = [];
+  dataStore.auditLogs.unshift(log);
+  dataStore.timestamp = Date.now();
+  dispatchEvent('audit-logs-updated', dataStore.auditLogs);
+};
+
+export const clearAuditCache = () => {
+  dataStore.auditLogs = null;
+  dataStore.auditStats = null;
+  dataStore.timestamp = Date.now();
+  dispatchEvent('audit-logs-updated', []);
+  dispatchEvent('audit-stats-updated', { total_logs: 0, login_stats: { success: 0, failed: 0 } });
 };
 
 // ==================== UTILITY METHODS ====================
@@ -467,7 +653,9 @@ export const hasCourts = () => dataStore.courts !== null;
 export const hasDocuments = () => dataStore.documents !== null;
 export const hasUsers = () => dataStore.users !== null;
 export const hasClients = () => dataStore.clients !== null;
+export const hasCases = () => dataStore.cases !== null;
 export const hasNotifications = () => dataStore.notifications !== null;
+export const hasApprovals = () => dataStore.approvals !== null;
 
 export const clearData = () => {
   dataStore.user = null;
@@ -478,8 +666,15 @@ export const clearData = () => {
   dataStore.documents = null;
   dataStore.users = null;
   dataStore.clients = null;
+  dataStore.cases = null;
+  dataStore.approvals = null;
+  dataStore.approvalStats = null;
+  dataStore.auditLogs = null;
+  dataStore.auditStats = null;
   dataStore.notifications = null;
   dataStore.unreadCount = 0;
+  dataStore.hearings = [];
+  dataStore.hearingStats = { today: 0, tomorrow: 0, this_week: 0, this_month: 0, upcoming: 0, past: 0, by_type: {} };
   dataStore.timestamp = null;
   sessionStorage.clear();
   dispatchEvent('all-data-cleared', null);
@@ -502,11 +697,7 @@ export const listenForUpdates = (eventName, callback) => {
 
 // ==================== ROLE HELPERS ====================
 export const getRoleLabel = (role) => {
-  const roles = {
-    admin: 'Administrator',
-    lawyer: 'Lawyer',
-    clerk: 'Clerk'
-  };
+  const roles = { admin: 'Administrator', lawyer: 'Lawyer', clerk: 'Clerk' };
   return roles[role?.toLowerCase()] || role || 'User';
 };
 
@@ -523,10 +714,8 @@ export const getSidebarItems = (role) => {
       { path: '/casemaster', label: 'Case Master', icon: 'cases' },
       { path: '/approvals', label: 'Approvals', icon: 'approvals' },
       { path: '/audit-trail', label: 'Activity Logs', icon: 'logs' },
-      { 
-        label: 'Master Data', 
-        icon: 'tasks',
-        isDropdown: true,
+      { path: '/calendar', label: 'Calendar', icon: 'calendar' },
+      { label: 'Master Data', icon: 'tasks', isDropdown: true,
         children: [
           { path: '/casecategories', label: 'Case Categories', icon: 'tasks' },
           { path: '/courts', label: 'Courts', icon: 'tasks' },
@@ -538,10 +727,8 @@ export const getSidebarItems = (role) => {
       { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
       { path: '/casemaster', label: 'My Cases', icon: 'cases' },
       { path: '/approvals', label: 'Approvals', icon: 'approvals' },
-      { 
-        label: 'Master Data', 
-        icon: 'tasks',
-        isDropdown: true,
+      { path: '/calendar', label: 'Calendar', icon: 'calendar' },
+      { label: 'Master Data', icon: 'tasks', isDropdown: true,
         children: [
           { path: '/casecategories', label: 'Case Categories', icon: 'tasks' },
           { path: '/courts', label: 'Courts', icon: 'tasks' },
@@ -552,10 +739,8 @@ export const getSidebarItems = (role) => {
     clerk: [
       { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
       { path: '/casemaster', label: 'Case Master', icon: 'cases' },
-      { 
-        label: 'Master Data', 
-        icon: 'tasks',
-        isDropdown: true,
+      { path: '/calendar', label: 'Calendar', icon: 'calendar' },
+      { label: 'Master Data', icon: 'tasks', isDropdown: true,
         children: [
           { path: '/casecategories', label: 'Case Categories', icon: 'tasks' },
           { path: '/courts', label: 'Courts', icon: 'tasks' },
@@ -575,47 +760,9 @@ export const getIcon = (name) => {
     cases: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
     tasks: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
     approvals: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+    calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
   };
   return icons[name] || '';
-};
-
-// ==================== AUDIT LOGS METHODS ====================
-export const setAuditLogs = (logs) => {
-  dataStore.auditLogs = logs;
-  dataStore.timestamp = Date.now();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('audit-logs-updated', { detail: logs }));
-  }
-};
-
-export const getAuditLogs = () => dataStore.auditLogs || [];
-
-export const setAuditStats = (stats) => {
-  dataStore.auditStats = stats;
-  dataStore.timestamp = Date.now();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('audit-stats-updated', { detail: stats }));
-  }
-};
-
-export const getAuditStats = () => dataStore.auditStats || { 
-  total_logs: 0, 
-  login_stats: { success: 0, failed: 0 } 
-};
-
-export const addAuditLog = (log) => {
-  if (!dataStore.auditLogs) dataStore.auditLogs = [];
-  dataStore.auditLogs.unshift(log);
-  dataStore.timestamp = Date.now();
-  window.dispatchEvent(new CustomEvent('audit-logs-updated', { detail: dataStore.auditLogs }));
-};
-
-export const clearAuditCache = () => {
-  dataStore.auditLogs = null;
-  dataStore.auditStats = null;
-  dataStore.timestamp = Date.now();
-  window.dispatchEvent(new CustomEvent('audit-logs-updated', { detail: [] }));
-  window.dispatchEvent(new CustomEvent('audit-stats-updated', { detail: { total_logs: 0, login_stats: { success: 0, failed: 0 } } }));
 };
 
 // ==================== CONSTANTS ====================
@@ -652,9 +799,7 @@ const CONSTANTS = {
     'done': { label: 'Done', class: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' }
   },
   
-  DOCUMENT_CATEGORIES: [
-    'Pleading', 'Letter', 'Evidence', 'Court Issuance', 'Other'
-  ]
+  DOCUMENT_CATEGORIES: ['Pleading', 'Letter', 'Evidence', 'Court Issuance', 'Other']
 };
 
 // ==================== STATUS HELPERS ====================
@@ -695,77 +840,44 @@ export const getPriorityDot = (priority) => {
   return dots[priority] || 'bg-slate-400';
 };
 
-// ==================== TASK STATUS HELPERS ====================
 export const getTaskStatusInfo = (status) => {
   return CONSTANTS.TASK_STATUS[status] || 
     { label: status || 'Unknown', class: 'bg-slate-100 text-slate-500', dot: 'bg-slate-400' };
 };
 
-export const getTaskStatusClass = (status) => {
-  return getTaskStatusInfo(status).class;
-};
+export const getTaskStatusClass = (status) => getTaskStatusInfo(status).class;
+export const getTaskStatusDot = (status) => getTaskStatusInfo(status).dot;
+export const getTaskStatusLabel = (status) => getTaskStatusInfo(status).label;
 
-export const getTaskStatusDot = (status) => {
-  return getTaskStatusInfo(status).dot;
-};
-
-export const getTaskStatusLabel = (status) => {
-  return getTaskStatusInfo(status).label;
-};
-
-// ==================== APPROVAL STATUS HELPERS ====================
 export const getApprovalStatusInfo = (status) => {
   return CONSTANTS.APPROVAL_STATUS[status] || 
     { label: status || 'Unknown', class: 'bg-slate-100 text-slate-600', icon: '❓' };
 };
 
-export const getApprovalStatusClass = (status) => {
-  return getApprovalStatusInfo(status).class;
-};
+export const getApprovalStatusClass = (status) => getApprovalStatusInfo(status).class;
+export const getApprovalStatusIcon = (status) => getApprovalStatusInfo(status).icon;
+export const getApprovalStatusLabel = (status) => getApprovalStatusInfo(status).label;
 
-export const getApprovalStatusIcon = (status) => {
-  return getApprovalStatusInfo(status).icon;
-};
-
-export const getApprovalStatusLabel = (status) => {
-  return getApprovalStatusInfo(status).label;
-};
-
-// ==================== MOVEMENT TYPE HELPERS ====================
 export const getMovementTypeClass = (type) => {
-  return type === 'OUT' 
-    ? 'bg-rose-100 text-rose-700 border border-rose-200'
-    : 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+  return type === 'OUT' ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200';
 };
 
-export const getMovementTypeLabel = (type) => {
-  return type === 'OUT' ? 'Release' : 'Receive';
-};
+export const getMovementTypeLabel = (type) => type === 'OUT' ? 'Release' : 'Receive';
 
-// ==================== DOCUMENT CATEGORY HELPERS ====================
 export const getCategoryBadgeClass = (category) => {
-  return CONSTANTS.CATEGORY_BADGE_CLASSES[category] || 
-    'bg-slate-50 text-slate-600 border border-slate-200';
+  return CONSTANTS.CATEGORY_BADGE_CLASSES[category] || 'bg-slate-50 text-slate-600 border border-slate-200';
 };
 
-export const getDocumentCategories = () => {
-  return CONSTANTS.DOCUMENT_CATEGORIES;
-};
+export const getDocumentCategories = () => CONSTANTS.DOCUMENT_CATEGORIES;
 
-// ==================== NOTIFICATION HELPERS ====================
 export const getNotificationIcon = (type) => {
   if (!type) return '🔔';
   
   const icons = {
-    case_assigned: '📁',
-    case_reassigned: '🔄',
-    stage_changed: '📊',
-    checklist_movement_pending: '📋',
-    folder_movement_pending: '📂',
-    task_assigned: '📝',
-    task_status_changed: '✓',
-    document_approved: '✅',
-    document_rejected: '❌'
+    case_assigned: '📁', case_reassigned: '🔄', stage_changed: '📊',
+    checklist_movement_pending: '📋', folder_movement_pending: '📂',
+    task_assigned: '📝', task_status_changed: '✓',
+    document_approved: '✅', document_rejected: '❌'
   };
   
   for (const [key, icon] of Object.entries(icons)) {
@@ -819,11 +931,8 @@ export const formatDateTime = (date) => {
   if (isNaN(d.getTime())) return date;
   
   return d.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
   });
 };
 
@@ -868,85 +977,11 @@ export const isOverdue = (date) => {
   return due < today;
 };
 
-// ==================== APPROVALS METHODS ====================
-export const setApprovals = (approvals) => {
-  dataStore.approvals = approvals;
-  dataStore.timestamp = Date.now();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('approvals-updated', { detail: approvals }));
-  }
-};
-
-export const getApprovals = () => dataStore.approvals || [];
-
-export const setApprovalStats = (stats) => {
-  dataStore.approvalStats = stats;
-  dataStore.timestamp = Date.now();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('approval-stats-updated', { detail: stats }));
-  }
-};
-
-export const getApprovalStats = () => dataStore.approvalStats || { 
-  total: 0, 
-  pending: 0, 
-  approved: 0, 
-  rejected: 0 
-};
-
-export const updateApprovalInStore = (id, updatedApproval) => {
-  if (!dataStore.approvals) return;
-  const index = dataStore.approvals.findIndex(a => a.id === id);
-  if (index !== -1) {
-    dataStore.approvals[index] = { ...dataStore.approvals[index], ...updatedApproval };
-    dataStore.timestamp = Date.now();
-    
-    // Recalculate stats
-    const stats = calculateApprovalStats(dataStore.approvals);
-    dataStore.approvalStats = stats;
-    
-    window.dispatchEvent(new CustomEvent('approvals-updated', { detail: dataStore.approvals }));
-    window.dispatchEvent(new CustomEvent('approval-stats-updated', { detail: stats }));
-  }
-};
-
-export const removeApprovalFromStore = (id) => {
-  if (!dataStore.approvals) return;
-  dataStore.approvals = dataStore.approvals.filter(a => a.id !== id);
-  dataStore.timestamp = Date.now();
-  
-  // Recalculate stats
-  const stats = calculateApprovalStats(dataStore.approvals);
-  dataStore.approvalStats = stats;
-  
-  window.dispatchEvent(new CustomEvent('approvals-updated', { detail: dataStore.approvals }));
-  window.dispatchEvent(new CustomEvent('approval-stats-updated', { detail: stats }));
-};
-
-const calculateApprovalStats = (approvals) => {
-  return {
-    total: approvals.length,
-    pending: approvals.filter(a => a.approval_status === 'PENDING').length,
-    approved: approvals.filter(a => a.approval_status === 'APPROVED').length,
-    rejected: approvals.filter(a => a.approval_status === 'REJECTED').length
-  };
-};
-
-export const clearApprovalsCache = () => {
-  dataStore.approvals = null;
-  dataStore.approvalStats = null;
-  dataStore.timestamp = Date.now();
-  window.dispatchEvent(new CustomEvent('approvals-updated', { detail: [] }));
-  window.dispatchEvent(new CustomEvent('approval-stats-updated', { detail: { total: 0, pending: 0, approved: 0, rejected: 0 } }));
-};
-
 // ==================== GROUP AND SORT HELPERS ====================
 export const groupBy = (array, key) => {
   return array.reduce((result, item) => {
     const groupKey = typeof key === 'function' ? key(item) : item[key];
-    if (!result[groupKey]) {
-      result[groupKey] = [];
-    }
+    if (!result[groupKey]) result[groupKey] = [];
     result[groupKey].push(item);
     return result;
   }, {});
@@ -956,166 +991,286 @@ export const sortBy = (array, key, direction = 'asc') => {
   return [...array].sort((a, b) => {
     const aVal = typeof key === 'function' ? key(a) : a[key];
     const bVal = typeof key === 'function' ? key(b) : b[key];
-    
     if (aVal < bVal) return direction === 'asc' ? -1 : 1;
     if (aVal > bVal) return direction === 'asc' ? 1 : -1;
     return 0;
   });
 };
 
+// ==================== HEARINGS METHODS ====================
+export const setHearings = (hearings) => {
+  dataStore.hearings = Array.isArray(hearings) ? hearings.filter(h => h && h.hearing_date) : [];
+  dataStore.timestamp = Date.now();
+  dispatchEvent('hearings-updated', dataStore.hearings);
+  updateHearingStats();
+};
+
+export const getHearings = () => Array.isArray(dataStore.hearings) ? dataStore.hearings : [];
+
+export const getHearingById = (id) => {
+  if (!Array.isArray(dataStore.hearings)) return null;
+  return dataStore.hearings.find(h => h.id === id) || null;
+};
+
+export const addHearing = (hearing) => {
+  if (!hearing || !hearing.hearing_date || isPastDate(hearing.hearing_date)) return;
+  
+  if (!Array.isArray(dataStore.hearings)) dataStore.hearings = [];
+  dataStore.hearings.unshift(hearing);
+  dataStore.timestamp = Date.now();
+  dispatchEvent('hearings-updated', dataStore.hearings);
+  updateHearingStats();
+};
+
+export const updateHearingInStore = (id, updatedHearing) => {
+  if (!Array.isArray(dataStore.hearings)) return;
+  if (updatedHearing.hearing_date && isPastDate(updatedHearing.hearing_date)) return;
+  
+  const index = dataStore.hearings.findIndex(h => h.id === id);
+  if (index !== -1) {
+    dataStore.hearings[index] = { ...dataStore.hearings[index], ...updatedHearing };
+    dataStore.timestamp = Date.now();
+    dispatchEvent('hearings-updated', dataStore.hearings);
+    updateHearingStats();
+  }
+};
+
+export const removeHearingFromStore = (id) => {
+  if (!Array.isArray(dataStore.hearings)) return;
+  
+  const hearing = dataStore.hearings.find(h => h.id === id);
+  if (!hearing || isPastDate(hearing.hearing_date)) return;
+  
+  dataStore.hearings = dataStore.hearings.filter(h => h.id !== id);
+  dataStore.timestamp = Date.now();
+  dispatchEvent('hearings-updated', dataStore.hearings);
+  updateHearingStats();
+};
+
+export const getHearingsByDate = (date) => {
+  if (!Array.isArray(dataStore.hearings)) return [];
+  const targetDate = new Date(date).toDateString();
+  return dataStore.hearings
+    .filter(h => h && h.hearing_date && new Date(h.hearing_date).toDateString() === targetDate)
+    .sort((a, b) => {
+      if (!a.start_time) return -1;
+      if (!b.start_time) return 1;
+      return a.start_time.localeCompare(b.start_time);
+    });
+};
+
+export const getHearingsByCase = (caseId) => {
+  if (!Array.isArray(dataStore.hearings)) return [];
+  return dataStore.hearings.filter(h => h.case_id === caseId);
+};
+
+export const getUpcomingHearings = (days = 30) => {
+  if (!Array.isArray(dataStore.hearings)) return [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const future = new Date();
+  future.setDate(today.getDate() + days);
+  
+  return dataStore.hearings
+    .filter(h => {
+      if (!h || !h.hearing_date) return false;
+      const date = new Date(h.hearing_date);
+      return date >= today && date <= future && h.status === 'scheduled';
+    })
+    .sort((a, b) => new Date(a.hearing_date) - new Date(b.hearing_date));
+};
+
+export const getTodaysHearings = () => {
+  if (!Array.isArray(dataStore.hearings)) return [];
+  const today = new Date().toDateString();
+  return dataStore.hearings
+    .filter(h => h && h.hearing_date && new Date(h.hearing_date).toDateString() === today)
+    .sort((a, b) => {
+      if (!a.start_time) return -1;
+      if (!b.start_time) return 1;
+      return a.start_time.localeCompare(b.start_time);
+    });
+};
+
+export const setHearingStats = (stats) => {
+  dataStore.hearingStats = stats || { today: 0, tomorrow: 0, this_week: 0, this_month: 0, upcoming: 0, past: 0, by_type: {} };
+  dataStore.timestamp = Date.now();
+  dispatchEvent('hearing-stats-updated', dataStore.hearingStats);
+};
+
+export const getHearingStats = () => dataStore.hearingStats || { today: 0, tomorrow: 0, this_week: 0, this_month: 0, upcoming: 0, past: 0, by_type: {} };
+
+export const clearHearingsCache = () => {
+  dataStore.hearings = [];
+  dataStore.hearingStats = { today: 0, tomorrow: 0, this_week: 0, this_month: 0, upcoming: 0, past: 0, by_type: {} };
+  dataStore.timestamp = Date.now();
+  dispatchEvent('hearings-updated', []);
+  dispatchEvent('hearing-stats-updated', dataStore.hearingStats);
+};
+
+// ==================== DATE HELPER METHODS ====================
+export const isPastDate = (date) => {
+  if (!date) return false;
+  const hearingDate = new Date(date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return hearingDate < today;
+};
+// Add this alias for backward compatibility
+export const isPast = isPastDate;
+export const isToday = (date) => {
+  if (!date) return false;
+  const hearingDate = new Date(date);
+  const today = new Date();
+  return hearingDate.toDateString() === today.toDateString();
+};
+
+export const isFutureDate = (date) => {
+  if (!date) return false;
+  const hearingDate = new Date(date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return hearingDate >= today;
+};
+
+export const getEventColor = (type) => {
+  const colors = {
+    hearing: '#1a4972', meeting: '#10b981', deadline: '#ef4444',
+    task: '#f59e0b', personal: '#8b5cf6', other: '#6b7280'
+  };
+  return colors[type] || '#6b7280';
+};
+
+export const getEventIcon = (type) => {
+  const icons = {
+    hearing: '⚖️', meeting: '🤝', deadline: '⏰',
+    task: '✅', personal: '📌', other: '📅'
+  };
+  return icons[type] || '📅';
+};
+
+// ==================== UPDATE HEARING STATS HELPER ====================
+const updateHearingStats = () => {
+  if (!Array.isArray(dataStore.hearings)) return;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 6);
+  
+  const stats = {
+    today: dataStore.hearings.filter(h => h && h.hearing_date && new Date(h.hearing_date).toDateString() === today.toDateString() && h.status === 'scheduled').length,
+    tomorrow: dataStore.hearings.filter(h => h && h.hearing_date && new Date(h.hearing_date).toDateString() === tomorrow.toDateString() && h.status === 'scheduled').length,
+    this_week: dataStore.hearings.filter(h => {
+      if (!h || !h.hearing_date) return false;
+      const date = new Date(h.hearing_date);
+      return date >= startOfWeek && date <= endOfWeek && h.status === 'scheduled';
+    }).length,
+    this_month: dataStore.hearings.filter(h => {
+      if (!h || !h.hearing_date) return false;
+      const date = new Date(h.hearing_date);
+      return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear() && h.status === 'scheduled';
+    }).length,
+    upcoming: dataStore.hearings.filter(h => h && h.hearing_date && new Date(h.hearing_date) >= today && h.status === 'scheduled').length,
+    past: dataStore.hearings.filter(h => h && h.hearing_date && new Date(h.hearing_date) < today).length,
+    by_type: {
+      hearings: dataStore.hearings.filter(h => h && h.type === 'hearing').length,
+      meetings: dataStore.hearings.filter(h => h && h.type === 'meeting').length,
+      deadlines: dataStore.hearings.filter(h => h && h.type === 'deadline').length,
+      tasks: dataStore.hearings.filter(h => h && h.type === 'task').length,
+      personal: dataStore.hearings.filter(h => h && h.type === 'personal').length,
+      other: dataStore.hearings.filter(h => h && h.type === 'other').length
+    }
+  };
+  
+  dataStore.hearingStats = stats;
+  dispatchEvent('hearing-stats-updated', stats);
+};
+
 // ==================== DEFAULT EXPORT ====================
 export default {
   // User
-  setUser,
-  getUser,
-  getUserName,
-  getUserRole,
-  getUserInitials,
-  isAuthenticated,
+  setUser, getUser, getUserName, getUserRole, getUserInitials, isAuthenticated,
   
   // Dashboard
-  setDashboard,
-  getDashboard,
-  updateDashboardStats,
+  setDashboard, getDashboard, updateDashboardStats,
   
+  // Cases
+  setCases, addCase, updateCaseInStore, removeCaseFromStore, getCases, listenForUpdates,
+  getCaseById, getCasesByStatus, getCasesByLawyer, getCasesByClerk, getCaseCode, getCaseTitle,
+
   // Categories
-  setCategories,
-  getCategories,
-  addCategory,
-  updateCategoryInStore,
-  removeCategoryFromStore,
-  getCategoryName,
-  getCategoryColor,
+  setCategories, getCategories, addCategory, updateCategoryInStore, removeCategoryFromStore,
+  getCategoryName, getCategoryColor,
   
   // Stages
-  setStages,
-  getStages,
-  getStageName,
-  getStageColor,
+  setStages, getStages, getStageName, getStageColor,
   
   // Courts
-  setCourts,
-  getCourts,
-  addCourt,
-  updateCourtInStore,
-  removeCourtFromStore,
-  getCourtName,
+  setCourts, getCourts, addCourt, updateCourtInStore, removeCourtFromStore, getCourtName,
   
   // Documents
-  setDocuments,
-  getDocuments,
-  addDocument,
-  updateDocumentInStore,
-  removeDocumentFromStore,
-  getDocumentType,
-  getDocumentColor,
+  setDocuments, getDocuments, addDocument, updateDocumentInStore, removeDocumentFromStore,
+  getDocumentType, getDocumentColor,
   
   // Users
-  setUsers,
-  getUsers,
-  addUser,
-  updateUserInStore,
-  removeUserFromStore,
-  getUserById,
-  getLawyers,
-  getClerks,
-  getUserNameById,
+  setUsers, getUsers, addUser, updateUserInStore, removeUserFromStore, getUserById,
+  getLawyers, getClerks, getUserNameById,
   
   // Clients
-  setClients,
-  getClients,
-  addClient,
-  updateClientInStore,
-  removeClientFromStore,
-  getClientById,
-  getClientName,
+  setClients, getClients, addClient, updateClientInStore, removeClientFromStore,
+  getClientById, getClientName,
   
   // Notifications
-  setNotifications,
-  getNotifications,
-  getUnreadCount,
-  addNotification,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  updateNotificationInStore,
+  setNotifications, getNotifications, getUnreadCount, addNotification,
+  markNotificationAsRead, markAllNotificationsAsRead, updateNotificationInStore,
   
   // Utilities
-  hasData,
-  hasCategories,
-  hasStages,
-  hasCourts,
-  hasDocuments,
-  hasUsers,
-  hasClients,
-  hasNotifications,
-  clearData,
-  getTimestamp,
-  isStale,
-  listenForUpdates,
+  hasData, hasCategories, hasStages, hasCourts, hasDocuments, hasUsers, hasClients,
+  hasCases, hasNotifications, hasApprovals, clearData, getTimestamp, isStale, listenForUpdates,
   
   // Role helpers
-  getRoleLabel,
-  isAdmin,
-  isLawyer,
-  isClerk,
+  getRoleLabel, isAdmin, isLawyer, isClerk,
   
   // Sidebar
-  getSidebarItems,
-  getIcon,
+  getSidebarItems, getIcon,
   
   // Status helpers
-  getStatusInfo,
-  getStatusClass,
-  getPriorityInfo,
-  getPriorityClass,
-  getPriorityDot,
-  getTaskStatusInfo,
-  getTaskStatusClass,
-  getTaskStatusDot,
-  getTaskStatusLabel,
-  getApprovalStatusInfo,
-  getApprovalStatusClass,
-  getApprovalStatusIcon,
-  getApprovalStatusLabel,
-  getMovementTypeClass,
-  getMovementTypeLabel,
-  getCategoryBadgeClass,
-  getDocumentCategories,
-  getNotificationIcon,
-  getNotificationIconClass,
+  getStatusInfo, getStatusClass, getPriorityInfo, getPriorityClass, getPriorityDot,
+  getTaskStatusInfo, getTaskStatusClass, getTaskStatusDot, getTaskStatusLabel,
+  getApprovalStatusInfo, getApprovalStatusClass, getApprovalStatusIcon, getApprovalStatusLabel,
+  getMovementTypeClass, getMovementTypeLabel, getCategoryBadgeClass, getDocumentCategories,
+  getNotificationIcon, getNotificationIconClass,
   
   // Formatting
-  formatDate,
-  formatDateTime,
-  formatTimeAgo,
-  getInitials,
-  capitalize,
-  truncate,
+  formatDate, formatDateTime, formatTimeAgo, getInitials, capitalize, truncate,
   
   // Validation
   isOverdue,
   
   // Array helpers
-  groupBy,
-  sortBy,
+  groupBy, sortBy,
   
-  //AUDITLOGS
-  setAuditLogs,
-  getAuditLogs,
-  setAuditStats,
-  getAuditStats,
-  addAuditLog,
-  clearAuditCache,
+  // Audit Logs
+  setAuditLogs, getAuditLogs, setAuditStats, getAuditStats, addAuditLog, clearAuditCache,
 
-  // APPROVALS
-  setApprovals,
-  getApprovals,
-  setApprovalStats,
-  getApprovalStats,
-  updateApprovalInStore,
-  removeApprovalFromStore,
-  clearApprovalsCache,
+  // Approvals
+  setApprovals, getApprovals, setApprovalStats, getApprovalStats,
+  updateApprovalInStore, removeApprovalFromStore, clearApprovalsCache,
 
+  // Hearings - COMPLETE
+  setHearings, getHearings, addHearing, updateHearingInStore, removeHearingFromStore,
+  getHearingById, getHearingsByDate, getHearingsByCase, getUpcomingHearings, getTodaysHearings,
+  setHearingStats, getHearingStats, clearHearingsCache,
+  
+  // Date Helpers
+  isPastDate, isToday, isFutureDate, getEventColor, getEventIcon,
+    isPast, // <-- MAKE SURE THIS IS HERE
+  isToday,
   // Constants
   CONSTANTS
 };
