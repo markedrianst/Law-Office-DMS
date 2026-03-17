@@ -1,29 +1,51 @@
 // src/services/auth.js
 
 import api from "@/services/api";
-import { useAuth } from '@/composables/Useauth';
+import { setUser } from "@/utils/appUtils";
 
-let _interceptorId = null;
+let interceptorId = null;
 
+// Initialize interceptor safely
 const initAuthInterceptor = () => {
-  if (_interceptorId !== null) {
-    api.interceptors.request.eject(_interceptorId);
+  if (interceptorId !== null) {
+    try {
+      api.interceptors.request.eject(interceptorId);
+    } catch (e) {
+    }
+    interceptorId = null;
   }
 
-  _interceptorId = api.interceptors.request.use((config) => {
-    const token = sessionStorage.getItem("token");
-    if (token) {
-      config.headers = config.headers ?? {};
-      config.headers["Authorization"] = `Bearer ${token}`;
-    }
-    return config;
-  });
+  interceptorId = api.interceptors.request.use(
+    (config) => {
+      const token = sessionStorage.getItem("token");
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers["Authorization"] = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+  
 };
 
+// Initialize immediately
 initAuthInterceptor();
 
-// Preload cache - will store dashboard data before navigation
-let preloadPromise = null;
+// ✅ FIX: Load user from session on page refresh
+const loadUserFromSession = () => {
+  try {
+    const userData = sessionStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      setUser(user);
+    }
+  } catch (error) {
+  }
+};
+
+// Load user immediately
+loadUserFromSession();
 
 const authService = {
   async getCsrfCookie() {
@@ -48,53 +70,18 @@ const authService = {
         sessionStorage.setItem('token', data.token);
         sessionStorage.setItem('user', JSON.stringify(data.user));
         
-        // CRITICAL: PRELOAD dashboard data NOW (before navigation)
-        // This runs in parallel - doesn't block login response
-        preloadPromise = this.preloadDashboard();
+        // Store in appUtils
+        setUser(data.user);
         
-        // Refresh auth state
-        const { refreshUser } = useAuth();
-        refreshUser();
+        // Re-initialize interceptor
+        initAuthInterceptor();
       }
 
       return data;
 
     } catch (error) {
-      console.error('Login error:', error);
       throw error;
     }
-  },
-
-  // Preload dashboard data into cache
-  async preloadDashboard() {
-    try {
-      console.log('🔄 Preloading dashboard data...');
-      const start = performance.now();
-      
-      const { data } = await api.get('/dashboard');
-      
-      // Store in cache
-      sessionStorage.setItem('dashboard_cache', JSON.stringify({
-        data,
-        timestamp: Date.now()
-      }));
-      
-      const duration = performance.now() - start;
-      console.log(`✅ Dashboard preloaded in ${duration.toFixed(2)}ms`);
-      
-      return data;
-    } catch (error) {
-      console.error('❌ Preload failed:', error);
-      return null;
-    }
-  },
-
-  // Wait for preload to complete (optional - for dashboard to await)
-  async waitForPreload() {
-    if (preloadPromise) {
-      return preloadPromise;
-    }
-    return null;
   },
 
   async logout() {
@@ -103,19 +90,11 @@ const authService = {
     try {
       await api.post("/logout");
     } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
-      sessionStorage.removeItem('dashboard_cache');
       
-      const { clearSession } = useAuth();
-      clearSession();
-      
-      if (_interceptorId !== null) {
-        api.interceptors.request.eject(_interceptorId);
-        _interceptorId = null;
-      }
+      // Re-initialize interceptor
       initAuthInterceptor();
       
       window.location.href = '/';

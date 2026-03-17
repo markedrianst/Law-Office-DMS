@@ -30,6 +30,20 @@
           <option value="false">Inactive Only</option>
         </select>
 
+        <!-- Manual Refresh Button -->
+        <button @click="manualRefresh" :disabled="isRefreshing"
+          class="px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5">
+          <svg v-if="isRefreshing" class="animate-spin w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
+        </button>
+
+        <!-- Add Category Button -->
         <button @click="openCreateModal" :disabled="isAdding"
           class="text-white px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] shadow-md shadow-[#1a4972]/30">
           <svg v-if="!isAdding" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,8 +58,14 @@
       </div>
     </div>
 
+    <!-- Loading State - Only shown on first visit -->
+    <div v-if="isLoading" class="bg-white rounded-2xl shadow-sm border border-slate-100 py-16 flex flex-col items-center">
+      <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-[#1a4972] animate-spin mb-4"></div>
+      <p class="text-sm text-slate-500">Loading categories...</p>
+    </div>
+
     <!-- Categories Table -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div v-else class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-slate-100 bg-[#1a4972]/5">
@@ -67,7 +87,7 @@
         </thead>
 
         <tbody class="divide-y divide-slate-50">
-          <tr v-for="(item, index) in categories" :key="item.id" 
+          <tr v-for="(item, index) in paginatedCategories" :key="item.id" 
             class="transition-all duration-300 hover:bg-blue-50/30 group"
             :style="{ animation: `fadeIn 0.3s ease-out ${index * 0.03}s both` }">
             
@@ -93,7 +113,7 @@
             </td>
 
             <!-- Created At -->
-            <td class="px-5 py-4 text-sm text-slate-400">{{ formatDate(item.created_at) }}</td>
+            <td class="px-5 py-4 text-sm text-slate-400">{{ formatDateHelper(item.created_at) }}</td>
 
             <!-- Actions -->
             <td class="px-5 py-4">
@@ -265,12 +285,24 @@
     </Transition>
   </div>
 </template>
+
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { debounce } from 'lodash';
 import { caseCategoryService } from '@/services/masterData';
 import ColorPicker from '@/components/ColorPicker.vue';
 import Swal from 'sweetalert2';
+
+// Import from appUtils
+import { 
+  getCategories,
+  setCategories,
+  addCategory,
+  updateCategoryInStore,
+  removeCategoryFromStore,
+  listenForUpdates,
+  formatDate
+} from '@/utils/appUtils';
 
 // Columns
 const columns = [
@@ -281,15 +313,21 @@ const columns = [
   { label: 'Actions', field: 'actions', sortable: false },
 ];
 
-// State
-const categories = ref([]);
+// ========== STATE ==========
+// Get initial data from appUtils (INSTANT!)
+const initialCategories = getCategories();
+
+const categories = ref(initialCategories || []);
+const isLoading = ref(!initialCategories || initialCategories.length === 0);
+const isRefreshing = ref(false);
+
 const pagination = ref({
   current_page: 1,
   last_page: 1,
   per_page: 15,
-  total: 0,
-  from: 0,
-  to: 0
+  total: categories.value.length,
+  from: 1,
+  to: categories.value.length
 });
 
 const searchQuery = ref('');
@@ -299,7 +337,6 @@ const sortDirection = ref('asc');
 const currentPage = ref(1);
 
 // Loading states
-const isLoading = ref(false);
 const isAdding = ref(false);
 const editingId = ref(null);
 const togglingId = ref(null);
@@ -324,7 +361,23 @@ const errors = reactive({
   color: ''
 });
 
-// Computed
+// ========== HELPER FUNCTION FOR SORT ORDER ==========
+const getNextSortOrder = () => {
+  // Get all sort orders except "Others" (which is 9999)
+  const normalItems = categories.value.filter(c => c.sort_order < 9000);
+  
+  if (normalItems.length === 0) {
+    return 1; // First item
+  }
+  
+  // Find the maximum sort order among normal items
+  const maxSortOrder = Math.max(...normalItems.map(c => c.sort_order));
+  
+  // Return max + 1 (this will be the next number after the largest)
+  return maxSortOrder + 1;
+};
+
+// ========== COMPUTED ==========
 const displayedPages = computed(() => {
   const pages = [];
   const max = 5;
@@ -342,9 +395,64 @@ const displayedPages = computed(() => {
   return pages;
 });
 
-// ==================== FETCH CATEGORIES ====================
-const fetchCategories = async (showLoading = true) => {
-  if (showLoading) isLoading.value = true;
+// Filter and sort categories (client-side for instant response)
+const filteredCategories = computed(() => {
+  let filtered = categories.value;
+  
+  // Apply status filter
+  if (statusFilter.value) {
+    const isActive = statusFilter.value === 'true';
+    filtered = filtered.filter(c => c.is_active === isActive);
+  }
+  
+  // Apply search filter
+  if (searchQuery.value) {
+    const search = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(c => 
+      c.name?.toLowerCase().includes(search)
+    );
+  }
+  
+  // Apply sorting
+  filtered = [...filtered].sort((a, b) => {
+    let aVal = a[sortField.value];
+    let bVal = b[sortField.value];
+    
+    if (sortField.value === 'created_at') {
+      aVal = aVal ? new Date(aVal) : 0;
+      bVal = bVal ? new Date(bVal) : 0;
+    }
+    
+    if (aVal < bVal) return sortDirection.value === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  return filtered;
+});
+
+// Paginated categories
+const paginatedCategories = computed(() => {
+  const start = (currentPage.value - 1) * pagination.value.per_page;
+  const end = start + pagination.value.per_page;
+  return filteredCategories.value.slice(start, end);
+});
+
+// Update pagination when filtered categories change
+watch(filteredCategories, (newVal) => {
+  pagination.value.total = newVal.length;
+  pagination.value.last_page = Math.ceil(newVal.length / pagination.value.per_page);
+  pagination.value.from = (currentPage.value - 1) * pagination.value.per_page + 1;
+  pagination.value.to = Math.min(currentPage.value * pagination.value.per_page, newVal.length);
+  
+  if (currentPage.value > pagination.value.last_page) {
+    currentPage.value = 1;
+  }
+}, { immediate: true });
+
+// ========== FETCH CATEGORIES ==========
+const fetchCategories = async (showLoading = false) => {
+
   
   try {
     const params = {
@@ -356,17 +464,7 @@ const fetchCategories = async (showLoading = true) => {
       per_page: pagination.value.per_page
     };
 
-    const response = await caseCategoryService.getCategories(params);
-    
-    categories.value = response.data || [];
-    pagination.value = response.meta || {
-      current_page: currentPage.value,
-      last_page: 1,
-      per_page: 15,
-      total: categories.value.length,
-      from: 1,
-      to: categories.value.length
-    };
+    await caseCategoryService.getCategories(params);
     
   } catch (error) {
     console.error('Failed to load categories:', error);
@@ -374,24 +472,36 @@ const fetchCategories = async (showLoading = true) => {
       icon: 'error',
       title: 'Error',
       text: error.message || 'Failed to load categories',
-      confirmButtonColor: '#dc2626',
       timer: 2000,
-      showConfirmButton: false
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
   } finally {
     if (showLoading) isLoading.value = false;
+    isRefreshing.value = false;
   }
 };
 
-// Filters
-const debouncedSearch = debounce(() => {
-  currentPage.value = 1;
-  fetchCategories(true);
+// ========== INITIALIZE ==========
+const initialize = async () => {
+  // If no data in appUtils, show loading and fetch
+  if (categories.value.length === 0) {
+    manualRefresh();  
+  } else {
+    // Data already exists, show instantly and refresh in background
+    isLoading.value = false;
+    fetchCategories(false);
+  }
+};
+
+// ========== FILTER HANDLERS ==========
+const debouncedSearch = debounce(() => { 
+  currentPage.value = 1; 
 }, 500);
 
-const handleFilterChange = () => {
-  currentPage.value = 1;
-  fetchCategories(true);
+const handleFilterChange = () => { 
+  currentPage.value = 1; 
 };
 
 const sortBy = (field) => {
@@ -401,40 +511,43 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  fetchCategories(true);
 };
 
-// Pagination
+// ========== PAGINATION ==========
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
-    fetchCategories(true);
   }
 };
 
 const nextPage = () => {
   if (currentPage.value < pagination.value.last_page) {
     currentPage.value++;
-    fetchCategories(true);
   }
 };
 
 const goToPage = (page) => {
   currentPage.value = page;
-  fetchCategories(true);
 };
 
-// Format date
-const formatDate = (date) => {
-  if (!date) return 'N/A';
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+// ========== MANUAL REFRESH ==========
+const manualRefresh = async () => {
+  isRefreshing.value = true;
+  await fetchCategories(true);
+  isRefreshing.value = false;
+  
+  Swal.fire({
+    icon: 'success',
+    title: 'Refreshed!',
+    text: 'Categories list refreshed',
+    timer: 1500,
+    showConfirmButton: false,
+    position: 'top-end',
+    toast: true
   });
 };
 
-// Modal functions
+// ========== MODAL FUNCTIONS ==========
 const resetForm = () => {
   form.name = '';
   form.color = '#1a4972';
@@ -454,29 +567,7 @@ const openCreateModal = async () => {
   isEditing.value = false;
   editingItemId.value = null;
   
-  // Get the next available sort order (excluding "Other")
-  try {
-    const response = await caseCategoryService.getCategories({ 
-      sort_by: 'sort_order', 
-      sort_direction: 'desc',
-      per_page: 100
-    });
-    
-    if (response.data && response.data.length > 0) {
-      const normalItems = response.data.filter(item => item.sort_order < 9000);
-      if (normalItems.length > 0) {
-        const maxSortOrder = Math.max(...normalItems.map(item => item.sort_order));
-        form.sort_order = maxSortOrder + 1;
-      } else {
-        form.sort_order = 1;
-      }
-    } else {
-      form.sort_order = 1;
-    }
-  } catch (error) {
-    console.error('Failed to get next sort order:', error);
-    form.sort_order = 1;
-  }
+  form.sort_order = getNextSortOrder();
   
   showModal.value = true;
 };
@@ -497,7 +588,7 @@ const closeModal = () => {
   resetForm();
 };
 
-// Submit form
+// ========== SUBMIT FORM ==========
 const submitForm = async () => {
   formLoading.value = true;
   clearErrors();
@@ -513,18 +604,11 @@ const submitForm = async () => {
     if (isEditing.value) {
       editingId.value = editingItemId.value;
       
-      // Optimistic update
-      const index = categories.value.findIndex(c => c.id === editingItemId.value);
-      if (index !== -1) {
-        categories.value[index] = {
-          ...categories.value[index],
-          ...payload
-        };
-      }
-
+      // Call API - it will update the store
       await caseCategoryService.updateCategory(editingItemId.value, payload);
+      await fetchCategories(true);
 
-      await Swal.fire({
+      Swal.fire({
         icon: 'success',
         title: 'Success!',
         text: 'Category updated successfully',
@@ -536,13 +620,12 @@ const submitForm = async () => {
 
     } else {
       isAdding.value = true;
-      const response = await caseCategoryService.createCategory(payload);
       
-      if (response.data) {
-        categories.value.unshift(response.data);
-      }
+      // Call API - it will add to store
+      await caseCategoryService.createCategory(payload);
+      await fetchCategories(true);
 
-      await Swal.fire({
+      Swal.fire({
         icon: 'success',
         title: 'Success!',
         text: 'Category created successfully',
@@ -554,25 +637,22 @@ const submitForm = async () => {
     }
 
     closeModal();
-    
-    // Refresh
-    await fetchCategories(true);
 
   } catch (error) {
     if (error.errors) {
-      if (error.errors.name) errors.name = error.errors.name[0] || error.errors.name;
-      if (error.errors.color) errors.color = error.errors.color[0] || error.errors.color;
+      if (error.errors.name) errors.name = error.errors.name[0];
+      if (error.errors.color) errors.color = error.errors.color[0];
     }
-
-    await Swal.fire({
+    
+    Swal.fire({
       icon: 'error',
       title: 'Error!',
       text: error.message || 'An error occurred',
-      confirmButtonColor: '#dc2626'
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
-
-    // Refresh to revert optimistic updates
-    await fetchCategories(true);
 
   } finally {
     formLoading.value = false;
@@ -581,23 +661,16 @@ const submitForm = async () => {
   }
 };
 
-// Toggle status
+// ========== TOGGLE STATUS ==========
 const toggleStatus = async (item) => {
   togglingId.value = item.id;
 
   try {
-    // Optimistic update
-    const index = categories.value.findIndex(c => c.id === item.id);
-    if (index !== -1) {
-      categories.value[index] = {
-        ...categories.value[index],
-        is_active: !item.is_active
-      };
-    }
-
+    // Call API - it will update the store
     await caseCategoryService.toggleCategory(item.id);
-
-    await Swal.fire({
+  await fetchCategories(true);
+    
+    Swal.fire({
       icon: 'success',
       title: 'Success!',
       text: `Category ${!item.is_active ? 'activated' : 'deactivated'} successfully`,
@@ -608,14 +681,14 @@ const toggleStatus = async (item) => {
     });
 
   } catch (error) {
-    // Revert on error
-    await fetchCategories(true);
-
-    await Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Error!',
       text: error.message || 'Failed to toggle status',
-      confirmButtonColor: '#dc2626'
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
 
   } finally {
@@ -623,7 +696,7 @@ const toggleStatus = async (item) => {
   }
 };
 
-// Delete
+// ========== DELETE ==========
 const confirmDelete = async (item) => {
   const result = await Swal.fire({
     title: 'Delete Category?',
@@ -640,12 +713,10 @@ const confirmDelete = async (item) => {
     deletingId.value = item.id;
 
     try {
-      // Optimistic delete
-      categories.value = categories.value.filter(c => c.id !== item.id);
-
+      // Call API - it will remove from store
       await caseCategoryService.deleteCategory(item.id);
 
-      await Swal.fire({
+      Swal.fire({
         icon: 'success',
         title: 'Deleted!',
         text: 'Category deleted successfully',
@@ -655,18 +726,15 @@ const confirmDelete = async (item) => {
         toast: true
       });
 
-      // Refresh
-      await fetchCategories(true);
-
     } catch (error) {
-      // Revert on error
-      await fetchCategories(true);
-
-      await Swal.fire({
+      Swal.fire({
         icon: 'error',
         title: 'Error!',
         text: error.message || 'Failed to delete category',
-        confirmButtonColor: '#dc2626'
+        timer: 2000,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
       });
 
     } finally {
@@ -675,15 +743,32 @@ const confirmDelete = async (item) => {
   }
 };
 
-// Watch for page changes
-watch(currentPage, () => {
-  fetchCategories(true);
+// ========== LISTEN FOR UPDATES ==========
+const handleCategoriesUpdated = (event) => {
+  categories.value = event.detail;
+  if (categories.value.length > 0) {
+    isLoading.value = false;
+  }
+};
+
+let cleanup = null;
+
+// ========== LIFECYCLE ==========
+onMounted(async () => {
+  await initialize();
+  
+  cleanup = listenForUpdates('categories-updated', handleCategoriesUpdated);
 });
 
-// Initial load
-onMounted(() => {
-  fetchCategories(true);
+onUnmounted(() => {
+  if (cleanup) cleanup();
+  debouncedSearch.cancel();
 });
+
+// ========== HELPER FUNCTIONS FOR TEMPLATE ==========
+const formatDateHelper = (date) => {
+  return formatDate(date);
+};
 </script>
 
 <style scoped>

@@ -17,7 +17,7 @@ return new class extends Migration
             // Foreign keys
             $table->foreignId('category_id')->nullable()->constrained('case_categories')->nullOnDelete();
             $table->foreignId('client_id')->nullable()->constrained('clients')->nullOnDelete();
-            $table->foreignId('assigned_lawyer_id')->constrained('users');
+            $table->foreignId('assigned_lawyer_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('assigned_clerk_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('current_stage_id')->nullable()->constrained('case_stages')->nullOnDelete();
             

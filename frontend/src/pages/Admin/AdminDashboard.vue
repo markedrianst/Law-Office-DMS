@@ -1,7 +1,7 @@
 <template>
-  <div class="dashboard space-y-8">
-    <!-- Stats Grid - Always renders with whatever data it has -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="dashboard">
+    <!-- Admin Overview Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <!-- Total Cases -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
@@ -12,15 +12,15 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Total Cases</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ stats.total_cases }}</div>
+        <div class="text-3xl font-bold text-slate-800">{{ displayStats.total_cases }}</div>
         <div class="flex items-center gap-2 mt-2">
           <span class="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-            {{ stats.active_cases }} Active
+            {{ displayStats.active_cases }} Active
           </span>
         </div>
       </div>
 
-      <!-- Total Users -->
+      <!-- Total Users (REAL-TIME UPDATES) -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
@@ -30,13 +30,13 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Total Users</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ adminStats.total_users }}</div>
+        <div class="text-3xl font-bold text-slate-800">{{ displayAdminStats.total_users }}</div>
         <div class="flex items-center gap-2 mt-2">
           <span class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-            {{ adminStats.lawyers }} Lawyers
+            {{ displayAdminStats.lawyers }} Lawyers
           </span>
           <span class="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-            {{ adminStats.clerks }} Clerks
+            {{ displayAdminStats.clerks }} Clerks
           </span>
         </div>
       </div>
@@ -51,18 +51,18 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Pending Approvals</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ pendingTotal }}</div>
+        <div class="text-3xl font-bold text-slate-800">{{ displayPendingTotal }}</div>
         <div class="flex items-center gap-2 mt-2">
           <span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-            {{ pendingDocuments }} Docs
+            {{ displayPendingDocuments }} Documents
           </span>
           <span class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-            {{ pendingMovements }} Moves
+            {{ displayPendingMovements }} Movements
           </span>
         </div>
       </div>
 
-      <!-- Total Clients -->
+      <!-- Total Clients (REAL-TIME UPDATES) -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
@@ -72,34 +72,31 @@
           </div>
           <span class="text-xs font-semibold text-slate-400">Total Clients</span>
         </div>
-        <div class="text-3xl font-bold text-slate-800">{{ stats.total_clients }}</div>
-        <div class="text-xs text-slate-500 mt-2">Registered clients</div>
+        <div class="text-3xl font-bold text-slate-800">{{ displayStats.total_clients }}</div>
+        <div class="text-xs text-slate-500 mt-2">Active clients</div>
       </div>
     </div>
 
-    <!-- Recent Activities - Always renders -->
+    <!-- Recent Activities -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100">
-        <h3 class="text-sm font-semibold text-slate-700">Recent Activities</h3>
+        <h3 class="text-sm font-semibold text-slate-700">Recent System Activities</h3>
       </div>
-      
-      <div v-if="recentActivities.length === 0" class="px-6 py-8 text-center text-slate-400">
-        No recent activities
-      </div>
-      
-      <div v-else class="divide-y divide-slate-50">
-        <div v-for="activity in recentActivities" :key="activity.id" class="px-6 py-4 hover:bg-slate-50/50">
+      <div class="divide-y divide-slate-50">
+        <div v-for="activity in displayRecentActivities" :key="activity.id" class="px-6 py-4 hover:bg-slate-50/50">
           <div class="flex items-start gap-3">
             <div class="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
             <div class="flex-1">
               <p class="text-sm text-slate-700">
-                <span class="font-semibold">{{ activity.user_name || activity.email_attempted || 'System' }}</span>
+                <span class="font-semibold">{{ activity.user_name || 'System' }}</span>
                 {{ activity.action }}
-                <span v-if="activity.case_code" class="text-slate-500">in case {{ activity.case_code }}</span>
               </p>
-              <p class="text-xs text-slate-400 mt-1">{{ formatDate(activity.created_at) }}</p>
+              <p class="text-xs text-slate-400 mt-1">{{ formatDateTime(activity.created_at) }}</p>
             </div>
           </div>
+        </div>
+        <div v-if="!displayRecentActivities.length" class="px-6 py-8 text-center text-slate-400">
+          No recent activities
         </div>
       </div>
     </div>
@@ -107,27 +104,101 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { 
+  formatDateTime,
+  listenForUpdates,
+  getUsers,
+  getClients
+} from '@/utils/appUtils';
 
 const props = defineProps({
-  stats: { type: Object, default: () => ({ total_cases: 0, active_cases: 0, total_clients: 0 }) },
-  adminStats: { type: Object, default: () => ({ total_users: 0, lawyers: 0, clerks: 0 }) },
-  recentActivities: { type: Array, default: () => [] },
-  pendingDocuments: { type: [Number, String], default: 0 },
-  pendingMovements: { type: [Number, String], default: 0 },
-  pendingTotal: { type: [Number, String], default: 0 }
+  stats: Object,
+  adminStats: Object,
+  recentActivities: Array,
+  pendingDocuments: [Number, String],
+  pendingMovements: [Number, String],
+  pendingTotal: [Number, String]
 });
 
-// Format date helper
-const formatDate = (date) => {
-  if (!date) return '';
-  const d = new Date(date);
-  const now = new Date();
-  const diff = Math.floor((now - d) / 1000);
+// Create reactive local copies
+const displayStats = ref({ ...props.stats });
+const displayAdminStats = ref({ ...props.adminStats });
+const displayRecentActivities = ref([...props.recentActivities || []]);
+const displayPendingDocuments = ref(props.pendingDocuments || 0);
+const displayPendingMovements = ref(props.pendingMovements || 0);
+const displayPendingTotal = ref(props.pendingTotal || 0);
+
+// ==================== REAL-TIME UPDATE HANDLERS ====================
+
+// Update when users change (add/edit/delete)
+const handleUsersUpdate = (event) => {
+  const users = event.detail || [];
+  const lawyers = users.filter(u => u.role?.toLowerCase() === 'lawyer').length;
+  const clerks = users.filter(u => u.role?.toLowerCase() === 'clerk').length;
   
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  displayAdminStats.value = {
+    ...displayAdminStats.value,
+    total_users: users.length,
+    lawyers,
+    clerks
+  };
 };
+
+// Update when clients change (add/edit/delete)
+const handleClientsUpdate = (event) => {
+  const clients = event.detail || [];
+  displayStats.value = {
+    ...displayStats.value,
+    total_clients: clients.length
+  };
+};
+
+// Update when dashboard data changes
+const handleDashboardUpdate = (event) => {
+  const dashboard = event.detail;
+  if (dashboard) {
+    if (dashboard.stats) displayStats.value = { ...dashboard.stats };
+    if (dashboard.adminStats) displayAdminStats.value = { ...dashboard.adminStats };
+    if (dashboard.recentActivities) displayRecentActivities.value = [...dashboard.recentActivities];
+  }
+};
+
+// Cleanup functions
+let cleanupUsers, cleanupClients, cleanupDashboard;
+
+onMounted(() => {
+  // Listen for real-time updates
+  cleanupUsers = listenForUpdates('users-updated', handleUsersUpdate);
+  cleanupClients = listenForUpdates('clients-updated', handleClientsUpdate);
+  cleanupDashboard = listenForUpdates('dashboard-updated', handleDashboardUpdate);
+  
+  // Initial sync with current data
+  const users = getUsers();
+  if (users?.length) {
+    const lawyers = users.filter(u => u.role?.toLowerCase() === 'lawyer').length;
+    const clerks = users.filter(u => u.role?.toLowerCase() === 'clerk').length;
+    displayAdminStats.value = {
+      ...displayAdminStats.value,
+      total_users: users.length,
+      lawyers,
+      clerks
+    };
+  }
+  
+  const clients = getClients();
+  if (clients?.length) {
+    displayStats.value = {
+      ...displayStats.value,
+      total_clients: clients.length
+    };
+  }
+});
+
+onUnmounted(() => {
+  // Clean up listeners
+  if (cleanupUsers) cleanupUsers();
+  if (cleanupClients) cleanupClients();
+  if (cleanupDashboard) cleanupDashboard();
+});
 </script>

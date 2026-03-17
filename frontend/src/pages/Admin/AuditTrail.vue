@@ -199,7 +199,7 @@
                 <span v-if="log.status" :class="['px-2.5 py-0.5 rounded-full text-[11px] font-bold', log.status === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700']">
                   {{ log.status === 'success' ? '✓' : '✗' }} {{ log.status }}
                 </span>
-                <span class="text-[11px] text-slate-400 whitespace-nowrap">{{ timeAgo(log.created_at) }}</span>
+              <span class="text-[11px] text-slate-400 whitespace-nowrap">{{ formatTimeAgo(log.created_at) }}</span>
               </div>
             </div>
 
@@ -293,6 +293,17 @@ import { useAuth } from '@/composables/useAuth'
 import * as XLSX from 'xlsx'
 import Swal from 'sweetalert2'
 
+// Import from appUtils
+import { 
+  getAuditLogs,
+  getAuditStats,
+  setAuditLogs,
+  setAuditStats,
+  listenForUpdates,
+  formatDateTime,
+  formatTimeAgo
+} from '@/utils/appUtils'
+
 const router = useRouter()
 const { userRole } = useAuth()
 
@@ -302,21 +313,31 @@ if (userRole.value !== 'admin') {
 }
 
 // ==================== STATE ====================
-const logs = ref([])
-const stats = ref({ total_logs: 0, login_stats: { success: 0, failed: 0 } })
+// Get initial data from appUtils (INSTANT!)
+const initialLogs = getAuditLogs();
+const initialStats = getAuditStats();
+
+console.log('📊 Initial audit logs from appUtils:', initialLogs?.length);
+console.log('📊 Initial audit stats from appUtils:', initialStats);
+
+const logs = ref(initialLogs || []);
+const stats = ref(initialStats || { total_logs: 0, login_stats: { success: 0, failed: 0 } });
+const isLoading = ref(!initialLogs || initialLogs.length === 0); // Only show loading if no data
+
 const pagination = ref({
   current_page: 1,
   last_page: 1,
   per_page: 15,
-  total: 0,
-  from: 0,
-  to: 0
-})
-const expanded = ref([])
-const timeFilter = ref('')
-const currentPage = ref(1)
-const perPage = ref(15)
-const isActive = ref(true)
+  total: logs.value.length,
+  from: 1,
+  to: logs.value.length
+});
+
+const expanded = ref([]);
+const timeFilter = ref('');
+const currentPage = ref(1);
+const perPage = ref(15);
+const isActive = ref(true);
 
 const filters = reactive({
   search: '',
@@ -324,53 +345,55 @@ const filters = reactive({
   status: '',
   date_from: '',
   date_to: ''
-})
+});
 
 // Export
-const showExportMenu = ref(false)
-const isExporting = ref(false)
+const showExportMenu = ref(false);
+const isExporting = ref(false);
 
 // ==================== COMPUTED ====================
 const groupedLogs = computed(() => {
-  const groups = {}
+  const groups = {};
   logs.value.forEach(log => {
-    if (!log.created_at) return
-    const date = new Date(log.created_at).toDateString()
-    if (!groups[date]) groups[date] = []
-    groups[date].push(log)
-  })
-  return groups
-})
+    if (!log.created_at) return;
+    const date = new Date(log.created_at).toDateString();
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(log);
+  });
+  return groups;
+});
 
 const displayedPages = computed(() => {
-  const pages = []
-  const max = 5
-  const total = pagination.value.last_page || 1
-  const current = pagination.value.current_page || 1
+  const pages = [];
+  const max = 5;
+  const total = pagination.value.last_page || 1;
+  const current = pagination.value.current_page || 1;
   
   if (total <= max) {
-    for (let i = 1; i <= total; i++) pages.push(i)
+    for (let i = 1; i <= total; i++) pages.push(i);
   } else {
-    let s = Math.max(1, current - 2)
-    let e = Math.min(total, s + max - 1)
-    if (e - s + 1 < max) s = Math.max(1, e - max + 1)
-    for (let i = s; i <= e; i++) pages.push(i)
+    let s = Math.max(1, current - 2);
+    let e = Math.min(total, s + max - 1);
+    if (e - s + 1 < max) s = Math.max(1, e - max + 1);
+    for (let i = s; i <= e; i++) pages.push(i);
   }
-  return pages
-})
+  return pages;
+});
 
 const hasActiveFilters = computed(() =>
   !!(filters.search || filters.type || filters.status || filters.date_from || filters.date_to)
-)
+);
 
 const timeFilters = [
   { label: 'Today', value: 'today' },
   { label: 'Week', value: 'week' },
   { label: 'Month', value: 'month' }
-]
+];
 
 // ==================== FETCH DATA ====================
-const fetchData = async () => {
+const fetchData = async (showLoading = true) => {
+  if (showLoading) isLoading.value = true;
+  
   try {
     const params = {
       search: filters.search || undefined,
@@ -380,91 +403,130 @@ const fetchData = async () => {
       date_to: filters.date_to || undefined,
       page: currentPage.value,
       per_page: perPage.value
-    }
+    };
 
-    const response = await auditLogService.getCombinedLogs(params)
+    const response = await auditLogService.getCombinedLogs(params);
     
-    logs.value = response.data || []
-    pagination.value = response.meta || {
-      current_page: currentPage.value,
-      last_page: 1,
-      per_page: perPage.value,
-      total: logs.value.length,
-      from: 1,
-      to: logs.value.length
+    if (response.data) {
+      logs.value = response.data;
+      pagination.value = response.meta || {
+        current_page: currentPage.value,
+        last_page: 1,
+        per_page: perPage.value,
+        total: logs.value.length,
+        from: 1,
+        to: logs.value.length
+      };
     }
-
   } catch (error) {
-    console.error('Failed to load logs:', error)
-    logs.value = []
+    console.error('Failed to load logs:', error);
+  } finally {
+    if (showLoading) isLoading.value = false;
   }
-}
+};
 
 // ==================== FETCH STATS ====================
 const fetchStats = async () => {
   try {
-    const response = await auditLogService.getStats()
-    stats.value = response.data || {}
+    const response = await auditLogService.getStats();
+    if (response.data) {
+      stats.value = response.data;
+    }
   } catch (error) {
-    console.error('Failed to load stats:', error)
+    console.error('Failed to load stats:', error);
   }
-}
+};
+
+// ==================== LISTEN FOR UPDATES ====================
+const handleLogsUpdated = (event) => {
+  console.log('🔄 Audit logs updated event received');
+  logs.value = event.detail;
+  if (logs.value.length > 0) {
+    isLoading.value = false;
+  }
+};
+
+const handleStatsUpdated = (event) => {
+  console.log('🔄 Audit stats updated event received');
+  stats.value = event.detail;
+};
+
+let cleanupLogs = null;
+let cleanupStats = null;
+
+// ==================== LOAD DATA ONLY IF NEEDED ====================
+const initialize = async () => {
+  console.log('🚀 Initializing AuditTrail...');
+  console.log('📊 Logs in ref:', logs.value.length);
+  
+  // Fetch stats first (they're small)
+  await fetchStats();
+  
+  // ONLY fetch logs if we have no data
+  if (logs.value.length === 0) {
+    console.log('📡 No logs in appUtils, fetching from API...');
+    await fetchData(true);
+  } else {
+    console.log('✅ Using existing logs from appUtils');
+    isLoading.value = false;
+  }
+};
 
 // ==================== FILTER METHODS ====================
 const applyFilters = () => {
-  currentPage.value = 1
-  fetchData()
-}
+  currentPage.value = 1;
+  fetchData(true);
+};
 
-const debouncedApply = debounce(applyFilters, 450)
+const debouncedApply = debounce(applyFilters, 450);
 
 const clearFilters = () => {
-  filters.search = ''
-  filters.type = ''
-  filters.status = ''
-  filters.date_from = ''
-  filters.date_to = ''
-  timeFilter.value = ''
-  applyFilters()
-}
+  filters.search = '';
+  filters.type = '';
+  filters.status = '';
+  filters.date_from = '';
+  filters.date_to = '';
+  timeFilter.value = '';
+  applyFilters();
+};
 
 const filterByTime = (period) => {
-  timeFilter.value = period
-  const now = new Date()
+  timeFilter.value = period;
+  const now = new Date();
   
   if (period === 'today') {
-    filters.date_from = formatDateForFilter(now)
-    filters.date_to = formatDateForFilter(now)
+    filters.date_from = formatDateForFilter(now);
+    filters.date_to = formatDateForFilter(now);
   } else if (period === 'week') {
-    const weekAgo = new Date(now)
-    weekAgo.setDate(weekAgo.getDate() - 7)
-    filters.date_from = formatDateForFilter(weekAgo)
-    filters.date_to = formatDateForFilter(now)
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    filters.date_from = formatDateForFilter(weekAgo);
+    filters.date_to = formatDateForFilter(now);
   } else if (period === 'month') {
-    const monthAgo = new Date(now)
-    monthAgo.setMonth(monthAgo.getMonth() - 1)
-    filters.date_from = formatDateForFilter(monthAgo)
-    filters.date_to = formatDateForFilter(now)
+    const monthAgo = new Date(now);
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    filters.date_from = formatDateForFilter(monthAgo);
+    filters.date_to = formatDateForFilter(now);
   }
-  applyFilters()
-}
+  applyFilters();
+};
 
 const formatDateForFilter = (date) => {
-  return date.toISOString().split('T')[0]
-}
+  return date.toISOString().split('T')[0];
+};
 
 const changePage = (page) => {
   if (page >= 1 && page <= pagination.value.last_page) {
-    currentPage.value = page
-    fetchData()
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    currentPage.value = page;
+    fetchData(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-}
+};
 
 const changePerPage = () => {
-  currentPage.value = 1
-  fetchData()
-}
+  currentPage.value = 1;
+  fetchData(true);
+};
 
 // ==================== UI HELPERS ====================
 const getIcon = (log) => {
@@ -478,23 +540,23 @@ const getIcon = (log) => {
       user_delete: '🗑️',
       activated: '✅',
       deactivated: '⛔'
-    }
-    return icons[log.action] || '•'
+    };
+    return icons[log.action] || '•';
   }
   
-  const action = (log.action || '').toLowerCase()
-  if (action.includes('create')) return '➕'
-  if (action.includes('archive')) return '📦'
-  if (action.includes('assign')) return '👤'
-  if (action.includes('update') || action.includes('edit')) return '✏️'
-  if (action.includes('delete')) return '🗑️'
-  if (action.includes('stage')) return '🔄'
-  if (action.includes('priority')) return '🚨'
-  if (action.includes('folder')) return '📁'
-  if (action.includes('checklist')) return '✅'
-  if (action.includes('task')) return '📋'
-  return '•'
-}
+  const action = (log.action || '').toLowerCase();
+  if (action.includes('create')) return '➕';
+  if (action.includes('archive')) return '📦';
+  if (action.includes('assign')) return '👤';
+  if (action.includes('update') || action.includes('edit')) return '✏️';
+  if (action.includes('delete')) return '🗑️';
+  if (action.includes('stage')) return '🔄';
+  if (action.includes('priority')) return '🚨';
+  if (action.includes('folder')) return '📁';
+  if (action.includes('checklist')) return '✅';
+  if (action.includes('task')) return '📋';
+  return '•';
+};
 
 const getIconBg = (log) => {
   if (log.type === 'system') {
@@ -507,44 +569,44 @@ const getIconBg = (log) => {
       user_delete: 'bg-red-50',
       activated: 'bg-emerald-50',
       deactivated: 'bg-red-50'
-    }
-    return bgClasses[log.action] || 'bg-slate-50'
+    };
+    return bgClasses[log.action] || 'bg-slate-50';
   }
   
-  const action = (log.action || '').toLowerCase()
-  if (action.includes('create')) return 'bg-emerald-50'
-  if (action.includes('archive')) return 'bg-slate-100'
-  if (action.includes('assign')) return 'bg-blue-50'
-  if (action.includes('update')) return 'bg-purple-50'
-  if (action.includes('delete')) return 'bg-red-50'
-  if (action.includes('stage')) return 'bg-amber-50'
-  if (action.includes('folder')) return 'bg-orange-50'
-  if (action.includes('checklist')) return 'bg-teal-50'
-  if (action.includes('task')) return 'bg-indigo-50'
-  return 'bg-slate-50'
-}
+  const action = (log.action || '').toLowerCase();
+  if (action.includes('create')) return 'bg-emerald-50';
+  if (action.includes('archive')) return 'bg-slate-100';
+  if (action.includes('assign')) return 'bg-blue-50';
+  if (action.includes('update')) return 'bg-purple-50';
+  if (action.includes('delete')) return 'bg-red-50';
+  if (action.includes('stage')) return 'bg-amber-50';
+  if (action.includes('folder')) return 'bg-orange-50';
+  if (action.includes('checklist')) return 'bg-teal-50';
+  if (action.includes('task')) return 'bg-indigo-50';
+  return 'bg-slate-50';
+};
 
 const getTitle = (log) => {
   if (log.type === 'case') {
-    return log.details?.message || `${log.actor || 'System'} ${log.action || ''}`
+    return log.details?.message || `${log.actor || 'System'} ${log.action || ''}`;
   }
 
-  const action = log.action
-  let name = 'Unknown User'
+  const action = log.action;
+  let name = 'Unknown User';
   
-  if (log.user_name) name = log.user_name
+  if (log.user_name) name = log.user_name;
   else if (log.email_attempted) {
-    const parts = log.email_attempted.split('@')[0]
-    name = parts.charAt(0).toUpperCase() + parts.slice(1)
+    const parts = log.email_attempted.split('@')[0];
+    name = parts.charAt(0).toUpperCase() + parts.slice(1);
   }
   
-  const email = log.email_attempted || ''
+  const email = log.email_attempted || '';
   
   if (action === 'login' && log.status === 'failed') {
-    return `Failed login attempt${email ? ' for ' + email : ''}`
+    return `Failed login attempt${email ? ' for ' + email : ''}`;
   }
   if (action === 'password_change' && log.status === 'failed') {
-    return `${name} failed to change password`
+    return `${name} failed to change password`;
   }
   
   const titles = {
@@ -556,107 +618,77 @@ const getTitle = (log) => {
     user_delete: `Admin deleted ${email}`,
     activated: `${name}'s account activated`,
     deactivated: `${name}'s account deactivated`
-  }
+  };
   
-  return titles[action] || `${action} by ${name}`
-}
+  return titles[action] || `${action} by ${name}`;
+};
 
 const getDayOfWeek = (dateStr) => {
-  return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' })
-}
+  return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' });
+};
 
 const formatDateHeader = (dateStr) => {
-  const date = new Date(dateStr)
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
   
-  if (date.toDateString() === today.toDateString()) return 'Today'
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
   return date.toLocaleDateString('en-US', { 
     weekday: 'long', 
     month: 'long', 
     day: 'numeric', 
     year: 'numeric' 
-  })
-}
-
-const timeAgo = (dateStr) => {
-  if (!dateStr) return ''
-  const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000)
-  
-  if (seconds < 5) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
-  
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  
-  const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}d ago`
-  
-  return formatDateTime(dateStr)
-}
-
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
+  });
+};
 
 const formatUserAgent = (ua) => {
-  if (!ua) return 'Unknown'
-  if (ua.includes('Firefox')) return 'Firefox'
-  if (ua.includes('Chrome')) return 'Chrome'
-  if (ua.includes('Safari')) return 'Safari'
-  if (ua.includes('Edge')) return 'Edge'
-  return ua.slice(0, 20) + '…'
-}
+  if (!ua) return 'Unknown';
+  if (ua.includes('Firefox')) return 'Firefox';
+  if (ua.includes('Chrome')) return 'Chrome';
+  if (ua.includes('Safari')) return 'Safari';
+  if (ua.includes('Edge')) return 'Edge';
+  return ua.slice(0, 20) + '…';
+};
 
 const formatSystemDetails = (details) => {
-  if (!details) return ''
-  if (typeof details === 'string') return details
-  if (details.message) return details.message
-  return JSON.stringify(details)
-}
+  if (!details) return '';
+  if (typeof details === 'string') return details;
+  if (details.message) return details.message;
+  return JSON.stringify(details);
+};
 
 const formatCaseDetails = (details) => {
-  if (!details) return ''
-  if (details.message) return details.message
-  if (details.note) return details.note
-  return JSON.stringify(details)
-}
+  if (!details) return '';
+  if (details.message) return details.message;
+  if (details.note) return details.note;
+  return JSON.stringify(details);
+};
 
 const toggleExpand = (id) => {
   if (expanded.value.includes(id)) {
-    expanded.value = expanded.value.filter(x => x !== id)
+    expanded.value = expanded.value.filter(x => x !== id);
   } else {
-    expanded.value.push(id)
+    expanded.value.push(id);
   }
-}
+};
 
 // ==================== EXPORT ====================
 const toggleExportMenu = () => {
-  showExportMenu.value = !showExportMenu.value
-}
+  showExportMenu.value = !showExportMenu.value;
+};
 
 const closeExportMenu = () => {
-  showExportMenu.value = false
-}
+  showExportMenu.value = false;
+};
 
 const exportLogs = async (scope) => {
-  closeExportMenu()
-  isExporting.value = true
+  closeExportMenu();
+  isExporting.value = true;
 
   try {
-    let rows = []
+    let rows = [];
     
     if (scope === 'all') {
       const params = {
@@ -666,12 +698,12 @@ const exportLogs = async (scope) => {
         date_from: filters.date_from || undefined,
         date_to: filters.date_to || undefined,
         per_page: 9999
-      }
+      };
       
-      const response = await auditLogService.getCombinedLogs(params)
-      rows = response.data || []
+      const response = await auditLogService.getCombinedLogs(params);
+      rows = response.data || [];
     } else {
-      rows = logs.value
+      rows = logs.value;
     }
     
     if (!rows.length) {
@@ -681,8 +713,8 @@ const exportLogs = async (scope) => {
         text: 'No logs to export',
         timer: 1500,
         showConfirmButton: false
-      })
-      return
+      });
+      return;
     }
 
     const excelRows = rows.map(log => {
@@ -695,7 +727,7 @@ const exportLogs = async (scope) => {
           'Case Title': log.case_title || '',
           'Action': log.action || '',
           'Details': log.details?.message || JSON.stringify(log.details) || ''
-        }
+        };
       } else {
         return {
           'Type': 'System',
@@ -706,54 +738,66 @@ const exportLogs = async (scope) => {
           'Details': log.details?.message || (typeof log.details === 'string' ? log.details : JSON.stringify(log.details)) || '',
           'IP Address': log.ip_address || '',
           'Browser': formatUserAgent(log.user_agent)
-        }
+        };
       }
-    })
+    });
 
-    const ws = XLSX.utils.json_to_sheet(excelRows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Activity Logs')
-    XLSX.writeFile(wb, `activity-logs_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    const ws = XLSX.utils.json_to_sheet(excelRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Activity Logs');
+    XLSX.writeFile(wb, `activity-logs_${new Date().toISOString().slice(0, 10)}.xlsx`);
     
   } catch (error) {
-    console.error('Export failed', error)
+    console.error('Export failed', error);
     Swal.fire({
       icon: 'error',
       title: 'Export Failed',
       text: error.message || 'Failed to export logs',
       confirmButtonColor: '#dc2626'
-    })
+    });
   } finally {
-    isExporting.value = false
+    isExporting.value = false;
   }
-}
+};
 
 // ==================== LIFECYCLE ====================
-onMounted(() => {
-  isActive.value = true
-  fetchData()
-  fetchStats()
-})
+onMounted(async () => {
+  console.log('🚀 AuditTrail mounted');
+  
+  // Initialize - only fetches if no data
+  await initialize();
+  
+  // Listen for real-time updates
+  cleanupLogs = listenForUpdates('audit-logs-updated', handleLogsUpdated);
+  cleanupStats = listenForUpdates('audit-stats-updated', handleStatsUpdated);
+  
+  isActive.value = true;
+});
 
 onUnmounted(() => {
-  isActive.value = false
-})
+  isActive.value = false;
+  if (cleanupLogs) cleanupLogs();
+  if (cleanupStats) cleanupStats();
+});
 
 // Watch for page focus
 watch(() => document.visibilityState, () => {
   if (document.visibilityState === 'visible' && isActive.value) {
-    fetchData()
+    // Refresh in background if needed
+    if (logs.value.length === 0) {
+      fetchData(false);
+    }
   }
-})
+});
 
 // ==================== DIRECTIVE ====================
 const vClickOutside = {
   mounted(el, binding) {
-    el._out = (e) => { if (!el.contains(e.target)) binding.value(e) }
-    document.addEventListener('mousedown', el._out)
+    el._out = (e) => { if (!el.contains(e.target)) binding.value(e); };
+    document.addEventListener('mousedown', el._out);
   },
-  unmounted(el) { document.removeEventListener('mousedown', el._out) }
-}
+  unmounted(el) { document.removeEventListener('mousedown', el._out); }
+};
 </script>
 
 <style scoped>

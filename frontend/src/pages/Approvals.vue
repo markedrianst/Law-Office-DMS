@@ -101,11 +101,31 @@
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
-      <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin mb-4"></div>
-      <p class="text-sm text-slate-500">Loading approvals...</p>
+   <!-- Enhanced Loading State -->
+<div v-if="loading" class="bg-white rounded-xl shadow-sm border border-slate-200 py-24 flex flex-col items-center">
+  <!-- Animated Spinner -->
+  <div class="relative mb-6">
+    <!-- Outer ring -->
+    <div class="w-16 h-16 rounded-full border-4 border-blue-100 absolute"></div>
+    <!-- Spinning ring -->
+    <div class="w-16 h-16 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+    <!-- Inner pulse -->
+    <div class="absolute inset-0 flex items-center justify-center">
+      <div class="w-4 h-4 rounded-full bg-blue-600 animate-pulse"></div>
     </div>
+  </div>
+  
+  <!-- Loading text with animation -->
+  <p class="text-base font-semibold text-slate-700 mb-2 animate-pulse">Loading Approvals</p>
+  <p class="text-sm text-slate-500">Please wait while we fetch the data...</p>
+  
+  <!-- Progress dots -->
+  <div class="flex gap-2 mt-4">
+    <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 0ms;"></div>
+    <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 150ms;"></div>
+    <div class="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style="animation-delay: 300ms;"></div>
+  </div>
+</div>
 
     <!-- Empty State -->
     <div v-else-if="!approvals.length" class="bg-white rounded-xl shadow-sm border border-slate-200 py-16 flex flex-col items-center">
@@ -186,7 +206,7 @@
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700">
-                    {{ getInitials(item.recorder?.full_name) }}
+                    {{ getInitialsHelper(item.recorder?.full_name) }}
                   </div>
                   <span class="text-sm text-slate-700">{{ item.recorder?.full_name || '—' }}</span>
                 </div>
@@ -194,14 +214,14 @@
 
               <!-- Date -->
               <td class="px-4 py-3">
-                <span class="text-sm text-slate-600">{{ formatDate(item.date) }}</span>
+                <span class="text-sm text-slate-600">{{ formatDateHelper(item.date) }}</span>
               </td>
 
               <!-- Status -->
               <td class="px-4 py-3">
                 <span 
                   class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium"
-                  :class="statusClass(item.approval_status)"
+                  :class="statusClassHelper(item.approval_status)"
                 >
                   <span v-if="item.approval_status === 'PENDING'" class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse"></span>
                   {{ item.approval_status }}
@@ -362,19 +382,34 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import approvalService from '@/services/approvalService';
+import Swal from 'sweetalert2';
+
+// Import from appUtils
+import { 
+  getApprovals,
+  getApprovalStats,
+  setApprovals,
+  setApprovalStats,
+  listenForUpdates,
+  formatDate,
+  formatDateTime,
+  getInitials
+} from '@/utils/appUtils';
 
 // ========== STATE ==========
-const approvals = ref([]);
-const loading = ref(false);
+// Get initial data from appUtils (INSTANT!)
+const initialApprovals = getApprovals();
+const initialStats = getApprovalStats();
+
+console.log('📊 Initial approvals from appUtils:', initialApprovals?.length);
+console.log('📊 Initial stats from appUtils:', initialStats);
+
+const approvals = ref(initialApprovals || []);
+const stats = ref(initialStats || { total: 0, pending: 0, approved: 0, rejected: 0 });
+const loading = ref(false); // ⬅️ ALWAYS FALSE - we have cached data
 const isRefreshing = ref(false);
-const stats = ref({
-  total: 0,
-  pending: 0,
-  approved: 0,
-  rejected: 0
-});
 const lastUpdated = ref('');
 
 const filters = reactive({
@@ -392,7 +427,6 @@ const modal = reactive({
   processing: false
 });
 
-// ========== VIEW MODAL STATE ==========
 const viewModal = reactive({
   show: false,
   item: null
@@ -412,9 +446,10 @@ const hasActiveFilters = computed(() => {
          filters.search !== '';
 });
 
-// ========== FETCH APPROVALS ==========
-const fetchApprovals = async () => {
-  loading.value = true;
+// ========== FETCH APPROVALS (Background Refresh) ====================
+const fetchApprovals = async (showLoading = false) => {
+  // Don't show loading spinner when refreshing in background
+  if (showLoading) loading.value = true;
   isRefreshing.value = true;
   
   try {
@@ -429,22 +464,32 @@ const fetchApprovals = async () => {
     const response = await approvalService.getApprovals(params);
     console.log('Approvals response:', response);
     
-    approvals.value = response.data || [];
-    stats.value = response.stats || { total: 0, pending: 0, approved: 0, rejected: 0 };
+    // approvals are automatically updated via appUtils
     lastUpdated.value = new Date().toLocaleTimeString();
     
   } catch (error) {
     console.error('Failed to load approvals:', error);
     showToast(error.message || 'Failed to load approvals', 'error');
   } finally {
-    loading.value = false;
+    if (showLoading) loading.value = false;
     isRefreshing.value = false;
   }
 };
 
-// ========== FILTER METHODS ==========
+// ========== INITIALIZE ====================
+const initialize = async () => {
+  console.log('🚀 Initializing Approvals...');
+  console.log('📊 Approvals in ref (cached):', approvals.value.length);
+  
+  // ALWAYS fetch fresh data in background WITHOUT showing loading
+  // User sees cached data instantly, then it updates silently
+  console.log('📡 Fetching fresh approvals in background...');
+  fetchApprovals(false); // ⬅️ Pass false to hide loading spinner
+};
+
+// ========== FILTER METHODS ====================
 const applyFilters = () => {
-  fetchApprovals();
+  fetchApprovals(true); // ⬅️ Show loading when manually filtering
 };
 
 const clearFilters = () => {
@@ -452,10 +497,10 @@ const clearFilters = () => {
   filters.type = 'all';
   filters.direction = 'ALL';
   filters.search = '';
-  fetchApprovals();
+  fetchApprovals(true); // ⬅️ Show loading when clearing filters
 };
 
-// ========== MODAL METHODS ==========
+// ========== MODAL METHODS ====================
 const openApproveModal = (item) => {
   console.log('Opening approve modal for:', item);
   modal.show = true;
@@ -482,7 +527,6 @@ const closeModal = () => {
   modal.processing = false;
 };
 
-// ========== VIEW MODAL METHODS ==========
 const openViewModal = (item) => {
   viewModal.item = item;
   viewModal.show = true;
@@ -493,7 +537,7 @@ const closeViewModal = () => {
   viewModal.item = null;
 };
 
-// ========== SUBMIT DECISION ==========
+// ========== SUBMIT DECISION ====================
 const submitDecision = async () => {
   console.log('Submitting decision:', {
     source: modal.item.source,
@@ -525,15 +569,10 @@ const submitDecision = async () => {
     );
     
     closeModal();
-    
-    // Refresh the list
-    await fetchApprovals();
+    await fetchApprovals(false); // ⬅️ Refresh in background after action
     
   } catch (error) {
     console.error('Review error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error data:', error.response?.data);
-    
     showToast(
       error.response?.data?.message || 
       error.message || 
@@ -545,7 +584,7 @@ const submitDecision = async () => {
   }
 };
 
-// ========== TOAST METHODS ==========
+// ========== TOAST METHODS ====================
 const showToast = (message, type = 'success') => {
   toast.show = true;
   toast.message = message;
@@ -556,42 +595,34 @@ const showToast = (message, type = 'success') => {
   }, 3000);
 };
 
-// ========== HELPERS ==========
-const formatDate = (date) => {
-  if (!date) return '—';
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return date;
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+// ========== LISTEN FOR UPDATES ====================
+const handleApprovalsUpdated = (event) => {
+  console.log('🔄 Approvals updated event received');
+  approvals.value = event.detail;
 };
 
-const formatDateTime = (date) => {
-  if (!date) return '—';
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return date;
-  return d.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+const handleStatsUpdated = (event) => {
+  console.log('🔄 Approval stats updated event received');
+  stats.value = event.detail;
 };
 
-const getInitials = (name) => {
-  if (!name) return '?';
-  return name
-    .split(' ')
-    .map(p => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+let cleanupApprovals = null;
+let cleanupStats = null;
+
+// ========== HELPER FUNCTIONS (FOR TEMPLATE USE) ==========
+const formatDateHelper = (date) => {
+  return formatDate(date);
 };
 
-const statusClass = (status) => {
+const formatDateTimeHelper = (date) => {
+  return formatDateTime(date);
+};
+
+const getInitialsHelper = (name) => {
+  return getInitials(name);
+};
+
+const statusClassHelper = (status) => {
   const classes = {
     PENDING: 'bg-amber-100 text-amber-700',
     APPROVED: 'bg-emerald-100 text-emerald-700',
@@ -600,9 +631,35 @@ const statusClass = (status) => {
   return classes[status] || 'bg-slate-100 text-slate-600';
 };
 
-// ========== LIFECYCLE ==========
-onMounted(() => {
-  fetchApprovals();
+// ========== MANUAL REFRESH ====================
+const manualRefresh = async () => {
+  isRefreshing.value = true;
+  await fetchApprovals(true); // ⬅️ Show loading on manual refresh
+  isRefreshing.value = false;
+  
+  Swal.fire({
+    icon: 'success',
+    title: 'Refreshed!',
+    text: 'Approvals list updated',
+    timer: 1500,
+    showConfirmButton: false,
+    position: 'top-end',
+    toast: true
+  });
+};
+
+// ========== LIFECYCLE ====================
+onMounted(async () => {
+  console.log('🚀 Approvals mounted');
+  await initialize();
+  
+  cleanupApprovals = listenForUpdates('approvals-updated', handleApprovalsUpdated);
+  cleanupStats = listenForUpdates('approval-stats-updated', handleStatsUpdated);
+});
+
+onUnmounted(() => {
+  if (cleanupApprovals) cleanupApprovals();
+  if (cleanupStats) cleanupStats();
 });
 </script>
 

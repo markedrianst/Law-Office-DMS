@@ -1,5 +1,7 @@
+<!-- User Management - Following SPA Pattern (All validation on backend) -->
 <template>
   <div class="min-h-screen p-6 bg-slate-50 font-sans">
+
     <!-- Header Section -->
     <div class="mb-7">
       <div class="flex items-center gap-3 mb-1">
@@ -12,29 +14,43 @@
     <!-- Search and Add Bar -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-4">
       <div class="flex flex-col sm:flex-row gap-3">
-        <div class="relative flex-1">
+        <div class="relative flex-1 group">
           <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-            <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="h-4 w-4 text-slate-400 transition-colors duration-200 group-focus-within:text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
           <input v-model="searchQuery" @input="debouncedSearch" type="text"
             placeholder="Search by name or email..."
-            class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] focus:bg-white transition-all" />
+            class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] focus:bg-white transition-all duration-200 placeholder-slate-400" />
         </div>
         
         <!-- Role Filter -->
         <select v-model="roleFilter" @change="handleFilterChange"
-          class="px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer hover:bg-slate-100">
+          class="px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] focus:bg-white transition-all duration-200 text-slate-600 cursor-pointer hover:bg-slate-100">
           <option value="">All Roles</option>
           <option v-for="role in availableRoles" :key="role.id" :value="role.name">
             {{ role.name }}
           </option>
         </select>
 
+        <!-- Refresh Button -->
+        <button @click="manualRefresh" :disabled="isRefreshing"
+          class="px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all duration-200 whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5">
+          <svg v-if="isRefreshing" class="animate-spin w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
+        </button>
+
+        <!-- Add User Button -->
         <button @click="openAddUserModal" :disabled="isAdding"
-          class="text-white px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] shadow-md">
-          <svg v-if="!isAdding" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          class="text-white px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all duration-200 whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:active:scale-100 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] shadow-md shadow-[#1a4972]/30">
+          <svg v-if="!isAdding" class="w-4 h-4 mr-2 transition-transform duration-200 group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
           </svg>
           <svg v-else class="animate-spin w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none">
@@ -46,131 +62,150 @@
       </div>
     </div>
 
-    <!-- Users Table - ALWAYS RENDERED, just updates data -->
+    <!-- Users Table -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <table class="min-w-full">
-        <thead>
-          <tr class="border-b border-slate-100 bg-[#1a4972]/5">
-            <th v-for="col in columns" :key="col.field" scope="col"
-              class="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
-              :class="col.sortable ? 'cursor-pointer hover:text-[#1a4972] select-none' : ''"
-              @click="col.sortable ? sortBy(col.field) : null">
-              <div class="flex items-center gap-1.5">
-                {{ col.label }}
-                <svg v-if="col.sortable && sortField === col.field" class="w-3.5 h-3.5 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path :d="sortDirection === 'desc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'" stroke-width="2.5"/>
-                </svg>
-                <svg v-else-if="col.sortable" class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-                </svg>
-              </div>
-            </th>
-          </tr>
-        </thead>
+      
+      <!-- Loading State - Only shown when actually loading -->
+      <div v-if="isLoading" class="flex justify-center items-center py-16">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1a4972]"></div>
+        <span class="ml-3 text-slate-500">Loading users...</span>
+      </div>
 
-        <tbody class="divide-y divide-slate-50">
-          <tr v-for="(user, index) in users" :key="user.id" 
-            class="hover:bg-blue-50/30 transition-colors">
-            <td class="px-5 py-4">
-              <p class="text-sm font-semibold text-slate-800">{{ user.name || '—' }}</p>
-              <p class="text-xs text-slate-400">{{ user.email || '—' }}</p>
-            </td>
-            <td class="px-5 py-4">
-              <span class="px-2.5 py-1 text-xs font-semibold rounded-lg inline-block"
-                :class="{
-                  'bg-[#1a4972]/10 text-[#1a4972]': user.role === 'Lawyer',
-                  'bg-emerald-50 text-emerald-700': user.role === 'Clerk'
-                }">
-                {{ user.role || '—' }}
-              </span>
-            </td>
-            <td class="px-5 py-4">
-              <div class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full" 
-                  :class="{
-                    'bg-emerald-500': user.status === 'Active',
-                    'bg-red-500': user.status !== 'Active'
-                  }"></div>
-                <span class="text-xs font-medium" :class="user.status === 'Active' ? 'text-emerald-700' : 'text-red-700'">
-                  {{ user.status }}
-                </span>
-              </div>
-            </td>
-            <td class="px-5 py-4 text-sm text-slate-400">{{ formatDate(user.created_at) }}</td>
-            <td class="px-5 py-4 text-sm text-slate-400">{{ formatLastLogin(user.last_login) }}</td>
-            <td class="px-5 py-4">
-              <div class="flex items-center gap-2">
-                <button @click="editUser(user)" :disabled="isEditingUser === user.id"
-                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#1a4972] hover:bg-[#1a4972]/10 transition-all disabled:opacity-50">
-                  <svg v-if="isEditingUser !== user.id" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+      <!-- Table with data -->
+      <template v-else>
+        <table class="min-w-full">
+          <thead>
+            <tr class="border-b border-slate-100 bg-[#1a4972]/5">
+              <th v-for="col in columns" :key="col.field" scope="col"
+                class="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
+                :class="col.sortable ? 'cursor-pointer hover:text-[#1a4972] select-none group' : ''"
+                @click="col.sortable ? sortBy(col.field) : null">
+                <div class="flex items-center gap-1.5">
+                  {{ col.label }}
+                  <svg v-if="col.sortable && sortField === col.field" class="w-3.5 h-3.5 transition-transform duration-200 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path :d="sortDirection === 'desc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
-                  <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  {{ isEditingUser === user.id ? 'Editing...' : 'Edit' }}
-                </button>
-                <button @click="confirmDeleteUser(user)" :disabled="isDeletingUser === user.id"
-                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-600 text-sm font-semibold hover:bg-red-50 transition-all disabled:opacity-50">
-                  <svg v-if="isDeletingUser !== user.id" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                  <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  {{ isDeletingUser === user.id ? 'Deleting...' : 'Delete' }}
-                </button>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Empty state -->
-          <tr v-if="users.length === 0">
-            <td :colspan="columns.length" class="px-6 py-16 text-center">
-              <div class="flex flex-col items-center">
-                <div class="w-14 h-14 rounded-2xl bg-[#1a4972]/10 flex items-center justify-center mb-3">
-                  <svg class="w-7 h-7 text-[#1a4972] opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                  <svg v-else-if="col.sortable" class="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
                   </svg>
                 </div>
-                <p class="text-sm font-semibold text-slate-700 mb-1">No users found</p>
-                <p class="text-xs text-slate-400">Click "Add New User" to create one</p>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              </th>
+            </tr>
+          </thead>
 
-      <!-- Pagination -->
-      <div v-if="pagination.total > 0" class="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 bg-slate-50/50">
-        <p class="text-xs text-slate-500">
-          Showing <span class="font-semibold">{{ pagination.from }}</span> to
-          <span class="font-semibold">{{ pagination.to }}</span> of
-          <span class="font-semibold">{{ pagination.total }}</span> users
-        </p>
-        <div class="flex items-center gap-1">
-          <button @click="previousPage" :disabled="pagination.current_page === 1"
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            :class="pagination.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-            ← Prev
-          </button>
-          <button v-for="page in displayedPages" :key="page" @click="goToPage(page)"
-            class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
-            :class="pagination.current_page === page ? 'bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white' : 'text-slate-600 hover:bg-slate-200'">
-            {{ page }}
-          </button>
-          <button @click="nextPage" :disabled="pagination.current_page === pagination.last_page"
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            :class="pagination.current_page === pagination.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-            Next →
-          </button>
+          <tbody class="divide-y divide-slate-50" v-if="paginatedUsers.length > 0">
+            <tr v-for="(user, index) in paginatedUsers" :key="user.id" 
+              class="transition-all duration-300 hover:bg-blue-50/30 group"
+              :style="{ animation: `fadeIn 0.3s ease-out ${index * 0.03}s both` }">
+              <td class="px-5 py-4">
+                <p class="text-sm font-semibold text-slate-800">{{ user?.name || '—' }}</p>
+                <p class="text-xs text-slate-400">{{ user?.email || '—' }}</p>
+              </td>
+              <td class="px-5 py-4">
+                <span class="px-2.5 py-1 text-xs font-semibold rounded-lg transition-all duration-200 hover:scale-105 inline-block"
+                  :class="{
+                    'bg-[#1a4972]/10 text-[#1a4972]': user?.role === 'Lawyer',
+                    'bg-emerald-50 text-emerald-700': user?.role === 'Clerk'
+                  }">
+                  {{ user?.role || '—' }}
+                </span>
+              </td>
+              <td class="px-5 py-4">
+                <div class="flex items-center gap-1.5">
+                  <div class="w-1.5 h-1.5 rounded-full transition-all duration-300" 
+                    :class="{
+                      'bg-emerald-500': user?.status === 'Active',
+                      'bg-red-500': user?.status !== 'Active'
+                    }"></div>
+                  <span class="text-xs font-medium" :class="user?.status === 'Active' ? 'text-emerald-700' : 'text-red-700'">
+                    {{ user?.status || '—' }}
+                  </span>
+                </div>
+              </td>
+              <td class="px-5 py-4 text-sm text-slate-400">{{ formatDate(user?.created_at) }}</td>
+              <td class="px-5 py-4 text-sm text-slate-400">{{ formatLastLogin(user?.last_login) }}</td>
+              <td class="px-5 py-4">
+                <div class="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity duration-200">
+                  <button @click="editUser(user)" :disabled="isEditingUser === user.id"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-[#1a4972] hover:bg-[#1a4972]/10">
+                    <svg v-if="isEditingUser !== user.id" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    {{ isEditingUser === user.id ? 'Editing...' : 'Edit' }}
+                  </button>
+                  <button @click="confirmDeleteUser(user)" :disabled="isDeletingUser === user.id"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-600 text-sm font-semibold transition-all hover:bg-red-50 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
+                    <svg v-if="isDeletingUser !== user.id" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    {{ isDeletingUser === user.id ? 'Deleting...' : 'Delete' }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+
+          <!-- Empty state -->
+          <tbody v-else>
+            <tr>
+              <td :colspan="columns.length" class="px-6 py-16 text-center">
+                <div class="flex flex-col items-center">
+                  <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-3 bg-[#1a4972]/10">
+                    <svg class="w-7 h-7 text-[#1a4972] opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                  </div>
+                  <p class="text-sm font-semibold text-slate-700 mb-1">No users found</p>
+                  <p class="text-xs text-slate-400">Try adjusting your search or add a new user</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div v-if="pagination.total > 0" class="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 bg-slate-50/50">
+          <p class="text-xs text-slate-500">
+            Showing <span class="font-semibold text-slate-700">{{ pagination.from }}</span> to
+            <span class="font-semibold text-slate-700">{{ pagination.to }}</span> of
+            <span class="font-semibold text-slate-700">{{ pagination.total }}</span> users
+          </p>
+          <div class="flex items-center gap-1">
+            <button @click="previousPage" :disabled="pagination.current_page === 1"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+              :class="pagination.current_page === 1 
+                ? 'text-slate-300 cursor-not-allowed' 
+                : 'text-slate-600 hover:bg-slate-200 hover:scale-105 active:scale-95'">
+              ← Prev
+            </button>
+            <button v-for="page in displayedPages" :key="page" @click="goToPage(page)"
+              class="w-7 h-7 rounded-lg text-xs font-medium transition-all duration-200 hover:scale-110 active:scale-95"
+              :class="pagination.current_page === page 
+                ? 'bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white shadow-md shadow-[#1a4972]/30' 
+                : 'text-slate-600 hover:bg-slate-200'">
+              {{ page }}
+            </button>
+            <button @click="nextPage" :disabled="pagination.current_page === pagination.last_page"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+              :class="pagination.current_page === pagination.last_page 
+                ? 'text-slate-300 cursor-not-allowed' 
+                : 'text-slate-600 hover:bg-slate-200 hover:scale-105 active:scale-95'">
+              Next →
+            </button>
+          </div>
         </div>
-      </div>
+      </template>
     </div>
 
-    <!-- ADD / EDIT MODAL (keep your existing modal - it's perfect) -->
+    <!-- ADD / EDIT MODAL -->
     <Transition name="modal">
       <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeModal">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
@@ -214,7 +249,7 @@
               </div>
             </div>
 
-            <!-- Address + Contact (Preserved for future integration) -->
+            <!-- Address + Contact -->
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -328,32 +363,50 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, onUnmounted, onActivated, watch } from 'vue';
+import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue';
 import { debounce } from 'lodash';
 import userService from '@/services/userServices';
 import Swal from 'sweetalert2';
 
+// Import from appUtils
+import { 
+  getUsers,
+  addUser,
+  updateUserInStore,
+  removeUserFromStore,
+  listenForUpdates
+} from '@/utils/appUtils';
+
 // ==================== COLUMNS ====================
 const columns = [
-  { label: 'Name', field: 'name', sortable: true },
-  { label: 'Role', field: 'role', sortable: true },
-  { label: 'Status', field: 'status', sortable: true },
-  { label: 'Created At', field: 'created_at', sortable: true },
-  { label: 'Last Login', field: 'last_login', sortable: true },
-  { label: 'Actions', field: 'actions', sortable: false },
+  { label: 'Name',       field: 'name',       sortable: true  },
+  { label: 'Role',       field: 'role',       sortable: true  },
+  { label: 'Status',     field: 'status',     sortable: true  },
+  { label: 'Created At', field: 'created_at', sortable: true  },
+  { label: 'Last Login', field: 'last_login', sortable: true  },
+  { label: 'Actions',    field: 'actions',    sortable: false },
 ];
 
 // ==================== STATE ====================
-const users = ref([]);
+// Get initial data from appUtils
+const initialUsers = getUsers();
+console.log('📊 Initial users from appUtils:', initialUsers?.length);
+
+const users = ref(initialUsers || []); 
+const isLoading = ref(false); // Start with false
+const isRefreshing = ref(false);
+const initialLoadDone = ref(false); // Track if initial load is done
+
 const pagination = ref({
   current_page: 1,
   last_page: 1,
   per_page: 10,
-  total: 0,
-  from: 0,
-  to: 0
+  total: users.value.length,
+  from: 1,
+  to: users.value.length
 });
 
+// Dynamic roles
 const availableRoles = ref([]);
 const searchQuery = ref('');
 const roleFilter = ref('');
@@ -362,64 +415,26 @@ const sortDirection = ref('desc');
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
-// Loading states
+// Loading states for actions
 const isAdding = ref(false);
 const isEditingUser = ref(null);
 const isDeletingUser = ref(null);
 const formLoading = ref(false);
-const isInitialLoad = ref(true);
 
 const showModal = ref(false);
 const isEditing = ref(false);
 const showPassword = ref(false);
 const editingUserId = ref(null);
 const resetPassword = ref(false);
-const isComponentActive = ref(true);
-
-// Cache key for this view
-const CACHE_KEY = 'user_management_cache';
-
-// Load from cache immediately
-const loadFromCache = () => {
-  try {
-    const cached = sessionStorage.getItem(CACHE_KEY);
-    if (cached) {
-      const { data, meta, timestamp } = JSON.parse(cached);
-      // Use cache if less than 30 seconds old
-      if (Date.now() - timestamp < 30000) {
-        users.value = data;
-        pagination.value = meta;
-        console.log('📦 Loaded users from cache');
-      }
-    }
-  } catch (e) {
-    console.warn('Failed to load from cache:', e);
-  }
-};
-
-// Save to cache
-const saveToCache = () => {
-  try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-      data: users.value,
-      meta: pagination.value,
-      timestamp: Date.now()
-    }));
-  } catch (e) {
-    console.warn('Failed to save to cache:', e);
-  }
-};
-
-// Load from cache immediately
-loadFromCache();
 
 const form = reactive({
   firstName: '', middleName: '', lastName: '',
+  address: '', contact: '',
   email: '', role: '', password: '', status: 'Active',
 });
 
 const errors = reactive({
-  firstName: '', lastName: '',
+  firstName: '', lastName: '', address: '', contact: '',
   email: '', role: '', password: '',
 });
 
@@ -429,7 +444,6 @@ const displayedPages = computed(() => {
   const max = 5;
   const total = pagination.value.last_page || 1;
   const current = pagination.value.current_page || 1;
-  
   if (total <= max) {
     for (let i = 1; i <= total; i++) pages.push(i);
   } else {
@@ -440,6 +454,58 @@ const displayedPages = computed(() => {
   }
   return pages;
 });
+
+// Filter users based on search and role
+const filteredUsers = computed(() => {
+  let filtered = users.value;
+  
+  if (roleFilter.value) {
+    filtered = filtered.filter(u => u.role === roleFilter.value);
+  }
+  
+  if (searchQuery.value) {
+    const search = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(u => 
+      u.name?.toLowerCase().includes(search) ||
+      u.email?.toLowerCase().includes(search)
+    );
+  }
+  
+  filtered = [...filtered].sort((a, b) => {
+    let aVal = a[sortField.value];
+    let bVal = b[sortField.value];
+    
+    if (sortField.value === 'created_at' || sortField.value === 'last_login') {
+      aVal = aVal ? new Date(aVal) : 0;
+      bVal = bVal ? new Date(bVal) : 0;
+    }
+    
+    if (aVal < bVal) return sortDirection.value === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  return filtered;
+});
+
+// Paginated users
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredUsers.value.slice(start, end);
+});
+
+// Update pagination when filtered users change
+watch(filteredUsers, (newVal) => {
+  pagination.value.total = newVal.length;
+  pagination.value.last_page = Math.ceil(newVal.length / itemsPerPage.value);
+  pagination.value.from = (currentPage.value - 1) * itemsPerPage.value + 1;
+  pagination.value.to = Math.min(currentPage.value * itemsPerPage.value, newVal.length);
+  
+  if (currentPage.value > pagination.value.last_page) {
+    currentPage.value = 1;
+  }
+}, { immediate: true });
 
 // ==================== FETCH ROLES ====================
 const fetchRoles = async () => {
@@ -456,54 +522,92 @@ const fetchRoles = async () => {
 };
 
 // ==================== LOAD USERS ====================
-const loadUsers = async (forceRefresh = false) => {
-  if (!isComponentActive.value) return;
-  
+const loadUsers = async () => {
+  console.log('📡 loadUsers() STARTED - isLoading = true');
+  isLoading.value = true;
+   isRefreshing.value = true;
   try {
-    const params = {
-      search: searchQuery.value || undefined,
-      role: roleFilter.value || undefined,
-      sort_by: sortField.value,
-      sort_direction: sortDirection.value,
-      page: currentPage.value,
-      per_page: itemsPerPage.value,
-    };
+    console.log('📡 Calling API...');
+    const response = await userService.getUsers({ per_page: 100 });
+    console.log('📡 API Response:', response);
     
-    const response = await userService.getUsers(params);
-    
-    if (isComponentActive.value) {
-      users.value = response.data || [];
-      pagination.value = response.meta || {
-        current_page: currentPage.value,
-        last_page: 1,
-        per_page: itemsPerPage.value,
-        total: users.value.length,
-        from: 1,
-        to: users.value.length
-      };
-      
-      // Save to cache after successful load
-      saveToCache();
-      isInitialLoad.value = false;
+    if (response.data && response.data.data) {
+      users.value = response.data.data;
+      console.log('✅ Users loaded, count:', users.value.length);
+    } else {
+      console.warn('⚠️ No data in response');
     }
-    
   } catch (error) {
-    console.error('Failed to load users:', error);
-    if (isComponentActive.value) {
-      users.value = [];
-    }
+    console.error('❌ Failed to load users:', error);
+  } finally {
+    console.log('📡 loadUsers() FINISHED - isLoading = false');
+    isLoading.value = false;
+    initialLoadDone.value = true;
   }
 };
 
-// ==================== FILTER / SORT / PAGINATE ====================
+// ==================== INITIALIZE ====================
+const initialize = async () => {
+  console.log('🚀 initialize() STARTED');
+  console.log('📊 users.value.length:', users.value.length);
+  console.log('📊 initialLoadDone:', initialLoadDone.value);
+  
+  // Always fetch roles
+  await fetchRoles();
+  
+  // ONLY load if users array is empty AND we haven't loaded before
+  if (users.value.length === 0 && !initialLoadDone.value) {
+    console.log('📡 No users found, calling loadUsers()...');
+    manualRefresh();
+  } else {
+    console.log('✅ Using existing users - no API call needed');
+    console.log('📊 Users count:', users.value.length);
+    // Make sure loading is false
+    isLoading.value = false;
+  }
+  
+  console.log('🚀 initialize() FINISHED');
+};
+
+// ==================== MANUAL REFRESH ====================
+const manualRefresh = async () => {
+  console.log('🔄 Manual refresh started');
+  isRefreshing.value = true;
+  await loadUsers();
+  isRefreshing.value = false;
+  
+};
+
+// ==================== LISTEN FOR UPDATES ====================
+const handleUsersUpdated = (event) => {
+  console.log('🔄 Users updated event received');
+  users.value = event.detail;
+};
+
+let cleanup = null;
+
+onMounted(async () => {
+  console.log('🚀 UserManagement mounted');
+  console.log('📊 Initial users from getUsers():', getUsers()?.length);
+  
+  await initialize();
+  
+  cleanup = listenForUpdates('users-updated', handleUsersUpdated);
+  console.log('✅ UserManagement setup complete');
+});
+
+onUnmounted(() => {
+  if (cleanup) cleanup();
+  debouncedSearch.cancel();
+});
+
+// ==================== FILTER HANDLERS ====================
 const debouncedSearch = debounce(() => { 
   currentPage.value = 1; 
-  loadUsers(true); 
 }, 500);
 
 const handleFilterChange = () => { 
   currentPage.value = 1; 
-  loadUsers(true); 
 };
 
 const sortBy = (field) => {
@@ -513,26 +617,22 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  loadUsers(true);
 };
 
 const previousPage = () => { 
   if (currentPage.value > 1) { 
     currentPage.value--; 
-    loadUsers(true); 
   } 
 };
 
 const nextPage = () => { 
   if (currentPage.value < pagination.value.last_page) { 
     currentPage.value++; 
-    loadUsers(true); 
   } 
 };
 
 const goToPage = (page) => { 
   currentPage.value = page; 
-  loadUsers(true); 
 };
 
 // ==================== UTILITIES ====================
@@ -562,13 +662,16 @@ const formatLastLogin = (d) => d
 const resetForm = () => {
   Object.assign(form, { 
     firstName: '', middleName: '', lastName: '', 
-    email: '', role: '', password: '', status: 'Active' 
+    address: '', contact: '', email: '', 
+    role: '', password: '', status: 'Active' 
   });
   Object.keys(errors).forEach(k => errors[k] = '');
   editingUserId.value = null; 
   resetPassword.value = false; 
   showPassword.value = false;
 };
+
+const clearErrors = () => Object.keys(errors).forEach(k => errors[k] = '');
 
 const openAddUserModal = () => {
   resetForm();
@@ -595,6 +698,8 @@ const editUser = (user) => {
   form.email = user.email || '';
   form.role = user.role || '';
   form.status = user.status || 'Active';
+  form.address = user.address || '';
+  form.contact = user.contact_number || '';
   form.password = '';
   
   showModal.value = true;
@@ -624,6 +729,8 @@ const submitForm = async () => {
     role: form.role,
     status: form.status,
     password: form.password,
+    address: form.address || null,
+    contact: form.contact?.replace(/\D/g, '') || null,
   };
   
   if (isEditing.value && !resetPassword.value) {
@@ -632,48 +739,20 @@ const submitForm = async () => {
   
   try {
     if (isEditing.value) {
-      // Optimistic update
-      const index = users.value.findIndex(u => u.id === editingUserId.value);
-      if (index !== -1) {
-        users.value[index] = {
-          ...users.value[index],
-          name: fullName,
-          email: form.email,
-          role: form.role,
-          status: form.status,
-        };
-        saveToCache();
-      }
+      await userService.updateUser(editingUserId.value, payload);
       
-      // Background API call
-      userService.updateUser(editingUserId.value, payload)
-        .then(() => {
-          Swal.fire({
-            icon: 'success',
-            title: 'Success!',
-            text: 'User updated successfully',
-            timer: 1500,
-            showConfirmButton: false,
-            position: 'top-end',
-            toast: true
-          });
-          loadUsers(true);
-        })
-        .catch(error => {
-          loadUsers(true);
-          handleSubmitError(error);
-        });
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'User updated successfully',
+        timer: 1500,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
+      });
       
     } else {
-      const response = await userService.createUser(payload);
-      
-      if (response.data) {
-        users.value.unshift({
-          ...response.data,
-          name: fullName
-        });
-        saveToCache();
-      }
+      await userService.createUser(payload);
       
       Swal.fire({
         icon: 'success',
@@ -684,8 +763,6 @@ const submitForm = async () => {
         position: 'top-end',
         toast: true
       });
-      
-      loadUsers(true);
     }
     
     closeModal();
@@ -699,10 +776,7 @@ const submitForm = async () => {
   }
 };
 
-const clearErrors = () => {
-  Object.keys(errors).forEach(k => errors[k] = '');
-};
-
+// Error handler
 const handleSubmitError = (error) => {
   if (error.errors) {
     const fieldMap = {
@@ -711,6 +785,8 @@ const handleSubmitError = (error) => {
       'email': 'email',
       'role': 'role',
       'password': 'password',
+      'address': 'address',
+      'contact': 'contact'
     };
     
     Object.keys(error.errors).forEach(key => {
@@ -725,9 +801,10 @@ const handleSubmitError = (error) => {
     icon: 'error',
     title: 'Error!',
     text: error.message || 'An error occurred',
-    confirmButtonColor: '#dc2626',
     timer: 2000,
-    showConfirmButton: false
+    showConfirmButton: false,
+    position: 'top-end',
+    toast: true
   });
 };
 
@@ -748,13 +825,9 @@ const confirmDeleteUser = async (user) => {
     isDeletingUser.value = user.id;
     
     try {
-      // Optimistic delete
-      users.value = users.value.filter(u => u.id !== user.id);
-      saveToCache();
-      
       await userService.deleteUser(user.id);
       
-      await Swal.fire({
+      Swal.fire({
         icon: 'success',
         title: 'Deleted!',
         text: 'User deleted successfully',
@@ -764,75 +837,42 @@ const confirmDeleteUser = async (user) => {
         toast: true
       });
       
-      await loadUsers(true);
-      
     } catch (error) {
-      await loadUsers(true);
-      await Swal.fire({
+      Swal.fire({
         icon: 'error',
         title: 'Error!',
         text: error.message || 'Failed to delete user',
-        confirmButtonColor: '#dc2626'
+        timer: 1500,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
       });
+      
     } finally {
       isDeletingUser.value = null;
     }
   }
 };
-
-// Handle page visibility refresh
-const onVisibilityChange = () => {
-  if (document.visibilityState === 'visible' && isComponentActive.value) {
-    loadUsers(true);
-  }
-};
-
-// ==================== LIFECYCLE ====================
-onMounted(async () => {
-  isComponentActive.value = true;
-  
-  await fetchRoles();
-  
-  // If we have cached data, show it immediately then refresh in background
-  if (users.value.length === 0) {
-    await loadUsers();
-  } else {
-    // Refresh in background
-    setTimeout(() => {
-      if (isComponentActive.value) {
-        loadUsers(true);
-      }
-    }, 100);
-  }
-  
-  // Listen for page visibility
-  document.addEventListener('visibilitychange', onVisibilityChange);
-});
-
-// Refresh when navigating back to this page
-onActivated(() => {
-  if (isComponentActive.value) {
-    loadUsers(true);
-  }
-});
-
-watch(currentPage, () => {
-  loadUsers(true);
-});
-
-onUnmounted(() => {
-  isComponentActive.value = false;
-  debouncedSearch.cancel();
-  document.removeEventListener('visibilitychange', onVisibilityChange);
-});
 </script>
 
 <style scoped>
+/* Modal transitions */
 .modal-enter-active, .modal-leave-active { 
   transition: all 0.25s ease; 
 }
 .modal-enter-from, .modal-leave-to { 
   opacity: 0; 
   transform: scale(0.95);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

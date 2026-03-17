@@ -1,162 +1,231 @@
 <template>
   <div class="min-h-screen bg-slate-50">
-    <!-- Welcome Header - Always visible -->
+    <!-- Silent refresh indicator (tiny, non-blocking) -->
+    <div
+      v-if="isRefreshing"
+      class="fixed top-2 right-2 z-50 w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
+      :title="`Last updated: ${lastUpdated}`"
+    ></div>
+
+    <!-- Welcome Header -->
     <div class="mb-8">
       <div class="flex items-center gap-3 mb-2">
         <div class="w-1 h-8 rounded-full bg-gradient-to-b from-[#1a4972] to-[#2d6db5]"></div>
-        <h1 class="text-2xl font-bold text-[#1a4972]">Welcome back, {{ userName || 'User' }}!</h1>
+        <h1 class="text-2xl font-bold text-[#1a4972]">Welcome back, {{ userName }}!</h1>
       </div>
       <p class="text-sm text-slate-500 ml-4">{{ getRoleMessage }}</p>
     </div>
 
-    <!-- Error message (if any) -->
-    <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-      {{ error }}
+    <!-- Last updated -->
+    <div class="text-xs text-slate-400 mb-2 ml-4">
+      <span>📊 Dashboard data</span>
+      <span class="mx-2">•</span>
+      <span>{{ lastUpdated }}</span>
+      <button 
+        @click="manualRefresh" 
+        class="ml-3 text-blue-600 hover:text-blue-800 text-xs font-medium"
+        :disabled="isRefreshing"
+      >
+        {{ isRefreshing ? 'Refreshing...' : '↻ Refresh' }}
+      </button>
     </div>
 
-    <!-- Dashboard Content - ALWAYS RENDERED, just with empty data first -->
-    <component
-      v-if="dashboardComponent"
-      :is="dashboardComponent"
-      :stats="dashboardStats"
-      :admin-stats="dashboardAdminStats"
-      :recent-activities="dashboardRecentActivities"
-      :pending-documents="dashboardPendingDocuments"
-      :pending-movements="dashboardPendingMovements"
-      :pending-total="dashboardPendingTotal"
-      :lawyer-stats="dashboardLawyerStats"
-      :my-cases="dashboardMyCases"
-      :pending-items="dashboardPendingItems"
-      :clerk-stats="dashboardClerkStats"
-      :my-tasks="dashboardMyTasks"
-    />
+    <!-- Dashboard Content - Always shows, even if data is loading -->
+    <div v-if="dashboardData">
+      <!-- Admin Dashboard -->
+      <AdminDashboard
+        v-if="isAdmin && AdminDashboard"
+        :stats="dashboardData?.stats || {}"
+        :admin-stats="dashboardData?.adminStats || {}"
+        :recent-activities="dashboardData?.recentActivities || []"
+        :pending-documents="dashboardData?.adminStats?.pending_documents || 0"
+        :pending-movements="dashboardData?.adminStats?.pending_movements || 0"
+        :pending-total="dashboardData?.adminStats?.pending_total || 0"
+      />
+
+      <!-- Lawyer Dashboard -->
+      <LawyerDashboard
+        v-else-if="isLawyer && LawyerDashboard"
+        :stats="dashboardData?.stats || {}"
+        :lawyer-stats="dashboardData?.lawyerStats || {}"
+        :my-cases="dashboardData?.myCases || []"
+        :pending-items="dashboardData?.pendingItems || {}"
+        :pending-total="dashboardData?.pendingItems?.total || 0"
+      />
+
+      <!-- Clerk Dashboard -->
+      <ClerkDashboard
+        v-else-if="isClerk && ClerkDashboard"
+        :clerk-stats="dashboardData?.clerkStats || {}"
+        :my-tasks="dashboardData?.myTasks || []"
+        :recent-movements="dashboardData?.recentMovements || []"
+      />
+    </div>
+
+    <!-- Always show dashboard - never loading state -->
+    <div v-else class="dashboard-placeholder">
+      <AdminDashboard
+        v-if="isAdmin && AdminDashboard"
+        :stats="{}"
+        :admin-stats="{}"
+        :recent-activities="[]"
+        :pending-documents="0"
+        :pending-movements="0"
+        :pending-total="0"
+      />
+      <LawyerDashboard
+        v-else-if="isLawyer && LawyerDashboard"
+        :stats="{}"
+        :lawyer-stats="{}"
+        :my-cases="[]"
+        :pending-items="{}"
+        :pending-total="0"
+      />
+      <ClerkDashboard
+        v-else-if="isClerk && ClerkDashboard"
+        :clerk-stats="{}"
+        :my-tasks="[]"
+        :recent-movements="[]"
+      />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuth } from '@/composables/Useauth';
-import dashboardService from '@/services/dashboardService';
+import { ref, computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
+import api from '@/services/api'
 
-const router = useRouter();
-const { user, userRole, userName, isAuthenticated } = useAuth();
+// Import appUtils getters
+import { 
+  getUserName,
+  getUserRole,
+  getDashboard,
+  setDashboard,
+  getCategories,
+  getCourts,
+  getDocuments,
+  getUsers,
+  getClients,
+  getNotifications,
+  getUnreadCount
+} from '@/utils/appUtils'
 
-// State - start with EMPTY data structure
-const dashboardData = ref(null);
-const error = ref('');
-let refreshInterval = null;
+const route = useRoute()
+const { isAdmin, isLawyer, isClerk } = useAuth()
 
-// Lazy load dashboards
-const AdminDashboard = shallowRef(null);
-const LawyerDashboard = shallowRef(null);
-const ClerkDashboard = shallowRef(null);
+// ==================== INSTANT DATA from appUtils ====================
+const userName = ref(getUserName())
+const userRole = ref(getUserRole())
+const dashboardData = ref(getDashboard())
+const lastUpdated = ref(
+  getDashboard() ? new Date().toLocaleTimeString() : 'Loading...'
+)
+const isRefreshing = ref(false)
 
-// Computed props with FALLBACKS - ALWAYS return something
-const dashboardStats = computed(() => dashboardData.value?.stats || { total_cases: 0, active_cases: 0, total_clients: 0, pending_approvals: 0 });
-const dashboardAdminStats = computed(() => dashboardData.value?.adminStats || { total_users: 0, lawyers: 0, clerks: 0, pending_documents: 0, pending_movements: 0, pending_total: 0 });
-const dashboardRecentActivities = computed(() => dashboardData.value?.recentActivities || []);
-const dashboardPendingDocuments = computed(() => dashboardData.value?.adminStats?.pending_documents || 0);
-const dashboardPendingMovements = computed(() => dashboardData.value?.adminStats?.pending_movements || 0);
-const dashboardPendingTotal = computed(() => dashboardData.value?.adminStats?.pending_total || 0);
+// Lazy loaded dashboards
+const AdminDashboard = shallowRef(null)
+const LawyerDashboard = shallowRef(null)
+const ClerkDashboard = shallowRef(null)
 
-const dashboardLawyerStats = computed(() => dashboardData.value?.lawyerStats || { assigned_cases: 0, active_cases: 0 });
-const dashboardMyCases = computed(() => dashboardData.value?.myCases || []);
-const dashboardPendingItems = computed(() => dashboardData.value?.pendingItems || { documents: 0, movements: 0, total: 0 });
-
-const dashboardClerkStats = computed(() => dashboardData.value?.clerkStats || { assigned_cases: 0, total_tasks: 0, pending_tasks: 0, completed_tasks: 0 });
-const dashboardMyTasks = computed(() => dashboardData.value?.myTasks || []);
-
-// Load from cache IMMEDIATELY (synchronous)
-try {
-  const cached = sessionStorage.getItem('dashboard_cache');
-  if (cached) {
-    dashboardData.value = JSON.parse(cached).data;
-    console.log('📦 Dashboard loaded from cache');
-  }
-} catch (e) {}
-
-// Computed
-const dashboardComponent = computed(() => {
-  const role = userRole.value;
-  if (role === 'admin') return AdminDashboard.value;
-  if (role === 'lawyer') return LawyerDashboard.value;
-  if (role === 'clerk') return ClerkDashboard.value;
-  return null;
-});
+// Computed properties for dashboard data
+const dashboardStats = computed(() => dashboardData.value?.stats || {})
+const adminStats = computed(() => dashboardData.value?.adminStats || {})
+const recentActivities = computed(() => dashboardData.value?.recentActivities || [])
+const lawyerStats = computed(() => dashboardData.value?.lawyerStats || {})
+const myCases = computed(() => dashboardData.value?.myCases || [])
+const pendingItems = computed(() => dashboardData.value?.pendingItems || {})
+const clerkStats = computed(() => dashboardData.value?.clerkStats || {})
+const myTasks = computed(() => dashboardData.value?.myTasks || [])
+const recentMovements = computed(() => dashboardData.value?.recentMovements || [])
+const pendingDocuments = computed(() => dashboardData.value?.adminStats?.pending_documents || 0)
+const pendingMovements = computed(() => dashboardData.value?.adminStats?.pending_movements || 0)
+const pendingTotal = computed(() => dashboardData.value?.adminStats?.pending_total || 0)
 
 const getRoleMessage = computed(() => {
   const messages = {
     admin: 'Manage and oversee the entire system',
     lawyer: 'Manage your cases and documents',
     clerk: 'Handle daily tasks and records'
-  };
-  return messages[userRole.value] || 'Welcome';
-});
+  }
+  return messages[userRole.value] || 'Welcome'
+})
 
-// Fetch fresh data (updates in background)
+// ==================== LOAD COMPONENTS ====================
+const loadComponents = async () => {
+  try {
+    if (isAdmin.value && !AdminDashboard.value) {
+      const module = await import('@/pages/Admin/AdminDashboard.vue')
+      AdminDashboard.value = module.default
+    }
+    if (isLawyer.value && !LawyerDashboard.value) {
+      const module = await import('@/pages/Lawyer/LawyerDashboard.vue')
+      LawyerDashboard.value = module.default
+    }
+    if (isClerk.value && !ClerkDashboard.value) {
+      const module = await import('@/pages/Clerk/ClerkDashboard.vue')
+      ClerkDashboard.value = module.default
+    }
+  } catch (err) {
+    console.error('Component load error:', err)
+  }
+}
+
+// ==================== FETCH DASHBOARD DATA ====================
 const fetchDashboardData = async () => {
-  if (!isAuthenticated.value) return;
-  
-  try {
-    error.value = '';
-    const data = await dashboardService.getDashboardData();
-    dashboardData.value = data;
-    console.log('📊 Dashboard updated with fresh data');
-  } catch (err) {
-    if (err.response?.status !== 401) {
-      console.error('Background refresh failed:', err);
-      error.value = 'Unable to load latest data';
-    }
-  }
-};
+  if (isRefreshing.value) return
 
-// Load components
-const loadDashboardComponent = async () => {
-  const role = userRole.value;
-  
-  try {
-    if (role === 'admin' && !AdminDashboard.value) {
-      const module = await import('@/pages/Admin/AdminDashboard.vue');
-      AdminDashboard.value = module.default;
-    } else if (role === 'lawyer' && !LawyerDashboard.value) {
-      const module = await import('@/pages/Lawyer/LawyerDashboard.vue');
-      LawyerDashboard.value = module.default;
-    } else if (role === 'clerk' && !ClerkDashboard.value) {
-      const module = await import('@/pages/Clerk/ClerkDashboard.vue');
-      ClerkDashboard.value = module.default;
-    }
-  } catch (err) {
-    console.error('Failed to load dashboard component:', err);
-  }
-};
+  isRefreshing.value = true
 
-// Initialize
+  try {
+    const response = await api.get('/dashboard')
+    
+    if (response.data) {
+      dashboardData.value = response.data
+      lastUpdated.value = new Date().toLocaleTimeString()
+      setDashboard(response.data)
+    }
+  } catch (error) {
+    console.error('Dashboard fetch failed:', error)
+    if (error.response?.status === 401) {
+      window.location.href = '/'
+    }
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
+// ==================== MANUAL REFRESH ====================
+const manualRefresh = () => {
+  fetchDashboardData()
+}
+
+// ==================== LIFECYCLE ====================
 onMounted(async () => {
-  if (!isAuthenticated.value) {
-    router.replace('/');
-    return;
+  await loadComponents()
+  
+  // If no data, fetch it (shouldn't happen because login loads it)
+  if (!dashboardData.value) {
+    await fetchDashboardData()
   }
-  
-  // Load component (this happens in background)
-  await loadDashboardComponent();
-  
-  // If we have cached data, update in background
-  if (dashboardData.value) {
-    fetchDashboardData();
-  } else {
-    // No cache, need to fetch
-    await fetchDashboardData();
-  }
-  
-  // Refresh every 30 seconds
-  refreshInterval = setInterval(fetchDashboardData, 30000);
-});
 
-// Cleanup
-onUnmounted(() => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval);
-  }
-});
+  // Auto-refresh every 30 seconds
+  const interval = setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      fetchDashboardData()
+    }
+  }, 30000)
+  
+  onUnmounted(() => clearInterval(interval))
+})
+
+// Update user info when it changes
+watch(() => getUserName(), (newName) => {
+  userName.value = newName
+})
+
+watch(() => getUserRole(), (newRole) => {
+  userRole.value = newRole
+})
 </script>

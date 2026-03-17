@@ -14,11 +14,7 @@ class CaseChecklist extends Model
     protected $fillable = [
         'case_id',
         'created_by',
-        'task',
         'document_type_id',
-        'document_type',
-        'document_category',
-        'document_color',
         'status',
         'due_date',
         'assigned_clerk_id',
@@ -44,6 +40,9 @@ class CaseChecklist extends Model
         return $this->belongsTo(Cases::class, 'case_id');
     }
 
+
+    
+
     /**
      * Get the user who created the checklist.
      */
@@ -67,6 +66,8 @@ class CaseChecklist extends Model
     {
         return $this->belongsTo(Document::class, 'document_type_id');
     }
+
+    
 
     /**
      * Get the movements for this checklist.
@@ -119,7 +120,7 @@ class CaseChecklist extends Model
     /**
      * Scope a query to filter by document type.
      */
-    public function scopeOfDocumentType($query, $documentTypeId)
+       public function scopeOfDocumentType($query, $documentTypeId)
     {
         return $query->where('document_type_id', $documentTypeId);
     }

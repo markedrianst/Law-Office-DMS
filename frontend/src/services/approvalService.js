@@ -1,64 +1,160 @@
-// src/services/approvalService.js
 import api from "@/services/api";
+import { 
+  setApprovals, 
+  getApprovals, 
+  setApprovalStats, 
+  getApprovalStats,
+  updateApprovalInStore
+} from "@/utils/appUtils";
 
 const approvalService = {
 
   async getApprovals(params = {}) {
-    const { data } = await api.get("/admin/approvals", { params });
-    return data;
+    try {
+      console.log('📡 Fetching approvals from API...');
+      const { data } = await api.get("/admin/approvals", { params });
+      
+      if (data.success && data.data) {
+        // Store in appUtils
+        setApprovals(data.data);
+        if (data.stats) {
+          setApprovalStats(data.stats);
+        }
+        console.log('✅ Approvals stored in appUtils:', data.data.length);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch approvals:', error);
+      
+      // Return cached data from appUtils if available
+      const cachedApprovals = getApprovals();
+      const cachedStats = getApprovalStats();
+      
+      if (cachedApprovals.length > 0) {
+        console.log('📋 Returning cached approvals from appUtils');
+        return { 
+          success: true, 
+          data: cachedApprovals, 
+          stats: cachedStats 
+        };
+      }
+      
+      return { success: false, data: [], stats: { total: 0, pending: 0, approved: 0, rejected: 0 } };
+    }
   },
 
   // Get pending movement count for badge
   async getPendingCount() {
-    const { data } = await api.get("/admin/approvals/pending-count");
-    return data.count; // Returns number directly
+    try {
+      // Check cache first
+      const cachedStats = getApprovalStats();
+      if (cachedStats && cachedStats.pending !== undefined) {
+        return cachedStats.pending;
+      }
+      
+      const { data } = await api.get("/admin/approvals/pending-count");
+      return data.count;
+    } catch (error) {
+      console.error('Failed to get pending count:', error);
+      return 0;
+    }
   },
 
   // Approve or reject a movement
   async reviewMovement(type, movementId, status, notes = "") {
-    const { data } = await api.patch(`/admin/approvals/${type}/${movementId}/approve`, {
-      status,
-      notes
-    });
-    return data;
+    try {
+      const { data } = await api.patch(`/admin/approvals/${type}/${movementId}/approve`, {
+        status,
+        notes
+      });
+      
+      // After successful review, update the specific approval in store
+      if (data.success && data.data) {
+        updateApprovalInStore(movementId, { 
+          approval_status: status,
+          approved_by: data.data.approved_by,
+          approved_at: data.data.approved_at,
+          notes: notes || data.data.notes
+        });
+        
+        // Refresh approvals in background
+        this.getApprovals().catch(() => {});
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Review movement error:', error);
+      throw error;
+    }
   },
   
   // Get pending document approvals count
   async getPendingDocumentCount() {
-    const { data } = await api.get("/admin/documents/pending-approvals");
-    return data.data?.length || 0; // Keep this one because API returns array
+    try {
+      const { data } = await api.get("/admin/documents/pending-approvals");
+      return data.data?.length || 0;
+    } catch (error) {
+      console.error('Failed to get pending document count:', error);
+      return 0;
+    }
   },
 
   // Get pending document approvals list
   async getPendingDocuments() {
-    const { data } = await api.get("/admin/documents/pending-approvals");
-    return data;
+    try {
+      const { data } = await api.get("/admin/documents/pending-approvals");
+      return data;
+    } catch (error) {
+      console.error('Failed to get pending documents:', error);
+      return { data: [] };
+    }
   },
 
   // Approve a document
   async approveDocument(documentId) {
-    const { data } = await api.patch(`/admin/documents/${documentId}/approve`);
-    return data;
+    try {
+      const { data } = await api.patch(`/admin/documents/${documentId}/approve`);
+      return data;
+    } catch (error) {
+      console.error('Failed to approve document:', error);
+      throw error;
+    }
   },
 
   // Reject a document
   async rejectDocument(documentId, payload) {
-    const { data } = await api.patch(`/admin/documents/${documentId}/reject`, payload);
-    return data;
+    try {
+      const { data } = await api.patch(`/admin/documents/${documentId}/reject`, payload);
+      return data;
+    } catch (error) {
+      console.error('Failed to reject document:', error);
+      throw error;
+    }
   },
 
-  // ========== COMBINED PENDING COUNT ==========
-  
   // Get total pending approvals (movements + documents)
   async getTotalPendingCount() {
-    const movementCount = await this.getPendingCount();
-    const documentData = await this.getPendingDocumentCount();
-    
-    return {
-      movements: movementCount,
-      documents: documentData.data?.length || 0,
-      total: movementCount + (documentData.data?.length || 0)
-    };
+    try {
+      const movementCount = await this.getPendingCount();
+      const documentData = await this.getPendingDocumentCount();
+      
+      return {
+        movements: movementCount,
+        documents: documentData.data?.length || 0,
+        total: movementCount + (documentData.data?.length || 0)
+      };
+    } catch (error) {
+      console.error('Failed to get total pending count:', error);
+      return { movements: 0, documents: 0, total: 0 };
+    }
+  },
+
+  // Clear appUtils cache
+  clearCache() {
+    import('@/utils/appUtils').then(({ clearApprovalsCache }) => {
+      clearApprovalsCache();
+    });
   }
 };
 

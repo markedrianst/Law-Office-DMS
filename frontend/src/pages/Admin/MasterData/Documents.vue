@@ -65,6 +65,20 @@
           <option value="false">Inactive Only</option>
         </select>
 
+        <!-- Manual Refresh Button -->
+        <button @click="manualRefresh" :disabled="isRefreshing"
+          class="px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5">
+          <svg v-if="isRefreshing" class="animate-spin w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
+        </button>
+
+        <!-- Add Document Button -->
         <button @click="openCreateModal" :disabled="isAdding"
           class="text-white px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] shadow-md shadow-[#1a4972]/30">
           <svg v-if="!isAdding" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,8 +93,14 @@
       </div>
     </div>
 
+    <!-- Loading State - Only shown on first visit -->
+    <div v-if="isLoading" class="bg-white rounded-2xl shadow-sm border border-slate-100 py-16 flex flex-col items-center">
+      <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-[#1a4972] animate-spin mb-4"></div>
+      <p class="text-sm text-slate-500">Loading documents...</p>
+    </div>
+
     <!-- Documents Table -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div v-else class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-slate-100 bg-[#1a4972]/5">
@@ -102,7 +122,7 @@
         </thead>
 
         <tbody class="divide-y divide-slate-50">
-          <tr v-for="(item, index) in documents" :key="item.id" 
+          <tr v-for="(item, index) in paginatedDocuments" :key="item.id" 
             class="transition-all duration-300 hover:bg-blue-50/30 group"
             :style="{ animation: `fadeIn 0.3s ease-out ${index * 0.03}s both` }">
             
@@ -155,7 +175,7 @@
             </td>
 
             <!-- Created At -->
-            <td class="px-5 py-4 text-sm text-slate-400">{{ formatDate(item.created_at) }}</td>
+            <td class="px-5 py-4 text-sm text-slate-400">{{ formatDateHelper(item.created_at) }}</td>
 
             <!-- Actions -->
             <td class="px-5 py-4">
@@ -331,16 +351,16 @@
               </div>
             </div>
 
-            <!-- Requires Approval -->
+            <!-- Requires Approval - Always true and disabled -->
             <div class="flex items-center gap-2">
               <input type="checkbox" v-model="form.requires_approval" id="requiresApproval" 
-                class="w-4 h-4 rounded border-slate-300 text-[#1a4972] focus:ring-[#1a4972]" />
+                class="w-4 h-4 rounded border-slate-300 text-[#1a4972] focus:ring-[#1a4972]" checked disabled />
               <label for="requiresApproval" class="text-sm font-medium text-slate-700">
-                Requires Lawyer Approval
+                Requires Lawyer Approval <span class="text-xs text-amber-600">(Always required)</span>
               </label>
             </div>
-            <p v-if="form.requires_approval" class="text-xs text-amber-600 mt-1">
-              ⚠ This document will need lawyer approval before it can be used in cases
+            <p class="text-xs text-amber-600 mt-1">
+              ⚠ All documents require lawyer approval before they can be used in cases
             </p>
 
             <!-- Sort Order -->
@@ -486,12 +506,23 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { debounce } from 'lodash';
 import { documentService } from '@/services/masterData';
 import { useAuth } from '@/composables/useAuth';
 import ColorPicker from '@/components/ColorPicker.vue';
 import Swal from 'sweetalert2';
+
+// Import from appUtils
+import { 
+  getDocuments,
+  setDocuments,
+  addDocument,
+  updateDocumentInStore,
+  removeDocumentFromStore,
+  listenForUpdates,
+  formatDate
+} from '@/utils/appUtils';
 
 const { userRole } = useAuth();
 
@@ -506,17 +537,27 @@ const columns = [
   { label: 'Actions', field: 'actions', sortable: false },
 ];
 
-// State
-const documents = ref([]);
+// ========== STATE ==========
+// Get initial data from appUtils (INSTANT!)
+const initialDocuments = getDocuments();
+
+const documents = ref(initialDocuments || []);
 const documentCategories = ref(['Pleading', 'Letter', 'Evidence', 'Court Issuance', 'Other']);
 const pendingApprovals = ref([]);
+const isLoading = ref(!initialDocuments || initialDocuments.length === 0);
+const isRefreshing = ref(false);
+
+// Pagination state
+const currentPage = ref(1);
+const itemsPerPage = ref(15);
+
 const pagination = ref({
   current_page: 1,
   last_page: 1,
   per_page: 15,
-  total: 0,
-  from: 0,
-  to: 0
+  total: documents.value.length,
+  from: 1,
+  to: Math.min(15, documents.value.length)
 });
 
 const searchQuery = ref('');
@@ -525,7 +566,6 @@ const approvalFilter = ref('');
 const statusFilter = ref('');
 const sortField = ref('sort_order');
 const sortDirection = ref('asc');
-const currentPage = ref(1);
 
 // Loading states
 const isAdding = ref(false);
@@ -551,7 +591,7 @@ const form = reactive({
   type: '',
   category: '',
   color: '#94a3b8',
-  requires_approval: false,
+  requires_approval: true, // Always true
   sort_order: null,
   is_active: true
 });
@@ -563,12 +603,29 @@ const errors = reactive({
   sort_order: ''
 });
 
-// Computed
+// ========== HELPER FUNCTION FOR SORT ORDER ==========
+const getNextSortOrder = () => {
+  // Get all sort orders except "Others" (which is 9999)
+  const normalItems = documents.value.filter(d => d.sort_order < 9000);
+  
+  if (normalItems.length === 0) {
+    return 1; // First item
+  }
+  
+  // Find the maximum sort order among normal items
+  const maxSortOrder = Math.max(...normalItems.map(d => d.sort_order));
+  
+  // Return max + 1 (this will be the next number after the largest)
+  return maxSortOrder + 1;
+};
+
+// ========== COMPUTED ==========
 const displayedPages = computed(() => {
   const pages = [];
   const max = 5;
   const total = pagination.value.last_page || 1;
   const current = pagination.value.current_page || 1;
+  
   if (total <= max) {
     for (let i = 1; i <= total; i++) pages.push(i);
   } else {
@@ -578,6 +635,75 @@ const displayedPages = computed(() => {
     for (let i = s; i <= e; i++) pages.push(i);
   }
   return pages;
+});
+
+// Filter and sort documents (client-side for instant response)
+const filteredDocuments = computed(() => {
+  let filtered = documents.value;
+  
+  // Apply category filter
+  if (categoryFilter.value) {
+    filtered = filtered.filter(d => d.category === categoryFilter.value);
+  }
+  
+  // Apply approval filter
+  if (approvalFilter.value) {
+    filtered = filtered.filter(d => d.approval_status === approvalFilter.value);
+  }
+  
+  // Apply status filter
+  if (statusFilter.value) {
+    const isActive = statusFilter.value === 'true';
+    filtered = filtered.filter(d => d.is_active === isActive);
+  }
+  
+  // Apply search filter
+  if (searchQuery.value) {
+    const search = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(d => 
+      d.type?.toLowerCase().includes(search) ||
+      d.category?.toLowerCase().includes(search)
+    );
+  }
+  
+  // Apply sorting
+  filtered = [...filtered].sort((a, b) => {
+    let aVal = a[sortField.value];
+    let bVal = b[sortField.value];
+    
+    if (sortField.value === 'created_at') {
+      aVal = aVal ? new Date(aVal) : 0;
+      bVal = bVal ? new Date(bVal) : 0;
+    }
+    
+    if (aVal < bVal) return sortDirection.value === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  return filtered;
+});
+
+// Update pagination when filtered documents change
+watch(filteredDocuments, (newVal) => {
+  pagination.value.total = newVal.length;
+  pagination.value.last_page = Math.ceil(newVal.length / itemsPerPage.value);
+  pagination.value.per_page = itemsPerPage.value;
+  pagination.value.current_page = currentPage.value;
+  pagination.value.from = (currentPage.value - 1) * itemsPerPage.value + 1;
+  pagination.value.to = Math.min(currentPage.value * itemsPerPage.value, newVal.length);
+  
+  // Reset to page 1 if current page is out of bounds
+  if (currentPage.value > pagination.value.last_page) {
+    currentPage.value = 1;
+  }
+}, { immediate: true, deep: true });
+
+// Paginated documents
+const paginatedDocuments = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredDocuments.value.slice(start, end);
 });
 
 // Helper functions
@@ -615,8 +741,10 @@ const formatApprovalStatus = (status) => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
-// Load data
-const loadDocuments = async () => {
+// ========== FETCH DOCUMENTS ==========
+const fetchDocuments = async (showLoading = false) => {
+
+  
   try {
     const params = {
       search: searchQuery.value || undefined,
@@ -625,27 +753,31 @@ const loadDocuments = async () => {
       is_active: statusFilter.value || undefined,
       sort_by: sortField.value,
       sort_direction: sortDirection.value,
-      page: currentPage.value,
-      per_page: pagination.value.per_page
+      page: 1,
+      per_page: 100
     };
 
-    const response = await documentService.getDocuments(params);
-    documents.value = response.data || [];
-    pagination.value = response.meta || {
-      current_page: currentPage.value,
-      last_page: 1,
-      per_page: 15,
-      total: documents.value.length,
-      from: 1,
-      to: documents.value.length
-    };
+    await documentService.getDocuments(params);
+    
   } catch (error) {
     console.error('Failed to load documents:', error);
-    documents.value = [];
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: error.message || 'Failed to load documents',
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
+    });
+  } finally {
+    if (showLoading) isLoading.value = false;
+    isRefreshing.value = false;
   }
 };
 
-const loadPendingApprovals = async () => {
+// ========== FETCH PENDING APPROVALS ==========
+const fetchPendingApprovals = async () => {
   if (userRole.value !== 'lawyer') return;
   
   try {
@@ -653,11 +785,11 @@ const loadPendingApprovals = async () => {
     pendingApprovals.value = response.data || [];
   } catch (error) {
     console.error('Failed to load pending approvals:', error);
-    pendingApprovals.value = [];
   }
 };
 
-const loadDocumentCategories = async () => {
+// ========== FETCH DOCUMENT CATEGORIES ==========
+const fetchDocumentCategories = async () => {
   try {
     const response = await documentService.getDocumentCategories();
     documentCategories.value = response.data || ['Pleading', 'Letter', 'Evidence', 'Court Issuance', 'Other'];
@@ -666,15 +798,34 @@ const loadDocumentCategories = async () => {
   }
 };
 
-// Filters
+// ========== INITIALIZE ==========
+const initialize = async () => {
+  // Load document categories first
+  await fetchDocumentCategories();
+  
+  // If no data in appUtils, show loading and fetch
+  if (documents.value.length === 0) {
+    isLoading.value = true;
+    await fetchDocuments(true);
+  } else {
+    // Data already exists, show instantly and refresh in background
+    isLoading.value = false;
+    fetchDocuments(false);
+  }
+  
+  // Load pending approvals for lawyers
+  if (userRole.value === 'lawyer') {
+    await fetchPendingApprovals();
+  }
+};
+
+// ========== FILTER HANDLERS ==========
 const debouncedSearch = debounce(() => {
   currentPage.value = 1;
-  loadDocuments();
 }, 500);
 
 const handleFilterChange = () => {
   currentPage.value = 1;
-  loadDocuments();
 };
 
 const sortBy = (field) => {
@@ -684,45 +835,51 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  loadDocuments();
 };
 
-// Pagination
+// ========== PAGINATION ==========
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
-    loadDocuments();
   }
 };
 
 const nextPage = () => {
   if (currentPage.value < pagination.value.last_page) {
     currentPage.value++;
-    loadDocuments();
   }
 };
 
 const goToPage = (page) => {
   currentPage.value = page;
-  loadDocuments();
 };
 
-// Format date
-const formatDate = (date) => {
-  if (!date) return 'N/A';
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+// ========== MANUAL REFRESH ==========
+const manualRefresh = async () => {
+  isRefreshing.value = true;
+  await fetchDocuments(true);
+  if (userRole.value === 'lawyer') {
+    await fetchPendingApprovals();
+  }
+  isRefreshing.value = false;
+  
+  Swal.fire({
+    icon: 'success',
+    title: 'Refreshed!',
+    text: 'Documents list refreshed',
+    timer: 1500,
+    showConfirmButton: false,
+    position: 'top-end',
+    toast: true
   });
 };
 
-// Modal functions
+// ========== MODAL FUNCTIONS ==========
 const resetForm = () => {
   form.type = '';
   form.category = '';
   form.color = '#94a3b8';
-  form.requires_approval = false;
+  form.requires_approval = true;
   form.sort_order = null;
   form.is_active = true;
   errors.type = '';
@@ -743,29 +900,8 @@ const openCreateModal = async () => {
   isEditing.value = false;
   editingItemId.value = null;
   
-  // Get the next available sort order (excluding "Others")
-  try {
-    const response = await documentService.getDocuments({ 
-      sort_by: 'sort_order', 
-      sort_direction: 'desc',
-      per_page: 100
-    });
-    
-    if (response.data && response.data.length > 0) {
-      const normalItems = response.data.filter(item => item.sort_order < 9000);
-      if (normalItems.length > 0) {
-        const maxSortOrder = Math.max(...normalItems.map(item => item.sort_order));
-        form.sort_order = maxSortOrder + 1;
-      } else {
-        form.sort_order = 1;
-      }
-    } else {
-      form.sort_order = 1;
-    }
-  } catch (error) {
-    console.error('Failed to get next sort order:', error);
-    form.sort_order = 1;
-  }
+  // Get the next available sort order
+  form.sort_order = getNextSortOrder();
   
   showModal.value = true;
 };
@@ -777,7 +913,7 @@ const editItem = (item) => {
   form.type = item.type;
   form.category = item.category;
   form.color = item.color;
-  form.requires_approval = item.requires_approval;
+  form.requires_approval = true; // Always true
   form.sort_order = item.sort_order;
   form.is_active = item.is_active;
   showModal.value = true;
@@ -788,7 +924,7 @@ const closeModal = () => {
   resetForm();
 };
 
-// Submit form
+// ========== SUBMIT FORM ==========
 const submitForm = async () => {
   formLoading.value = true;
   clearErrors();
@@ -798,7 +934,7 @@ const submitForm = async () => {
       type: form.type,
       category: form.category,
       color: form.color,
-      requires_approval: form.requires_approval,
+      requires_approval: true, // Always true
       sort_order: form.sort_order,
       is_active: form.is_active
     };
@@ -806,21 +942,19 @@ const submitForm = async () => {
     if (isEditing.value) {
       editingId.value = editingItemId.value;
       
-      // Optimistic update
-      const index = documents.value.findIndex(d => d.id === editingItemId.value);
-      if (index !== -1) {
-        documents.value[index] = {
-          ...documents.value[index],
-          ...payload
-        };
-      }
-
+      // Call API - it will update the store
       await documentService.updateDocument(editingItemId.value, payload);
+        await fetchDocuments(true);
 
-      await Swal.fire({
+      let message = 'Document updated successfully';
+      if (userRole.value !== 'lawyer') {
+        message += ' (pending approval)';
+      }
+      
+      Swal.fire({
         icon: 'success',
         title: 'Success!',
-        text: 'Document updated successfully',
+        text: message,
         timer: 1500,
         showConfirmButton: false,
         position: 'top-end',
@@ -829,23 +963,19 @@ const submitForm = async () => {
 
     } else {
       isAdding.value = true;
-      const response = await documentService.createDocument(payload);
       
-      if (response.data) {
-        documents.value.unshift(response.data);
-      }
+      // Call API - it will add to store
+      await documentService.createDocument(payload);
+        await fetchDocuments(true);
 
-      // Show appropriate message based on role and approval status
       let message = '';
       if (userRole.value === 'lawyer') {
         message = 'Document created successfully (auto-approved)';
       } else {
-        message = payload.requires_approval 
-          ? 'Document created and pending lawyer approval'
-          : 'Document created successfully';
+        message = 'Document created and pending lawyer approval';
       }
 
-      await Swal.fire({
+      Swal.fire({
         icon: 'success',
         title: 'Success!',
         text: message,
@@ -857,24 +987,28 @@ const submitForm = async () => {
     }
 
     closeModal();
-    await loadDocuments();
+    
+    // Refresh pending approvals for lawyers
     if (userRole.value === 'lawyer') {
-      await loadPendingApprovals();
+      await fetchPendingApprovals();
     }
 
   } catch (error) {
     if (error.errors) {
-      if (error.errors.type) errors.type = error.errors.type[0] || error.errors.type;
-      if (error.errors.category) errors.category = error.errors.category[0] || error.errors.category;
-      if (error.errors.color) errors.color = error.errors.color[0] || error.errors.color;
-      if (error.errors.sort_order) errors.sort_order = error.errors.sort_order[0] || error.errors.sort_order;
+      if (error.errors.type) errors.type = error.errors.type[0];
+      if (error.errors.category) errors.category = error.errors.category[0];
+      if (error.errors.color) errors.color = error.errors.color[0];
+      if (error.errors.sort_order) errors.sort_order = error.errors.sort_order[0];
     }
 
-    await Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Error!',
       text: error.message || 'An error occurred',
-      confirmButtonColor: '#dc2626'
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
 
   } finally {
@@ -884,26 +1018,19 @@ const submitForm = async () => {
   }
 };
 
-// Approve document
+// ========== APPROVE DOCUMENT ==========
 const approveDocument = async (item) => {
   approvingId.value = item.id;
 
   try {
-    // Optimistic update
-    const index = documents.value.findIndex(d => d.id === item.id);
-    if (index !== -1) {
-      documents.value[index] = {
-        ...documents.value[index],
-        approval_status: 'approved'
-      };
-    }
+    // Call API - it will update the store
+    await documentService.approveDocument(item.id);
+  await fetchDocuments(true);
 
     // Remove from pending approvals
     pendingApprovals.value = pendingApprovals.value.filter(p => p.id !== item.id);
 
-    await documentService.approveDocument(item.id);
-
-    await Swal.fire({
+    Swal.fire({
       icon: 'success',
       title: 'Approved!',
       text: 'Document approved successfully',
@@ -914,15 +1041,14 @@ const approveDocument = async (item) => {
     });
 
   } catch (error) {
-    // Revert on error
-    await loadDocuments();
-    await loadPendingApprovals();
-
-    await Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Error!',
       text: error.message || 'Failed to approve document',
-      confirmButtonColor: '#dc2626'
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
 
   } finally {
@@ -930,7 +1056,7 @@ const approveDocument = async (item) => {
   }
 };
 
-// Reject document
+// ========== REJECT DOCUMENT ==========
 const showRejectModal = (item) => {
   documentToReject.value = item;
   rejectionReason.value = '';
@@ -944,26 +1070,16 @@ const submitRejection = async () => {
   rejectingId.value = documentToReject.value.id;
 
   try {
-    // Optimistic update
-    const index = documents.value.findIndex(d => d.id === documentToReject.value.id);
-    if (index !== -1) {
-      documents.value[index] = {
-        ...documents.value[index],
-        approval_status: 'rejected',
-        rejection_reason: rejectionReason.value
-      };
-    }
-
-    // Remove from pending approvals
-    pendingApprovals.value = pendingApprovals.value.filter(p => p.id !== documentToReject.value.id);
-
     await documentService.rejectDocument(documentToReject.value.id, {
       rejection_reason: rejectionReason.value
     });
 
+    // Remove from pending approvals
+    pendingApprovals.value = pendingApprovals.value.filter(p => p.id !== documentToReject.value.id);
+
     showRejectDocModal.value = false;
 
-    await Swal.fire({
+    Swal.fire({
       icon: 'success',
       title: 'Rejected',
       text: 'Document rejected',
@@ -974,15 +1090,14 @@ const submitRejection = async () => {
     });
 
   } catch (error) {
-    // Revert on error
-    await loadDocuments();
-    await loadPendingApprovals();
-
-    await Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Error!',
       text: error.message || 'Failed to reject document',
-      confirmButtonColor: '#dc2626'
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
 
   } finally {
@@ -992,23 +1107,16 @@ const submitRejection = async () => {
   }
 };
 
-// Toggle status
+// ========== TOGGLE STATUS ==========
 const toggleStatus = async (item) => {
   togglingId.value = item.id;
 
   try {
-    // Optimistic update
-    const index = documents.value.findIndex(d => d.id === item.id);
-    if (index !== -1) {
-      documents.value[index] = {
-        ...documents.value[index],
-        is_active: !item.is_active
-      };
-    }
-
+    // Call API - it will update the store
     await documentService.toggleDocument(item.id);
+      await fetchDocuments(true);
 
-    await Swal.fire({
+    Swal.fire({
       icon: 'success',
       title: 'Success!',
       text: `Document ${!item.is_active ? 'activated' : 'deactivated'} successfully`,
@@ -1019,14 +1127,14 @@ const toggleStatus = async (item) => {
     });
 
   } catch (error) {
-    // Revert on error
-    await loadDocuments();
-
-    await Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Error!',
       text: error.message || 'Failed to toggle status',
-      confirmButtonColor: '#dc2626'
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
 
   } finally {
@@ -1034,7 +1142,7 @@ const toggleStatus = async (item) => {
   }
 };
 
-// Delete
+// ========== DELETE ==========
 const confirmDelete = async (item) => {
   const result = await Swal.fire({
     title: 'Delete Document?',
@@ -1051,12 +1159,14 @@ const confirmDelete = async (item) => {
     deletingId.value = item.id;
 
     try {
-      // Optimistic delete
-      documents.value = documents.value.filter(d => d.id !== item.id);
-
+      // Call API - it will remove from store
       await documentService.deleteDocument(item.id);
+        await fetchDocuments(true);
 
-      await Swal.fire({
+      // Remove from pending approvals if present
+      pendingApprovals.value = pendingApprovals.value.filter(p => p.id !== item.id);
+      
+      Swal.fire({
         icon: 'success',
         title: 'Deleted!',
         text: 'Document deleted successfully',
@@ -1066,18 +1176,15 @@ const confirmDelete = async (item) => {
         toast: true
       });
 
-      await loadDocuments();
-      await loadPendingApprovals();
-
     } catch (error) {
-      // Revert on error
-      await loadDocuments();
-
-      await Swal.fire({
+      Swal.fire({
         icon: 'error',
         title: 'Error!',
         text: error.message || 'Failed to delete document',
-        confirmButtonColor: '#dc2626'
+        timer: 2000,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
       });
 
     } finally {
@@ -1086,16 +1193,39 @@ const confirmDelete = async (item) => {
   }
 };
 
-// Watch for page changes
-watch(currentPage, () => {
-  loadDocuments();
+// ========== LISTEN FOR UPDATES ==========
+const handleDocumentsUpdated = (event) => {
+  documents.value = event.detail;
+  if (documents.value.length > 0) {
+    isLoading.value = false;
+  }
+};
+
+let cleanup = null;
+
+// ========== LIFECYCLE ==========
+onMounted(async () => {
+  await initialize();
+  
+  cleanup = listenForUpdates('documents-updated', handleDocumentsUpdated);
 });
 
-// Initial load
-onMounted(() => {
-  loadDocumentCategories();
-  loadDocuments();
-  loadPendingApprovals();
+onUnmounted(() => {
+  if (cleanup) cleanup();
+  debouncedSearch.cancel();
+});
+
+// ========== HELPER FUNCTIONS FOR TEMPLATE ==========
+const formatDateHelper = (date) => {
+  return formatDate(date);
+};
+
+// Watch for page changes
+watch(currentPage, () => {
+  // Update pagination display when page changes
+  pagination.value.current_page = currentPage.value;
+  pagination.value.from = (currentPage.value - 1) * itemsPerPage.value + 1;
+  pagination.value.to = Math.min(currentPage.value * itemsPerPage.value, filteredDocuments.value.length);
 });
 </script>
 

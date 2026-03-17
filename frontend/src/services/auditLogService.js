@@ -1,96 +1,143 @@
-// src/services/auditLogService.js
-
 import api from '@/services/api';
+import { 
+  setAuditLogs, 
+  getAuditLogs, 
+  setAuditStats, 
+  getAuditStats,
+  listenForUpdates
+} from '@/utils/appUtils';
 
 class AuditLogService {
   constructor() {
-    this.cache = {
-      stats: null,
-      statsTimestamp: null,
-      logs: new Map()
-    };
-    this.CACHE_TTL = 5000; // 5 seconds
+    // No cache needed - using appUtils instead
+    console.log('📋 AuditLogService initialized');
   }
 
   async getCombinedLogs(params = {}) {
-    const cacheKey = 'logs_' + JSON.stringify(params);
-    
-    // Check cache
-    if (this.cache.logs.has(cacheKey)) {
-      const cached = this.cache.logs.get(cacheKey);
-      if (Date.now() - cached.timestamp < this.CACHE_TTL) {
-        return cached.data;
-      }
-    }
-
     try {
+      console.log('📡 Fetching combined logs from API...');
       const { data } = await api.get('/admin/audit-logs/combined', { params });
       
-      // Store in cache
-      this.cache.logs.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-      });
+      // Store in appUtils
+      if (data.data) {
+        setAuditLogs(data.data);
+        console.log('✅ Audit logs stored in appUtils:', data.data.length);
+      }
       
       return data;
     } catch (error) {
       console.error('Failed to fetch logs:', error);
+      
+      // Return cached data from appUtils if available
+      const cachedLogs = getAuditLogs();
+      if (cachedLogs.length > 0) {
+        console.log('📋 Returning cached logs from appUtils');
+        return { 
+          data: cachedLogs, 
+          meta: { total: cachedLogs.length } 
+        };
+      }
+      
       return { data: [], meta: { total: 0 } };
     }
   }
 
   async getStats(forceRefresh = false) {
-    if (!forceRefresh && this.cache.stats && this.cache.statsTimestamp) {
-      if (Date.now() - this.cache.statsTimestamp < this.CACHE_TTL) {
-        return this.cache.stats;
-      }
-    }
-
     try {
+      console.log('📡 Fetching audit stats from API...');
       const { data } = await api.get('/admin/audit-logs/stats');
       
-      this.cache.stats = data;
-      this.cache.statsTimestamp = Date.now();
+      // Store in appUtils
+      if (data.data) {
+        setAuditStats(data.data);
+        console.log('✅ Audit stats stored in appUtils');
+      }
       
       return data;
     } catch (error) {
       console.error('Failed to fetch stats:', error);
-      return { data: { total_logs: 0, login_stats: { success: 0, failed: 0 } } };
+      
+      // Return cached stats from appUtils
+      const cachedStats = getAuditStats();
+      return { data: cachedStats };
     }
   }
 
   async getSystemLogs(params = {}) {
-    const { data } = await api.get('/admin/audit-logs', { params });
-    return data;
+    try {
+      const { data } = await api.get('/admin/audit-logs', { params });
+      
+      // Update appUtils with system logs (merge with existing)
+      const currentLogs = getAuditLogs();
+      if (data.data) {
+        const mergedLogs = [...data.data, ...currentLogs].slice(0, 100);
+        setAuditLogs(mergedLogs);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch system logs:', error);
+      return { data: [] };
+    }
   }
 
   async getCaseLogs(params = {}) {
-    const { data } = await api.get('/admin/audit-logs/case-activity', { params });
-    return data;
+    try {
+      const { data } = await api.get('/admin/audit-logs/case-activity', { params });
+      
+      // Update appUtils with case logs (merge with existing)
+      const currentLogs = getAuditLogs();
+      if (data.data) {
+        const mergedLogs = [...data.data, ...currentLogs].slice(0, 100);
+        setAuditLogs(mergedLogs);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch case logs:', error);
+      return { data: [] };
+    }
   }
 
   async getLogById(id) {
-    const { data } = await api.get(`/admin/audit-logs/${id}`);
-    return data;
+    try {
+      const { data } = await api.get(`/admin/audit-logs/${id}`);
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch log by id:', error);
+      throw error;
+    }
   }
 
   async getActions() {
-    const { data } = await api.get('/admin/audit-logs/actions');
-    return data;
+    try {
+      const { data } = await api.get('/admin/audit-logs/actions');
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch actions:', error);
+      return { data: [] };
+    }
   }
 
   async exportLogs(params = {}) {
-    const response = await api.get('/admin/audit-logs/export', {
-      params,
-      responseType: 'blob'
-    });
-    return response;
+    try {
+      const response = await api.get('/admin/audit-logs/export', {
+        params,
+        responseType: 'blob'
+      });
+      return response;
+    } catch (error) {
+      console.error('Failed to export logs:', error);
+      throw error;
+    }
   }
 
+  // Clear appUtils cache
   clearCache() {
-    this.cache.logs.clear();
-    this.cache.stats = null;
-    this.cache.statsTimestamp = null;
+    console.log('🗑️ Clearing audit logs cache');
+    import('@/utils/appUtils').then(({ clearAuditCache }) => {
+      clearAuditCache();
+    });
   }
 }
 

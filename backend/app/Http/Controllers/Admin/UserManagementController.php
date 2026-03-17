@@ -47,7 +47,7 @@ class UserManagementController extends Controller
     public function index(Request $request)
     {
         try {
-            $perPage = $request->get('per_page', 10);
+            $perPage = $request->get('per_page', 5);
             $search = $request->get('search');
             $role = $request->get('role');
             $sortField = $request->get('sort_by', 'created_at');

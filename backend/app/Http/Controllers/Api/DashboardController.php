@@ -4,13 +4,22 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use App\Models\Cases;
+use App\Models\Client;
+use App\Models\User;
+use App\Models\Role;
+use App\Models\ChecklistMovement;
+use App\Models\FolderMovement;
+use App\Models\Document;
+use App\Models\LoginLog;
+use App\Models\CaseActivityLog;
+use App\Models\CaseChecklist;
 
 class DashboardController extends Controller
 {
     /**
-     * Get dashboard data - Optimized for speed
+     * Get dashboard data - Optimized with Eloquent Models
      */
     public function index(Request $request)
     {
@@ -27,7 +36,7 @@ class DashboardController extends Controller
             return response()->json($cached);
         }
         
-        // Cache miss - fetch fresh data
+        // Cache miss - fetch fresh data using models
         $data = match($role) {
             'admin' => $this->getAdminDashboard(),
             'lawyer' => $this->getLawyerDashboard($userId),
@@ -42,161 +51,237 @@ class DashboardController extends Controller
     }
 
     /**
-     * Admin Dashboard - Optimized single query
+     * Admin Dashboard - Using Eloquent Models with counts
      */
     private function getAdminDashboard()
     {
-        // Single query for all stats
-        $stats = DB::selectOne("
-            SELECT
-                (SELECT COUNT(*) FROM cases) as total_cases,
-                (SELECT COUNT(*) FROM cases WHERE case_status = 'active') as active_cases,
-                (SELECT COUNT(*) FROM clients) as total_clients,
-                (SELECT COUNT(*) FROM users WHERE role_id = (SELECT id FROM roles WHERE name = 'lawyer')) as total_lawyers,
-                (SELECT COUNT(*) FROM users WHERE role_id = (SELECT id FROM roles WHERE name = 'clerk')) as total_clerks,
-                (SELECT COUNT(*) FROM checklist_movements WHERE approval_status = 'PENDING') as pending_checklists,
-                (SELECT COUNT(*) FROM folder_movements WHERE approval_status = 'PENDING') as pending_folders,
-                (SELECT COUNT(*) FROM documents WHERE requires_approval = 1 AND approval_status = 'pending') as pending_documents
-        ");
+        // Get role IDs once
+        $lawyerRoleId = Role::where('name', 'lawyer')->value('id');
+        $clerkRoleId = Role::where('name', 'clerk')->value('id');
+        
+        // Using models with count relationships - single queries
+        $stats = [
+            'total_cases' => Cases::count(),
+            'active_cases' => Cases::where('case_status', 'active')->count(),
+            'total_clients' => Client::count(),
+            'total_lawyers' => User::where('role_id', $lawyerRoleId)->count(),
+            'total_clerks' => User::where('role_id', $clerkRoleId)->count(),
+            'pending_checklists' => ChecklistMovement::where('approval_status', 'PENDING')->count(),
+            'pending_folders' => FolderMovement::where('approval_status', 'PENDING')->count(),
+            'pending_documents' => Document::where('requires_approval', 1)
+                                        ->where('approval_status', 'pending')
+                                        ->count()
+        ];
 
-        // Recent activities - optimized with UNION
-        $recentActivities = DB::select("
-            (SELECT 
-                'system' as type,
-                action,
-                created_at,
-                email_attempted as user_name,
-                NULL as case_code,
-                NULL as case_title
-             FROM login_logs 
-             ORDER BY created_at DESC 
-             LIMIT 5)
-            UNION ALL
-            (SELECT 
-                'case' as type,
-                action,
-                created_at,
-                (SELECT full_name FROM users WHERE id = case_activity_logs.user_id) as user_name,
-                (SELECT case_code FROM cases WHERE id = case_activity_logs.case_id) as case_code,
-                (SELECT title FROM cases WHERE id = case_activity_logs.case_id) as case_title
-             FROM case_activity_logs 
-             ORDER BY created_at DESC 
-             LIMIT 5)
-            ORDER BY created_at DESC
-            LIMIT 10
-        ");
+        // Recent activities using models with relationships
+        $recentActivities = collect()
+            ->merge(
+                LoginLog::latest()
+                    ->take(5)
+                    ->get()
+                    ->map(fn($log) => [
+                        'type' => 'system',
+                        'action' => $log->action,
+                        'created_at' => $log->created_at,
+                        'user_name' => $log->email_attempted,
+                        'case_code' => null,
+                        'case_title' => null
+                    ])
+            )
+            ->merge(
+                CaseActivityLog::with(['user', 'case'])
+                    ->latest()
+                    ->take(5)
+                    ->get()
+                    ->map(fn($log) => [
+                        'type' => 'case',
+                        'action' => $log->action,
+                        'created_at' => $log->created_at,
+                        'user_name' => $log->user?->full_name,
+                        'case_code' => $log->case?->case_code,
+                        'case_title' => $log->case?->title
+                    ])
+            )
+            ->sortByDesc('created_at')
+            ->take(10)
+            ->values()
+            ->toArray();
 
         return [
             'stats' => [
-                'total_cases' => (int)($stats->total_cases ?? 0),
-                'active_cases' => (int)($stats->active_cases ?? 0),
-                'total_clients' => (int)($stats->total_clients ?? 0),
-                'pending_approvals' => (int)(($stats->pending_checklists ?? 0) + ($stats->pending_folders ?? 0))
+                'total_cases' => $stats['total_cases'],
+                'active_cases' => $stats['active_cases'],
+                'total_clients' => $stats['total_clients'],
+                'pending_approvals' => $stats['pending_checklists'] + $stats['pending_folders']
             ],
             'adminStats' => [
-                'total_users' => (int)(($stats->total_lawyers ?? 0) + ($stats->total_clerks ?? 0)),
-                'lawyers' => (int)($stats->total_lawyers ?? 0),
-                'clerks' => (int)($stats->total_clerks ?? 0),
-                'pending_documents' => (int)($stats->pending_documents ?? 0),
-                'pending_movements' => (int)(($stats->pending_checklists ?? 0) + ($stats->pending_folders ?? 0)),
-                'pending_total' => (int)(($stats->pending_documents ?? 0) + ($stats->pending_checklists ?? 0) + ($stats->pending_folders ?? 0))
+                'total_users' => $stats['total_lawyers'] + $stats['total_clerks'],
+                'lawyers' => $stats['total_lawyers'],
+                'clerks' => $stats['total_clerks'],
+                'pending_documents' => $stats['pending_documents'],
+                'pending_movements' => $stats['pending_checklists'] + $stats['pending_folders'],
+                'pending_total' => $stats['pending_documents'] + $stats['pending_checklists'] + $stats['pending_folders']
             ],
             'recentActivities' => $recentActivities
         ];
     }
 
     /**
-     * Lawyer Dashboard - Optimized
+     * Lawyer Dashboard - Using Eloquent Models with relationships
      */
     private function getLawyerDashboard($userId)
     {
-        $stats = DB::selectOne("
-            SELECT
-                (SELECT COUNT(*) FROM cases WHERE assigned_lawyer_id = ?) as total_cases,
-                (SELECT COUNT(*) FROM cases WHERE assigned_lawyer_id = ? AND case_status = 'active') as active_cases,
-                (SELECT COUNT(*) FROM checklist_movements WHERE approval_status = 'PENDING') as pending_checklists,
-                (SELECT COUNT(*) FROM folder_movements WHERE approval_status = 'PENDING') as pending_folders,
-                (SELECT COUNT(*) FROM documents WHERE requires_approval = 1 AND approval_status = 'pending') as pending_documents
-        ", [$userId, $userId]);
+        // Get counts using models
+        $totalCases = Cases::where('assigned_lawyer_id', $userId)->count();
+        $activeCases = Cases::where('assigned_lawyer_id', $userId)
+                           ->where('case_status', 'active')
+                           ->count();
+        
+        $pendingChecklists = ChecklistMovement::where('approval_status', 'PENDING')->count();
+        $pendingFolders = FolderMovement::where('approval_status', 'PENDING')->count();
+        $pendingDocuments = Document::where('requires_approval', 1)
+                                   ->where('approval_status', 'pending')
+                                   ->count();
 
-        $recentCases = DB::select("
-            SELECT 
-                c.id, 
-                c.case_code, 
-                c.title, 
-                c.priority,
-                c.case_status,
-                cl.full_name as client,
-                (SELECT name FROM case_stages WHERE id = c.current_stage_id) as stage
-            FROM cases c
-            LEFT JOIN clients cl ON cl.id = c.client_id
-            WHERE c.assigned_lawyer_id = ?
-            ORDER BY c.created_at DESC
-            LIMIT 5
-        ", [$userId]);
+        // Recent cases with eager loading
+        $recentCases = Cases::with(['client', 'currentStage'])
+            ->where('assigned_lawyer_id', $userId)
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(fn($case) => [
+                'id' => $case->id,
+                'case_code' => $case->case_code,
+                'title' => $case->title,
+                'priority' => $case->priority,
+                'case_status' => $case->case_status,
+                'client' => $case->client?->full_name,
+                'stage' => $case->currentStage?->name
+            ]);
 
-        $pendingTotal = ($stats->pending_documents ?? 0) + 
-                       ($stats->pending_checklists ?? 0) + 
-                       ($stats->pending_folders ?? 0);
+        $pendingTotal = $pendingDocuments + $pendingChecklists + $pendingFolders;
 
         return [
             'lawyerStats' => [
-                'assigned_cases' => (int)($stats->total_cases ?? 0),
-                'active_cases' => (int)($stats->active_cases ?? 0),
-                'pending_approvals' => (int)$pendingTotal
+                'assigned_cases' => $totalCases,
+                'active_cases' => $activeCases,
+                'pending_approvals' => $pendingTotal
             ],
             'myCases' => $recentCases,
             'pendingItems' => [
-                'documents' => (int)($stats->pending_documents ?? 0),
-                'movements' => (int)(($stats->pending_checklists ?? 0) + ($stats->pending_folders ?? 0)),
-                'total' => (int)$pendingTotal
+                'documents' => $pendingDocuments,
+                'movements' => $pendingChecklists + $pendingFolders,
+                'total' => $pendingTotal
             ]
         ];
     }
 
     /**
-     * Clerk Dashboard - Optimized
+     * Clerk Dashboard - Using Eloquent Models with relationships
      */
     private function getClerkDashboard($userId)
     {
-        $stats = DB::selectOne("
-            SELECT
-                (SELECT COUNT(*) FROM cases WHERE assigned_clerk_id = ?) as assigned_cases,
-                (SELECT COUNT(*) FROM case_checklists WHERE assigned_clerk_id = ?) as total_tasks,
-                (SELECT COUNT(*) FROM case_checklists WHERE assigned_clerk_id = ? AND status != 'done') as pending_tasks,
-                (SELECT COUNT(*) FROM case_checklists WHERE assigned_clerk_id = ? AND status = 'done') as completed_tasks
-        ", [$userId, $userId, $userId, $userId]);
+        // Get stats using models
+        $assignedCases = Cases::where('assigned_clerk_id', $userId)->count();
+        
+        $totalTasks = CaseChecklist::where('assigned_clerk_id', $userId)->count();
+        $pendingTasks = CaseChecklist::where('assigned_clerk_id', $userId)
+                                    ->where('status', '!=', 'done')
+                                    ->count();
+        $completedTasks = CaseChecklist::where('assigned_clerk_id', $userId)
+                                      ->where('status', 'done')
+                                      ->count();
 
-        $recentTasks = DB::select("
-            SELECT 
-                cc.id, 
-                cc.task, 
-                cc.status, 
-                cc.due_date,
-                cc.document_type,
-                c.case_code,
-                c.title as case_title
-            FROM case_checklists cc
-            JOIN cases c ON c.id = cc.case_id
-            WHERE cc.assigned_clerk_id = ?
-            ORDER BY 
+        // Recent tasks with eager loading
+        $recentTasks = CaseChecklist::with('case')
+            ->where('assigned_clerk_id', $userId)
+            ->orderByRaw("
                 CASE 
-                    WHEN cc.status = 'todo' THEN 1
-                    WHEN cc.status = 'in-progress' THEN 2
+                    WHEN status = 'todo' THEN 1
+                    WHEN status = 'in-progress' THEN 2
                     ELSE 3
-                END,
-                cc.due_date ASC
-            LIMIT 10
-        ", [$userId]);
+                END
+            ")
+            ->orderBy('due_date')
+            ->take(10)
+            ->get()
+            ->map(fn($task) => [
+                'id' => $task->id,
+                'task' => $task->task,
+                'status' => $task->status,
+                'due_date' => $task->due_date,
+                'document_type' => $task->document_type,
+                'case_code' => $task->case?->case_code,
+                'case_title' => $task->case?->title
+            ]);
 
         return [
             'clerkStats' => [
-                'assigned_cases' => (int)($stats->assigned_cases ?? 0),
-                'total_tasks' => (int)($stats->total_tasks ?? 0),
-                'pending_tasks' => (int)($stats->pending_tasks ?? 0),
-                'completed_tasks' => (int)($stats->completed_tasks ?? 0)
+                'assigned_cases' => $assignedCases,
+                'total_tasks' => $totalTasks,
+                'pending_tasks' => $pendingTasks,
+                'completed_tasks' => $completedTasks
             ],
             'myTasks' => $recentTasks
         ];
+    }
+
+    /**
+     * Get detailed case information (for modal)
+     */
+    public function getCaseDetails($id)
+    {
+        $case = Cases::with([
+            'client',
+            'assignedLawyer',
+            'assignedClerk',
+            'currentStage',
+            'checklists' => fn($q) => $q->latest(),
+            'documents' => fn($q) => $q->latest(),
+            'activities' => fn($q) => $q->latest()->take(10)
+        ])->findOrFail($id);
+
+        return response()->json($case);
+    }
+
+    /**
+     * Get user activities (for modal)
+     */
+    public function getUserActivities($userId)
+    {
+        $activities = CaseActivityLog::with('case')
+            ->where('user_id', $userId)
+            ->latest()
+            ->paginate(20);
+
+        return response()->json($activities);
+    }
+
+    /**
+     * Get pending approvals list (for modal)
+     */
+    public function getPendingApprovals()
+    {
+        $documents = Document::with(['case', 'uploadedBy'])
+            ->where('requires_approval', 1)
+            ->where('approval_status', 'pending')
+            ->latest()
+            ->get();
+
+        $checklists = ChecklistMovement::with(['checklist', 'case', 'requestedBy'])
+            ->where('approval_status', 'PENDING')
+            ->latest()
+            ->get();
+
+        $folders = FolderMovement::with(['folder', 'case', 'requestedBy'])
+            ->where('approval_status', 'PENDING')
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'documents' => $documents,
+            'checklists' => $checklists,
+            'folders' => $folders
+        ]);
     }
 }
