@@ -14,11 +14,7 @@ class CaseChecklist extends Model
     protected $fillable = [
         'case_id',
         'created_by',
-        'task',
         'document_type_id',
-        'document_type',
-        'document_category',
-        'document_color',
         'status',
         'due_date',
         'assigned_clerk_id',
@@ -77,6 +73,14 @@ class CaseChecklist extends Model
     }
 
     /**
+     * Get the task name (from document type)
+     */
+    public function getTaskNameAttribute()
+    {
+        return $this->document?->type ?? 'Untitled Task';
+    }
+
+    /**
      * Scope a query to only include todo items.
      */
     public function scopeTodo($query)
@@ -129,9 +133,9 @@ class CaseChecklist extends Model
      */
     public function getTaskWithDocumentAttribute()
     {
-        if ($this->document_type) {
-            return "{$this->document_type}: {$this->task}";
+        if ($this->document) {
+            return $this->document->type;
         }
-        return $this->task;
+        return 'Untitled Task';
     }
 }

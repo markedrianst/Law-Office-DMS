@@ -128,7 +128,7 @@ class CaseController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to fetch cases',
-                'errors' => ['server' => [$e->getMessage()]]
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -165,7 +165,6 @@ class CaseController extends Controller
                 'courts' => Court::where('is_active', true)
                     ->orderBy('name')
                     ->get(['id', 'name', 'type', 'address']),
-                // Add users array combining lawyers and clerks for From/To dropdown
                 'users' => collect($lawyers)->map(function($lawyer) {
                         return [
                             'id' => $lawyer->id,
@@ -188,395 +187,308 @@ class CaseController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to fetch lookups',
-                'errors' => ['server' => [$e->getMessage()]]
+                'error' => $e->getMessage()
             ], 500);
         }
     }
+/**
+ * Store a newly created case.
+ */
+public function store(Request $request)  // ← FIXED: Only needs 1 parameter
+{
+    $validator = Validator::make($request->all(), [
+        'case_no' => 'required|string|max:180|unique:cases,case_no',
+        'title' => 'required|string|max:200',
+        'category_id' => 'nullable|exists:case_categories,id',
+        'client_id' => 'required|exists:clients,id',
+        'court_or_office' => 'nullable|string|max:180',
+        'docket_no' => 'nullable|string|max:80',
+        'assigned_lawyer_id' => 'required|exists:users,id',
+        'assigned_clerk_id' => 'nullable|exists:users,id',
+        'priority' => 'required|in:low,normal,urgent',
+        'case_status' => 'required|in:active,closed,archived',
+        'current_stage_id' => 'nullable|exists:case_stages,id',
+        'summary' => 'nullable|string|max:2000',
+    ]);
 
-    /**
-     * Store a newly created case.
-     */
-     public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'case_no' => 'required|string|max:180|unique:cases,case_no',
-            'title' => 'required|string|max:200',
-            'category_id' => 'nullable|exists:case_categories,id',
-            'client_id' => 'required|exists:clients,id',
-            'court_or_office' => 'nullable|string|max:180',
-            'docket_no' => 'nullable|string|max:80',
-            'assigned_lawyer_id' => 'required|exists:users,id',
-            'assigned_clerk_id' => 'nullable|exists:users,id',
-            'priority' => 'required|in:low,normal,urgent',
-            'case_status' => 'required|in:active,closed,archived',
-            'current_stage_id' => 'nullable|exists:case_stages,id',
-            'summary' => 'nullable|string|max:2000',
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => 'Validation failed',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        // Generate case code
+        $year = date('Y');
+        $lastCase = Cases::whereYear('created_at', $year)
+            ->orderBy('id', 'desc')
+            ->first();
+        
+        $sequence = $lastCase ? intval(substr($lastCase->case_code, -4)) + 1 : 1;
+        $caseCode = $year . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+
+        $case = Cases::create([
+            'case_no' => $request->case_no,
+            'case_code' => $caseCode,
+            'title' => $request->title,
+            'category_id' => $request->category_id,
+            'client_id' => $request->client_id,
+            'court_or_office' => $request->court_or_office,
+            'docket_no' => $request->docket_no,
+            'assigned_lawyer_id' => $request->assigned_lawyer_id,
+            'assigned_clerk_id' => $request->assigned_clerk_id,
+            'priority' => $request->priority,
+            'case_status' => $request->case_status,
+            'current_stage_id' => $request->current_stage_id,
+            'summary' => $request->summary,
+            'created_by' => auth()->id(),
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
+        // Load relationships for message
+        $case->load(['client', 'lawyer', 'clerk', 'category', 'currentStage']);
+
+        // Create stage history if stage is set
+        if ($request->current_stage_id) {
+            $stageName = CaseStage::find($request->current_stage_id)?->name ?? 'Unknown';
+            
+            CaseStageHistory::create([
+                'case_id' => $case->id,
+                'from_stage_id' => null,
+                'to_stage_id' => $request->current_stage_id,
+                'changed_by' => auth()->id(),
+                'remarks' => "Initial stage: {$stageName}",
+            ]);
         }
 
-        try {
-            DB::beginTransaction();
+        // Create activity log
+        CaseActivityLog::create([
+            'case_id' => $case->id,
+            'user_id' => auth()->id(),
+            'action' => 'created_case',
+            'details' => json_encode([
+                'case_no' => $case->case_no,
+                'title' => $case->title,
+            ]),
+        ]);
 
-            // Generate case code
-            $year = date('Y');
-            $lastCase = Cases::whereYear('created_at', $year)
-                ->orderBy('id', 'desc')
-                ->first();
-            
-            $sequence = $lastCase ? intval(substr($lastCase->case_code, -4)) + 1 : 1;
-            $caseCode = $year . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-
-            $case = Cases::create([
-                'case_no' => $request->case_no,
-                'case_code' => $caseCode,
-                'title' => $request->title,
-                'category_id' => $request->category_id,
-                'client_id' => $request->client_id,
-                'court_or_office' => $request->court_or_office,
-                'docket_no' => $request->docket_no,
-                'assigned_lawyer_id' => $request->assigned_lawyer_id,
-                'assigned_clerk_id' => $request->assigned_clerk_id,
-                'priority' => $request->priority,
-                'case_status' => $request->case_status,
-                'current_stage_id' => $request->current_stage_id,
-                'summary' => $request->summary,
-                'created_by' => auth()->id(),
-            ]);
-
-            // Load relationships for message
-            $case->load(['client', 'lawyer', 'clerk', 'category', 'currentStage']);
-
-            // Get names for human-readable message
-            $clientName = $case->client?->full_name ?? 'Unknown';
-            $lawyerName = $case->lawyer?->full_name ?? 'Unknown';
-
-            // SIMPLE CREATE MESSAGE
-            $message = "New case: {$case->case_no} - {$case->title}";
-            
-            CaseActivityLog::create([
-                'case_id' => $case->id,
-                'user_id' => auth()->id(),
-                'action' => 'created_case',
-                'details' => [
-                    'message' => $message,
+        // Notify assigned lawyer
+        if ($case->assigned_lawyer_id) {
+            Notification::create([
+                'user_id' => $case->assigned_lawyer_id,
+                'notifiable_type' => Cases::class,
+                'notifiable_id' => $case->id,
+                'type' => 'case_assigned',
+                'title' => 'New Case Assigned',
+                'message' => "Case {$case->case_code} has been assigned to you",
+                'data' => [
+                    'case_code' => $case->case_code,
                     'case_no' => $case->case_no,
                     'title' => $case->title,
                 ],
+                'action_url' => "/casemaster"
             ]);
+        }
 
-            // Create stage history if stage is set
-            if ($request->current_stage_id) {
-                $stageName = CaseStage::find($request->current_stage_id)?->name ?? 'Unknown';
-                
-                CaseStageHistory::create([
-                    'case_id' => $case->id,
-                    'from_stage_id' => null,
-                    'to_stage_id' => $request->current_stage_id,
-                    'changed_by' => auth()->id(),
-                    'remarks' => "Initial stage: {$stageName}",
-                ]);
-            }
-
-            DB::commit();
-
-            // ========== 🔔 ADD NOTIFICATIONS HERE ==========
-            // Notify assigned lawyer
-            if ($case->assigned_lawyer_id) {
-                Notification::create([
-                    'user_id' => $case->assigned_lawyer_id,
-                    'notifiable_type' => Cases::class,
-                    'notifiable_id' => $case->id,
-                    'type' => 'case_assigned',
-                    'title' => 'New Case Assigned',
-                    'message' => "Case {$case->case_code} has been assigned to you",
-                    'data' => [
-                        'case_code' => $case->case_code,
-                        'case_no' => $case->case_no,
-                        'title' => $case->title,
-                        'client' => $case->client?->full_name,
-                    ],
-                    'action_url' => "/casemaster"
-                ]);
-            }
-
-            // Notify assigned clerk
-            if ($case->assigned_clerk_id) {
-                Notification::create([
-                    'user_id' => $case->assigned_clerk_id,
-                    'notifiable_type' => Cases::class,
-                    'notifiable_id' => $case->id,
-                    'type' => 'case_assigned',
-                    'title' => 'New Case Assigned',
-                    'message' => "Case {$case->case_code} has been assigned to you",
-                    'data' => [
-                        'case_code' => $case->case_code,
-                        'case_no' => $case->case_no,
-                        'title' => $case->title,
-                        'client' => $case->client?->full_name,
-                    ],
-                    'action_url' => "/casemaster"
-                ]);
-            }
-            // ========== 🔔 END NOTIFICATIONS ==========
-
-            // Load relationships for response
-            $case->load([
-                'category:id,name,color',
-                'client:id,full_name',
-                'lawyer:id,full_name',
-                'clerk:id,full_name',
-                'currentStage:id,name,color'
-            ]);
-
-            return response()->json([
-                'message' => 'Case created successfully',
+        // Notify assigned clerk
+        if ($case->assigned_clerk_id) {
+            Notification::create([
+                'user_id' => $case->assigned_clerk_id,
+                'notifiable_type' => Cases::class,
+                'notifiable_id' => $case->id,
+                'type' => 'case_assigned',
+                'title' => 'New Case Assigned',
+                'message' => "Case {$case->case_code} has been assigned to you",
                 'data' => [
-                    'id' => $case->id,
                     'case_code' => $case->case_code,
                     'case_no' => $case->case_no,
                     'title' => $case->title,
-                    'category_id' => $case->category_id,
-                    'category' => $case->category?->name ?? '—',
-                    'category_color' => $case->category?->color ?? '#1a4972',
-                    'client_id' => $case->client_id,
-                    'client' => $case->client?->full_name ?? '—',
-                    'court_or_office' => $case->court_or_office,
-                    'docket_no' => $case->docket_no,
-                    'assigned_lawyer_id' => $case->assigned_lawyer_id,
-                    'lawyer' => $case->lawyer?->full_name ?? '—',
-                    'assigned_clerk_id' => $case->assigned_clerk_id,
-                    'clerk' => $case->clerk?->full_name ?? '—',
-                    'priority' => $case->priority,
-                    'case_status' => $case->case_status,
-                    'current_stage_id' => $case->current_stage_id,
-                    'stage' => $case->currentStage?->name ?? '—',
-                    'stage_color' => $case->currentStage?->color ?? '#64748b',
-                    'summary' => $case->summary,
-                    'is_out' => $case->is_out,
-                    'created_at' => $case->created_at,
-                ]
-            ], 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Failed to create case',
-                'errors' => ['server' => [$e->getMessage()]]
-            ], 500);
+                ],
+                'action_url' => "/casemaster"
+            ]);
         }
+
+        DB::commit();
+
+        // Load relationships for response
+        $case->load([
+            'category:id,name,color',
+            'client:id,full_name',
+            'lawyer:id,full_name',
+            'clerk:id,full_name',
+            'currentStage:id,name,color'
+        ]);
+
+        return response()->json([
+            'message' => 'Case created successfully',
+            'data' => [
+                'id' => $case->id,
+                'case_code' => $case->case_code,
+                'case_no' => $case->case_no,
+                'title' => $case->title,
+                'category_id' => $case->category_id,
+                'category' => $case->category?->name ?? '—',
+                'category_color' => $case->category?->color ?? '#1a4972',
+                'client_id' => $case->client_id,
+                'client' => $case->client?->full_name ?? '—',
+                'court_or_office' => $case->court_or_office,
+                'docket_no' => $case->docket_no,
+                'assigned_lawyer_id' => $case->assigned_lawyer_id,
+                'lawyer' => $case->lawyer?->full_name ?? '—',
+                'assigned_clerk_id' => $case->assigned_clerk_id,
+                'clerk' => $case->clerk?->full_name ?? '—',
+                'priority' => $case->priority,
+                'case_status' => $case->case_status,
+                'current_stage_id' => $case->current_stage_id,
+                'stage' => $case->currentStage?->name ?? '—',
+                'stage_color' => $case->currentStage?->color ?? '#64748b',
+                'summary' => $case->summary,
+                'is_out' => $case->is_out,
+                'created_at' => $case->created_at,
+            ]
+        ], 201);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Failed to create case',
+            'error' => $e->getMessage()
+        ], 500);
     }
-
-
+}
     /**
      * Display the specified case with all related data.
      */
-    public function show($id)
-    {
-        try {
-            $case = Cases::with([
-                'category:id,name,color',
-                'client:id,full_name,contact_no,email,address',
-                'lawyer:id,full_name',
-                'clerk:id,full_name',
-                'currentStage:id,name,color',
-                'creator:id,full_name',
-                
-                // Load all checklists
-                'checklists' => function($q) {
-                    $q->orderBy('created_at');
-                },
-                
-                // Load folder movements with approval info
-                'folderMovements' => function($q) {
-                    $q->with(['recorder:id,full_name', 'approver:id,full_name'])
-                      ->orderBy('date', 'desc')
-                      ->orderBy('created_at', 'desc');
-                },
-                
-                // Load checklist movements with all relations
-                'checklistMovements' => function($q) {
-                    $q->with([
-                        'checklist:id,task',
-                        'recorder:id,full_name',
-                        'approver:id,full_name'
-                    ])->orderBy('date', 'desc')
-                      ->orderBy('created_at', 'desc');
-                },
-                
-                // Load stage history
-                'stageHistories' => function($q) {
-                    $q->with(['fromStage:id,name', 'toStage:id,name', 'changedBy:id,full_name'])
-                      ->orderBy('created_at', 'desc');
-                },
-                
-                // Load activity logs
-                'activityLogs' => function($q) {
-                    $q->with('user:id,full_name')
-                      ->orderBy('created_at', 'desc')
-                      ->limit(50);
-                }
-            ])->findOrFail($id);
+/**
+ * Display the specified case with all related data.
+ */
+public function show($id)
+{
+    try {
+       
+        
+        $case = Cases::with([
+            'category:id,name,color',
+            'client:id,full_name,contact_no,email,address',
+            'lawyer:id,full_name',
+            'clerk:id,full_name',
+            'currentStage:id,name,color',
+            'creator:id,full_name',
+            'checklists' => function($q) {
+                $q->with('document:id,type,category,color')
+                  ->orderBy('created_at', 'desc');
+            },
+            'folderMovements' => function($q) {
+                $q->with(['recorder:id,full_name', 'approver:id,full_name'])
+                  ->orderBy('created_at', 'desc');
+            },
+            'checklistMovements' => function($q) {
+                $q->with([
+                    'checklist:id,document_type_id,status,due_date,assigned_to,notes,is_out',
+                    'checklist.document:id,type,category,color',
+                    'recorder:id,full_name',
+                    'approver:id,full_name'
+                ])->orderBy('created_at', 'desc');
+            },
+            'stageHistories' => function($q) {
+                $q->with(['fromStage:id,name', 'toStage:id,name', 'changedBy:id,full_name'])
+                  ->orderBy('created_at', 'desc');
+            },
+            'activityLogs' => function($q) {
+                $q->with('user:id,full_name')
+                  ->orderBy('created_at', 'desc')
+                  ->limit(50);
+            }
+        ])->find($id);
 
-            // Transform checklists
-            $checklists = $case->checklists->map(function($item) {
-                return [
-                    'id' => $item->id,
-                    'task' => $item->task,
-                    'document_type_id' => $item->document_type_id,
-                    'document_type' => $item->document_type,
-                    'document_category' => $item->document_category,
-                    'document_color' => $item->document_color,
-                    'status' => $item->status,
-                    'due_date' => $item->due_date,
-                    'assigned_clerk_id' => $item->assigned_clerk_id,
-                    'assigned_to' => $item->assigned_to,
-                    'notes' => $item->notes,
-                    'is_out' => $item->is_out,
-                    'completed_at' => $item->completed_at,
-                    'created_at' => $item->created_at,
-                    'updated_at' => $item->updated_at,
-                ];
-            });
-
-            // Transform folder movements
-            $folderMovements = $case->folderMovements->map(function($item) {
-                return [
-                    'id' => $item->id,
-                    'type' => $item->type,
-                    'from_to' => $item->from_to,
-                    'date' => $item->date,
-                    'purpose' => $item->purpose,
-                    'handled_by' => $item->handled_by,
-                    'approval_status' => $item->approval_status,
-                    'recorder' => $item->recorder?->full_name,
-                    'approver' => $item->approver?->full_name,
-                    'approved_at' => $item->approved_at,
-                    'created_at' => $item->created_at,
-                ];
-            });
-
-            // Transform checklist movements
-            $checklistMovements = $case->checklistMovements->map(function($item) {
-                return [
-                    'id' => $item->id,
-                    'checklist_id' => $item->checklist_id,
-                    'task_name' => $item->task_name ?? $item->checklist?->task,
-                    'type' => $item->type,
-                    'from_to' => $item->from_to,
-                    'date' => $item->date,
-                    'purpose' => $item->purpose,
-                    'handled_by' => $item->handled_by,
-                    'approval_status' => $item->approval_status,
-                    'recorder' => $item->recorder?->full_name,
-                    'approver' => $item->approver?->full_name,
-                    'approved_at' => $item->approved_at,
-                    'created_at' => $item->created_at,
-                ];
-            });
-
-            // Transform stage history
-            $stageHistory = $case->stageHistories->map(function($item) {
-                return [
-                    'id' => $item->id,
-                    'from_stage' => $item->fromStage?->name,
-                    'to_stage' => $item->toStage?->name,
-                    'changed_by' => $item->changedBy?->full_name,
-                    'remarks' => $item->remarks,
-                    'created_at' => $item->created_at,
-                ];
-            });
-
-            // Transform activity logs
-            $activityLogs = $case->activityLogs->map(function($item) {
-                // Decode details for better display
-                $details = $item->details;
-                if (is_string($details)) {
-                    $decoded = json_decode($details, true);
-                    $details = is_array($decoded) ? $decoded : $details;
-                }
-                
-                return [
-                    'id' => $item->id,
-                    'user' => $item->user?->full_name ?? 'System',
-                    'action' => $item->action,
-                    'details' => $details,
-                    'created_at' => $item->created_at,
-                ];
-            });
-
-            return response()->json([
-                'data' => [
-                    // Case basic info
-                    'id' => $case->id,
-                    'case_code' => $case->case_code,
-                    'case_no' => $case->case_no,
-                    'title' => $case->title,
-                    'category_id' => $case->category_id,
-                    'category' => $case->category?->name ?? '—',
-                    'category_color' => $case->category?->color ?? '#1a4972',
-                    'client_id' => $case->client_id,
-                    'client' => $case->client?->full_name ?? '—',
-                    'client_details' => $case->client ? [
-                        'contact_no' => $case->client->contact_no,
-                        'email' => $case->client->email,
-                        'address' => $case->client->address,
-                    ] : null,
-                    'court_or_office' => $case->court_or_office,
-                    'docket_no' => $case->docket_no,
-                    'assigned_lawyer_id' => $case->assigned_lawyer_id,
-                    'lawyer' => $case->lawyer?->full_name ?? '—',
-                    'assigned_clerk_id' => $case->assigned_clerk_id,
-                    'clerk' => $case->clerk?->full_name ?? '—',
-                    'priority' => $case->priority,
-                    'case_status' => $case->case_status,
-                    'current_stage_id' => $case->current_stage_id,
-                    'stage' => $case->currentStage?->name ?? '—',
-                    'stage_color' => $case->currentStage?->color ?? '#64748b',
-                    'summary' => $case->summary,
-                    'is_out' => $case->is_out,
-                    'created_by' => $case->creator?->full_name ?? '—',
-                    'created_at' => $case->created_at,
-                    'updated_at' => $case->updated_at,
-                    
-                    // Related data
-                    'checklists' => $checklists,
-                    'folder_movements' => $folderMovements,
-                    'checklist_movements' => $checklistMovements,
-                    'stage_history' => $stageHistory,
-                    'activity_logs' => $activityLogs,
-                    
-                    // Summary counts
-                    'summary' => [
-                        'total_checklists' => $checklists->count(),
-                        'completed_checklists' => $checklists->where('status', 'done')->count(),
-                        'pending_checklists' => $checklists->where('status', '!=', 'done')->count(),
-                        'out_checklists' => $checklists->where('is_out', true)->count(),
-                        'folder_status' => $case->is_out ? 'OUT' : 'IN',
-                    ]
-                ]
-            ]);
-
-        } catch (\Exception $e) {
+        if (!$case) {
             return response()->json([
                 'message' => 'Case not found',
                 'errors' => ['id' => ['Case not found']]
             ], 404);
         }
-    }
 
+        // Transform the checklists - NO 'task' field
+        $transformedChecklists = $case->checklists->map(function($item) {
+            return [
+                'id' => $item->id,
+                'case_id' => $item->case_id,
+                'document_type_id' => $item->document_type_id,
+                'document_type' => $item->document?->type,
+                'document_category' => $item->document?->category,
+                'document_color' => $item->document?->color ?? '#94a3b8',
+                'status' => $item->status,
+                'due_date' => $item->due_date?->format('Y-m-d'),
+                'assigned_clerk_id' => $item->assigned_clerk_id,
+                'assigned_to' => $item->assigned_to,
+                'notes' => $item->notes,
+                'is_out' => $item->is_out,
+                'completed_at' => $item->completed_at,
+                'created_at' => $item->created_at,
+                'updated_at' => $item->updated_at,
+            ];
+        });
+
+        // Transform the data
+        $transformedCase = [
+            'id' => $case->id,
+            'case_code' => $case->case_code,
+            'case_no' => $case->case_no,
+            'title' => $case->title,
+            'category_id' => $case->category_id,
+            'category' => $case->category?->name ?? '—',
+            'category_color' => $case->category?->color ?? '#1a4972',
+            'client_id' => $case->client_id,
+            'client' => $case->client?->full_name ?? '—',
+            'assigned_lawyer_id' => $case->assigned_lawyer_id,
+            'lawyer' => $case->lawyer?->full_name ?? '—',
+            'assigned_clerk_id' => $case->assigned_clerk_id,
+            'clerk' => $case->clerk?->full_name ?? '—',
+            'court_or_office' => $case->court_or_office,
+            'docket_no' => $case->docket_no,
+            'priority' => $case->priority,
+            'case_status' => $case->case_status,
+            'current_stage_id' => $case->current_stage_id,
+            'stage' => $case->currentStage?->name ?? '—',
+            'stage_color' => $case->currentStage?->color ?? '#64748b',
+            'summary' => $case->summary,
+            'is_out' => $case->is_out,
+            'created_by' => $case->creator?->full_name ?? '—',
+            'created_at' => $case->created_at,
+            'checklists' => $transformedChecklists,
+            'folder_movements' => $case->folderMovements,
+            'checklist_movements' => $case->checklistMovements,
+            'activity_logs' => $case->activityLogs,
+        ];
+
+        return response()->json([
+            'data' => $transformedCase
+        ]);
+
+    } catch (\Exception $e) {
+        
+        return response()->json([
+            'message' => 'Failed to fetch case details',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
     /**
      * Update the specified case.
      */
-  public function update(Request $request, $id)
+    public function update(Request $request, $id)
     {
         try {
-            $case = Cases::findOrFail($id);
+            $case = Cases::find($id);
+            
+            if (!$case) {
+                return response()->json([
+                    'message' => 'Case not found',
+                    'error' => 'No case found with ID ' . $id
+                ], 404);
+            }
 
             $validator = Validator::make($request->all(), [
                 'case_no' => 'required|string|max:180|unique:cases,case_no,' . $id,
@@ -602,25 +514,13 @@ class CaseController extends Controller
 
             DB::beginTransaction();
 
-            // Load relationships for old values
-            $case->load(['client', 'lawyer', 'clerk', 'category', 'currentStage']);
-
-            // Store old values for comparison
-            $oldCaseNo = $case->case_no;
-            $oldTitle = $case->title;
-            $oldCategory = $case->category?->name ?? 'None';
-            $oldClient = $case->client?->full_name ?? 'None';
-            $oldCourtOffice = $case->court_or_office ?: 'None';
-            $oldDocketNo = $case->docket_no ?: 'None';
-            $oldLawyer = $case->lawyer?->full_name ?? 'None';
-            $oldLawyerId = $case->assigned_lawyer_id; // 👈 Store ID for notification
-            $oldClerk = $case->clerk?->full_name ?? 'None';
-            $oldClerkId = $case->assigned_clerk_id; // 👈 Store ID for notification
-            $oldPriority = ucfirst($case->priority);
-            $oldStatus = ucfirst($case->case_status);
-            $oldStageId = $case->current_stage_id;
-            $oldStageName = $case->currentStage?->name ?? 'None';
-            $oldSummary = $case->summary;
+            $oldData = [
+                'case_no' => $case->case_no,
+                'title' => $case->title,
+                'assigned_lawyer_id' => $case->assigned_lawyer_id,
+                'assigned_clerk_id' => $case->assigned_clerk_id,
+                'current_stage_id' => $case->current_stage_id,
+            ];
 
             $case->update([
                 'case_no' => $request->case_no,
@@ -637,172 +537,64 @@ class CaseController extends Controller
                 'summary' => $request->summary,
             ]);
 
-            // Reload with new relationships
-            $case->load(['client', 'lawyer', 'clerk', 'category', 'currentStage']);
-
-            // Build change messages
-            $changeMessages = [];
-
-            // ========== 🔔 CHECK FOR ASSIGNMENT CHANGES ==========
-            // Check if lawyer changed
-            if ($oldLawyerId != $case->assigned_lawyer_id && $case->assigned_lawyer_id) {
-                $newLawyer = $case->lawyer?->full_name ?? 'None';
-                $changeMessages[] = "Lawyer: {$oldLawyer} → {$newLawyer}";
-                
-                // Notify new lawyer
-                Notification::create([
-                    'user_id' => $case->assigned_lawyer_id,
-                    'notifiable_type' => Cases::class,
-                    'notifiable_id' => $case->id,
-                    'type' => 'case_reassigned',
-                    'title' => 'Case Reassigned',
-                    'message' => "Case {$case->case_code} has been reassigned to you",
-                    'data' => [
-                        'case_code' => $case->case_code,
-                        'case_no' => $case->case_no,
-                        'title' => $case->title,
-                    ],
-                    'action_url' => "/casemaster"
-                ]);
-            }
-
-            // Check if clerk changed
-            if ($oldClerkId != $case->assigned_clerk_id && $case->assigned_clerk_id) {
-                $newClerk = $case->clerk?->full_name ?? 'None';
-                $changeMessages[] = "Clerk: {$oldClerk} → {$newClerk}";
-                
-                // Notify new clerk
-                Notification::create([
-                    'user_id' => $case->assigned_clerk_id,
-                    'notifiable_type' => Cases::class,
-                    'notifiable_id' => $case->id,
-                    'type' => 'case_reassigned',
-                    'title' => 'Case Reassigned',
-                    'message' => "Case {$case->case_code} has been reassigned to you",
-                    'data' => [
-                        'case_code' => $case->case_code,
-                        'case_no' => $case->case_no,
-                        'title' => $case->title,
-                    ],
-                    'action_url' => "/casemaster"
-                ]);
-            }
-            // ========== 🔔 END ASSIGNMENT NOTIFICATIONS ==========
-
-            // Other field comparisons
-            if ($oldCaseNo != $case->case_no) {
-                $changeMessages[] = "Case #: {$oldCaseNo} → {$case->case_no}";
-            }
-            
-            if ($oldTitle != $case->title) {
-                $changeMessages[] = "Title: {$oldTitle} → {$case->title}";
-            }
-            
-            if ($oldCategory != ($case->category?->name ?? 'None')) {
-                $newCategory = $case->category?->name ?? 'None';
-                $changeMessages[] = "Category: {$oldCategory} → {$newCategory}";
-            }
-            
-            if ($oldClient != ($case->client?->full_name ?? 'None')) {
-                $newClient = $case->client?->full_name ?? 'None';
-                $changeMessages[] = "Client: {$oldClient} → {$newClient}";
-            }
-            
-            if ($oldCourtOffice != ($case->court_or_office ?: 'None')) {
-                $newCourtOffice = $case->court_or_office ?: 'None';
-                $changeMessages[] = "Court: {$oldCourtOffice} → {$newCourtOffice}";
-            }
-            
-            if ($oldDocketNo != ($case->docket_no ?: 'None')) {
-                $newDocketNo = $case->docket_no ?: 'None';
-                $changeMessages[] = "Docket: {$oldDocketNo} → {$newDocketNo}";
-            }
-            
-            if ($oldPriority != ucfirst($case->priority)) {
-                $newPriority = ucfirst($case->priority);
-                $changeMessages[] = "Priority: {$oldPriority} → {$newPriority}";
-            }
-            
-            if ($oldStatus != ucfirst($case->case_status)) {
-                $newStatus = ucfirst($case->case_status);
-                $changeMessages[] = "Status: {$oldStatus} → {$newStatus}";
-            }
-            
-            if (($oldSummary ? 'Yes' : 'No') != ($case->summary ? 'Yes' : 'No')) {
-                $changeMessages[] = "Summary updated";
-            }
-
-            // Log stage change if stage changed
-            if ($request->current_stage_id && $request->current_stage_id != $oldStageId) {
-                $newStageName = CaseStage::find($request->current_stage_id)?->name ?? 'Unknown';
+            // Check if stage changed
+            if ($request->current_stage_id && $request->current_stage_id != $oldData['current_stage_id']) {
+                $oldStage = CaseStage::find($oldData['current_stage_id'])?->name ?? 'None';
+                $newStage = CaseStage::find($request->current_stage_id)?->name ?? 'Unknown';
                 
                 CaseStageHistory::create([
                     'case_id' => $case->id,
-                    'from_stage_id' => $oldStageId,
+                    'from_stage_id' => $oldData['current_stage_id'],
                     'to_stage_id' => $request->current_stage_id,
                     'changed_by' => auth()->id(),
-                    'remarks' => "Stage: {$oldStageName} → {$newStageName}",
+                    'remarks' => "Stage changed from {$oldStage} to {$newStage}",
                 ]);
-
-                // SIMPLE STAGE CHANGE MESSAGE
-                $stageMessage = "Stage: {$oldStageName} → {$newStageName}";
-                
-                CaseActivityLog::create([
-                    'case_id' => $case->id,
-                    'user_id' => auth()->id(),
-                    'action' => 'changed_stage',
-                    'details' => [
-                        'message' => $stageMessage,
-                        'from' => $oldStageName,
-                        'to' => $newStageName,
-                    ],
-                ]);
-
-                // ========== 🔔 NOTIFY ABOUT STAGE CHANGE ==========
-                $usersToNotify = array_filter([$case->assigned_lawyer_id, $case->assigned_clerk_id]);
-                
-                foreach ($usersToNotify as $userId) {
-                    Notification::create([
-                        'user_id' => $userId,
-                        'notifiable_type' => Cases::class,
-                        'notifiable_id' => $case->id,
-                        'type' => 'stage_changed',
-                        'title' => 'Case Stage Updated',
-                        'message' => "Case {$case->case_code} moved from {$oldStageName} to {$newStageName}",
-                        'data' => [
-                            'case_code' => $case->case_code,
-                            'from_stage' => $oldStageName,
-                            'to_stage' => $newStageName,
-                        ],
-                        'action_url' => "/casemaster"
-                    ]);
-                }
-                // ========== 🔔 END STAGE NOTIFICATIONS ==========
             }
 
-            // Log general update if there are changes
-            if (!empty($changeMessages)) {
-                // SIMPLE UPDATE MESSAGE
-                $updateMessage = implode('; ', $changeMessages);
-                
-                CaseActivityLog::create([
-                    'case_id' => $case->id,
-                    'user_id' => auth()->id(),
-                    'action' => 'updated_case',
-                    'details' => [
-                        'message' => $updateMessage,
-                        'changes' => $changeMessages,
-                    ],
+            // Log activity
+            CaseActivityLog::create([
+                'case_id' => $case->id,
+                'user_id' => auth()->id(),
+                'action' => 'updated_case',
+                'details' => json_encode([
+                    'case_no' => $case->case_no,
+                    'title' => $case->title,
+                ]),
+            ]);
+
+            // Notify if lawyer changed
+            if ($request->assigned_lawyer_id && $request->assigned_lawyer_id != $oldData['assigned_lawyer_id']) {
+                Notification::create([
+                    'user_id' => $request->assigned_lawyer_id,
+                    'notifiable_type' => Cases::class,
+                    'notifiable_id' => $case->id,
+                    'type' => 'case_reassigned',
+                    'title' => 'Case Reassigned',
+                    'message' => "Case {$case->case_code} has been reassigned to you",
+                    'data' => json_encode([
+                        'case_code' => $case->case_code,
+                        'case_no' => $case->case_no,
+                        'title' => $case->title,
+                    ]),
+                    'action_url' => "/casemaster"
                 ]);
-            } else {
-                // No changes detected
-                CaseActivityLog::create([
-                    'case_id' => $case->id,
-                    'user_id' => auth()->id(),
-                    'action' => 'updated_case',
-                    'details' => [
-                        'message' => 'No changes',
-                    ],
+            }
+
+            // Notify if clerk changed
+            if ($request->assigned_clerk_id && $request->assigned_clerk_id != $oldData['assigned_clerk_id']) {
+                Notification::create([
+                    'user_id' => $request->assigned_clerk_id,
+                    'notifiable_type' => Cases::class,
+                    'notifiable_id' => $case->id,
+                    'type' => 'case_reassigned',
+                    'title' => 'Case Reassigned',
+                    'message' => "Case {$case->case_code} has been reassigned to you",
+                    'data' => json_encode([
+                        'case_code' => $case->case_code,
+                        'case_no' => $case->case_no,
+                        'title' => $case->title,
+                    ]),
+                    'action_url' => "/casemaster"
                 ]);
             }
 
@@ -841,7 +633,6 @@ class CaseController extends Controller
                     'stage_color' => $case->currentStage?->color ?? '#64748b',
                     'summary' => $case->summary,
                     'is_out' => $case->is_out,
-                    'created_at' => $case->created_at,
                 ]
             ]);
 
@@ -849,7 +640,7 @@ class CaseController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Failed to update case',
-                'errors' => ['server' => [$e->getMessage()]]
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -857,55 +648,56 @@ class CaseController extends Controller
     /**
      * Remove the specified case.
      */
-/**
- * Remove the specified case.
- */
-public function destroy($id)
-{
-    try {
-        $case = Cases::findOrFail($id);
+    public function destroy($id)
+    {
+        try {
+            $case = Cases::find($id);
+            
+            if (!$case) {
+                return response()->json([
+                    'message' => 'Case not found',
+                    'error' => 'No case found with ID ' . $id
+                ], 404);
+            }
 
-        DB::beginTransaction();
+            DB::beginTransaction();
 
-        // CREATE ACTIVITY LOG FIRST (while case still exists)
-        $deleteMessage = "Deleted case: {$case->case_no} - {$case->title}";
-        
-        CaseActivityLog::create([
-            'case_id' => $case->id,
-            'user_id' => auth()->id(),
-            'action' => 'deleted_case',
-            'details' => [
-                'message' => $deleteMessage,
-                'case_code' => $case->case_code,
-                'title' => $case->title,
-                'case_no' => $case->case_no,
-            ],
-        ]);
+            // Log activity before deletion
+            CaseActivityLog::create([
+                'case_id' => $case->id,
+                'user_id' => auth()->id(),
+                'action' => 'deleted_case',
+                'details' => json_encode([
+                    'case_code' => $case->case_code,
+                    'title' => $case->title,
+                    'case_no' => $case->case_no,
+                ]),
+            ]);
 
-        // THEN delete related records (but NOT activity logs if you want to keep them)
-        $case->checklists()->delete();
-        $case->folderMovements()->delete();
-        $case->checklistMovements()->delete();
-        $case->stageHistories()->delete();
-        // REMOVE OR COMMENT OUT: $case->activityLogs()->delete();
-        
-        // Finally delete case
-        $case->delete();
+            // Delete related records
+            $case->checklists()->delete();
+            $case->folderMovements()->delete();
+            $case->checklistMovements()->delete();
+            $case->stageHistories()->delete();
+            $case->activityLogs()->delete();
+            
+            // Delete case
+            $case->delete();
 
-        DB::commit();
+            DB::commit();
 
-        return response()->json([
-            'message' => 'Case deleted successfully'
-        ]);
+            return response()->json([
+                'message' => 'Case deleted successfully'
+            ]);
 
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json([
-            'message' => 'Failed to delete case',
-            'errors' => ['server' => [$e->getMessage()]]
-        ], 500);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to delete case',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 
     /**
      * Archive case
@@ -913,23 +705,26 @@ public function destroy($id)
     public function archive($id)
     {
         try {
-            $case = Cases::findOrFail($id);
+            $case = Cases::find($id);
+            
+            if (!$case) {
+                return response()->json([
+                    'message' => 'Case not found',
+                    'error' => 'No case found with ID ' . $id
+                ], 404);
+            }
             
             $oldStatus = $case->case_status;
             $case->update(['case_status' => 'archived']);
-
-            // SIMPLE ARCHIVE MESSAGE
-            $archiveMessage = "Archived case: {$case->case_no}";
 
             CaseActivityLog::create([
                 'case_id' => $case->id,
                 'user_id' => auth()->id(),
                 'action' => 'archived_case',
-                'details' => [
-                    'message' => $archiveMessage,
+                'details' => json_encode([
                     'from_status' => ucfirst($oldStatus),
                     'to_status' => 'Archived',
-                ],
+                ]),
             ]);
 
             return response()->json([
@@ -940,7 +735,7 @@ public function destroy($id)
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to archive case',
-                'errors' => ['server' => [$e->getMessage()]]
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -951,12 +746,20 @@ public function destroy($id)
     public function getActivityLogs($id)
     {
         try {
+            $case = Cases::find($id);
+            
+            if (!$case) {
+                return response()->json([
+                    'message' => 'Case not found',
+                    'error' => 'No case found with ID ' . $id
+                ], 404);
+            }
+
             $logs = CaseActivityLog::with('user:id,full_name')
                 ->where('case_id', $id)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function($log) {
-                    // Decode details for better display
                     $details = $log->details;
                     if (is_string($details)) {
                         $decoded = json_decode($details, true);
@@ -968,7 +771,7 @@ public function destroy($id)
                         'user' => $log->user?->full_name ?? 'System',
                         'action' => $log->action,
                         'details' => $details,
-                        'created_at' => $log->created_at,
+                        'created_at' => $log->created_at?->format('Y-m-d H:i:s'),
                     ];
                 });
 
@@ -977,7 +780,7 @@ public function destroy($id)
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to fetch activity logs',
-                'errors' => ['server' => [$e->getMessage()]]
+                'error' => $e->getMessage()
             ], 500);
         }
     }

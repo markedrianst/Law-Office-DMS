@@ -1,22 +1,19 @@
+<!-- src/pages/auth/Login.vue -->
+
 <template>
-  <!-- Page wrapper — fades in on every mount via `visible` ref -->
   <div
-    class="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat p-4 transition-opacity duration-700 ease-out"
-    :class="visible ? 'opacity-100' : 'opacity-0'"
+    class="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat p-4"
     :style="{ backgroundImage: 'url(' + backgroundImage + ')' }"
   >
-    <!-- Floating Glass Card -->
     <div class="w-full max-w-md">
       <div class="relative">
         <div class="absolute inset-0 bg-black/20 rounded-2xl blur-xl transform translate-y-2"></div>
 
         <div
-          class="relative backdrop-blur-md rounded-2xl shadow-2xl p-8 border transition-transform duration-700 ease-out"
-          :class="visible ? 'translate-y-0' : 'translate-y-4'"
+          class="relative backdrop-blur-md rounded-2xl shadow-2xl p-8 border"
           :style="{
             backgroundColor: 'rgba(255, 255, 255, 0.15)',
-            borderColor: 'rgba(255, 255, 255, 0.3)',
-            boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset'
+            borderColor: 'rgba(255, 255, 255, 0.3)'
           }"
         >
           <div class="absolute inset-0 rounded-2xl pointer-events-none"
@@ -30,137 +27,191 @@
                 <div class="absolute inset-0 bg-white/30 blur-xl rounded-full"></div>
                 <img
                   src="../../assets/images/lawofficelogo.png"
-                  alt="Logo"
+                  alt="Law Office Logo"
                   class="relative w-24 h-24 object-contain drop-shadow-lg"
-                  :style="{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2))' }"
+                  loading="eager"
                 />
               </div>
             </div>
 
             <!-- Title -->
             <div class="text-center mb-8">
-              <h1 class="text-3xl font-bold mb-1"
-                  :style="{ color: 'white', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)' }">
-                NICOLAS PINEDA
-              </h1>
-              <h1 class="text-3xl font-bold mb-1"
-                  :style="{ color: 'white', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)' }">
-                LAW OFFICE
-              </h1>
-              <p class="text-sm tracking-wide"
-                 :style="{ color: 'rgba(255, 255, 255, 0.9)', textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }">
-                Data Management System
-              </p>
+              <h1 class="text-3xl font-bold mb-1 text-white tracking-wide">NICOLAS PINEDA</h1>
+              <h1 class="text-3xl font-bold mb-1 text-white tracking-wide">LAW OFFICE</h1>
+              <p class="text-sm tracking-wide text-white/80 font-light">Data Management System</p>
             </div>
 
-            <!-- General Error Message -->
-            <div v-if="errors.general" class="mb-4 p-3 rounded-xl text-center"
-                 :style="{
-                   backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                   border: '1px solid rgba(239, 68, 68, 0.5)',
-                   color: 'white',
-                   backdropFilter: 'blur(5px)'
-                 }">
-              {{ errors.general }}
-            </div>
+            <!-- Error Alert -->
+            <Transition name="fade-slide">
+              <div
+                v-if="error"
+                class="mb-4 p-3 rounded-xl text-sm text-center bg-red-500/20 border border-red-500/50 text-white font-medium"
+                role="alert"
+              >
+                {{ error }}
+              </div>
+            </Transition>
 
-            <form @submit.prevent="handleLogin" class="space-y-6">
+            <!-- Login Form -->
+            <form @submit.prevent="handleLogin" class="space-y-6" novalidate>
               <!-- Email Field -->
               <div>
-                <label class="block text-sm font-medium mb-1"
-                       :style="{ color: 'rgba(255, 255, 255, 0.9)' }">
-                  Email
+                <label for="email" class="block text-sm font-medium mb-1 text-white/90">
+                  Email Address
                 </label>
-                <input
-                  v-model="email"
-                  type="email"
-                  class="w-full px-4 py-3 rounded-xl transition-all duration-200 placeholder-white/50"
-                  :style="{
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    border: errors.email ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.3)',
-                    color: 'white',
-                    outline: 'none',
-                    backdropFilter: 'blur(5px)'
-                  }"
-                  placeholder="Enter your email"
-                  @focus="handleFocus"
-                  @blur="handleBlur"
-                  @input="clearFieldError('email')"
-                />
-                <p v-if="errors.email" class="mt-1 text-sm text-red-300"
-                   :style="{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }">
-                  {{ errors.email }}
-                </p>
+                <div class="relative">
+                  <input
+                    id="email"
+                    v-model="email"
+                    type="email"
+                    name="email"
+                    autocomplete="email"
+                    class="w-full px-4 py-3 rounded-xl bg-white/15 border text-white placeholder-white/50 
+                           focus:bg-white/25 focus:border-white/50 focus:outline-none transition-all
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                    :class="[errors.email ? 'border-red-500' : 'border-white/30']"
+                    :placeholder="'Enter your email'"
+                    :disabled="loading"
+                    @input="errors.email = ''"
+                    @blur="validateEmail"
+                  />
+                  <!-- Email Icon -->
+                  <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                    <svg
+                      class="w-5 h-5 text-white/50"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1.5"
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <Transition name="fade">
+                  <p v-if="errors.email" class="mt-1 text-sm text-red-300 font-medium">
+                    {{ errors.email }}
+                  </p>
+                </Transition>
               </div>
 
               <!-- Password Field -->
               <div>
-                <label class="block text-sm font-medium mb-1"
-                       :style="{ color: 'rgba(255, 255, 255, 0.9)' }">
+                <label for="password" class="block text-sm font-medium mb-1 text-white/90">
                   Password
                 </label>
                 <div class="relative">
                   <input
+                    id="password"
                     v-model="password"
                     :type="showPassword ? 'text' : 'password'"
-                    class="w-full px-4 py-3 rounded-xl transition-all duration-200 placeholder-white/50"
-                    :style="{
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      border: errors.password ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.3)',
-                      color: 'white',
-                      outline: 'none',
-                      backdropFilter: 'blur(5px)'
-                    }"
-                    placeholder="Enter your password"
-                    @focus="handleFocus"
-                    @blur="handleBlur"
-                    @input="clearFieldError('password')"
+                    name="password"
+                    autocomplete="current-password"
+                    class="w-full px-4 py-3 rounded-xl bg-white/15 border text-white placeholder-white/50 
+                           focus:bg-white/25 focus:border-white/50 focus:outline-none transition-all pr-10
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                    :class="[errors.password ? 'border-red-500' : 'border-white/30']"
+                    :placeholder="'Enter your password'"
+                    :disabled="loading"
+                    @input="errors.password = ''"
                   />
-                  <button type="button" @click="showPassword = !showPassword"
-                    class="absolute right-3 top-1/2 transform -translate-y-1/2 transition-colors duration-200"
-                    :style="{ color: 'rgba(255, 255, 255, 0.7)' }">
-                    <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2.458 5.458C15.732 18.79 13.938 19.5 12 19.5c-1.938 0-3.732-.71-5.458-2.042C4.5 15.562 3 13.5 3 12s1.5-3.562 3.542-5.458C8.268 5.21 10.062 4.5 12 4.5c1.938 0 3.732.71 5.458 2.042C19.5 8.438 21 10.5 21 12s-1.5 3.562-3.542 5.458z" />
+                  <!-- Toggle Password Visibility -->
+                  <button
+                    type="button"
+                    @click="showPassword = !showPassword"
+                    class="absolute inset-y-0 right-3 flex items-center text-white/70 hover:text-white focus:outline-none transition-colors"
+                    :disabled="loading"
+                    aria-label="Toggle password visibility"
+                  >
+                    <svg
+                      v-if="!showPassword"
+                      class="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1.5"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
                     </svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.5 0-8.25-3-9-7.5a9.956 9.956 0 012.16-4.112M6.223 6.223A9.953 9.953 0 0112 4.5c4.5 0 8.25 3 9 7.5a9.953 9.953 0 01-4.223 6.277M6.223 6.223L3 3m3.223 3.223l11.314 11.314" />
+                    <svg
+                      v-else
+                      class="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1.5"
+                        d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.5 0-8.25-3-9-7.5a9.956 9.956 0 012.16-4.112M6.223 6.223A9.953 9.953 0 0112 4.5c4.5 0 8.25 3 9 7.5a9.953 9.953 0 01-4.223 6.277M6.223 6.223L3 3m3.223 3.223l11.314 11.314"
+                      />
                     </svg>
                   </button>
                 </div>
-                <p v-if="errors.password" class="mt-1 text-sm text-red-300"
-                   :style="{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }">
-                  {{ errors.password }}
-                </p>
+                <Transition name="fade">
+                  <p v-if="errors.password" class="mt-1 text-sm text-red-300 font-medium">
+                    {{ errors.password }}
+                  </p>
+                </Transition>
               </div>
 
-              <!-- Login Button -->
+              <!-- Submit Button -->
               <button
                 type="submit"
-                :disabled="loading"
-                class="relative w-full py-3 rounded-xl font-medium transition-all duration-200 overflow-hidden"
+                :disabled="loading || !isFormValid"
+                class="relative w-full py-3.5 rounded-xl font-semibold text-white transition-all 
+                       overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed
+                       hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                 :style="{
-                  background: 'linear-gradient(135deg, rgba(26, 73, 114, 0.9), rgba(15, 47, 74, 0.95))',
-                  color: 'white',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  backdropFilter: 'blur(5px)',
-                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
-                  opacity: loading ? 0.7 : 1,
-                  cursor: loading ? 'not-allowed' : 'pointer'
+                  background: 'linear-gradient(135deg, rgba(26, 73, 114, 0.95), rgba(15, 47, 74, 0.98))',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
                 }"
-                @mouseover="hoverButton = true"
-                @mouseleave="hoverButton = false"
               >
-                <div class="absolute inset-0 transition-opacity duration-200"
-                     :style="{ opacity: hoverButton && !loading ? 1 : 0, background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent)' }">
-                </div>
-                <span class="relative z-10 flex items-center justify-center">
-                  <svg v-if="loading" class="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <span class="relative z-10 flex items-center justify-center gap-2">
+                  <svg
+                    v-if="loading"
+                    class="animate-spin h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    />
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
-                  {{ loading ? "Logging in..." : "Login" }}
+                  <span>{{ loading ? 'Signing in...' : 'Sign In' }}</span>
                 </span>
               </button>
+
+              <!-- Forgot Password Link (Optional) -->
+              <div class="text-center mt-4">
+                <a
+                  href="#"
+                  class="text-sm text-white/70 hover:text-white transition-colors"
+                  @click.prevent="handleForgotPassword"
+                >
+                  Forgot password?
+                </a>
+              </div>
             </form>
           </div>
         </div>
@@ -169,9 +220,15 @@
 
     <!-- Password Change Modal -->
     <Transition name="modal">
-      <div v-if="showResetModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        v-if="showResetModal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        @click.self="closeResetModal"
+      >
+        <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
 
+        <!-- Modal Card -->
         <div class="relative w-full max-w-md">
           <div class="relative">
             <div class="absolute inset-0 bg-black/20 rounded-2xl blur-xl transform translate-y-2"></div>
@@ -180,181 +237,165 @@
               class="relative backdrop-blur-md rounded-2xl shadow-2xl p-8 border"
               :style="{
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                borderColor: 'rgba(255, 255, 255, 0.3)',
-                boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset'
+                borderColor: 'rgba(255, 255, 255, 0.3)'
               }"
             >
-              <div class="absolute inset-0 rounded-2xl pointer-events-none"
-                   :style="{ background: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.3), transparent 70%)' }">
-              </div>
+              <div
+                class="absolute inset-0 rounded-2xl pointer-events-none"
+                :style="{ background: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.3), transparent 70%)' }"
+              ></div>
 
               <div class="relative z-10">
+                <!-- Modal Header -->
                 <div class="text-center mb-6">
-                  <h2 class="text-2xl font-bold"
-                      :style="{ color: 'white', textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)' }">
-                    Change Password
-                  </h2>
-                  <p class="text-sm mt-2"
-                     :style="{ color: 'rgba(255, 255, 255, 0.9)', textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }">
-                    You must change your password before continuing.
+                  <h2 class="text-2xl font-bold text-white">Change Password</h2>
+                  <p class="text-sm mt-2 text-white/80">
+                    You must change your password before continuing
                   </p>
                 </div>
 
-                <form @submit.prevent="handleResetPassword">
+                <!-- Success Message -->
+                <Transition name="fade-slide">
+                  <div
+                    v-if="showSuccessMessage"
+                    class="mb-4 p-3 rounded-xl text-center bg-green-500/20 border border-green-500/50 text-white"
+                  >
+                    <div class="flex items-center justify-center gap-2">
+                      <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>{{ successMessage }}</span>
+                    </div>
+                  </div>
+                </Transition>
+
+                <form @submit.prevent="handleResetPassword" class="space-y-4">
                   <!-- Current Password -->
-                  <div class="mb-4">
-                    <label class="block text-sm font-medium mb-1" :style="{ color: 'rgba(255, 255, 255, 0.9)' }">
-                      Current Password
-                    </label>
+                  <div>
+                    <label class="block text-sm font-medium mb-1 text-white/90">Current Password</label>
                     <div class="relative">
                       <input
                         v-model="currentPassword"
                         :type="showCurrentPassword ? 'text' : 'password'"
+                        class="w-full px-4 py-3 rounded-xl bg-white/15 border text-white placeholder-white/50 
+                               focus:bg-white/25 focus:border-white/50 focus:outline-none transition-all pr-10"
+                        :class="[resetErrors.currentPassword ? 'border-red-500' : 'border-white/30']"
                         placeholder="Enter current password"
-                        class="w-full px-4 py-3 rounded-xl transition-all duration-200 placeholder-white/50"
-                        :style="{
-                          backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                          border: resetErrors.currentPassword ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.3)',
-                          color: 'white', outline: 'none', backdropFilter: 'blur(5px)'
-                        }"
-                        @focus="handleModalFocus"
-                        @blur="handleModalBlur"
+                        :disabled="resetLoading || showSuccessMessage"
                       />
-                      <button type="button" @click="showCurrentPassword = !showCurrentPassword"
-                        class="absolute right-3 top-1/2 transform -translate-y-1/2"
-                        :style="{ color: 'rgba(255, 255, 255, 0.7)' }">
-                        <svg v-if="!showCurrentPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2.458 5.458C15.732 18.79 13.938 19.5 12 19.5c-1.938 0-3.732-.71-5.458-2.042C4.5 15.562 3 13.5 3 12s1.5-3.562 3.542-5.458C8.268 5.21 10.062 4.5 12 4.5c1.938 0 3.732.71 5.458 2.042C19.5 8.438 21 10.5 21 12s-1.5 3.562-3.542 5.458z" />
+                      <button
+                        type="button"
+                        @click="showCurrentPassword = !showCurrentPassword"
+                        class="absolute inset-y-0 right-3 flex items-center text-white/70 hover:text-white"
+                        :disabled="resetLoading || showSuccessMessage"
+                      >
+                        <svg v-if="!showCurrentPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
-                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.5 0-8.25-3-9-7.5a9.956 9.956 0 012.16-4.112M6.223 6.223A9.953 9.953 0 0112 4.5c4.5 0 8.25 3 9 7.5a9.953 9.953 0 01-4.223 6.277M6.223 6.223L3 3m3.223 3.223l11.314 11.314" />
+                        <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.5 0-8.25-3-9-7.5a9.956 9.956 0 012.16-4.112M6.223 6.223A9.953 9.953 0 0112 4.5c4.5 0 8.25 3 9 7.5a9.953 9.953 0 01-4.223 6.277M6.223 6.223L3 3m3.223 3.223l11.314 11.314"/>
                         </svg>
                       </button>
                     </div>
-                    <p v-if="resetErrors.currentPassword" class="mt-1 text-sm text-red-300">{{ resetErrors.currentPassword }}</p>
+                    <Transition name="fade">
+                      <p v-if="resetErrors.currentPassword" class="mt-1 text-sm text-red-300">
+                        {{ resetErrors.currentPassword }}
+                      </p>
+                    </Transition>
                   </div>
 
                   <!-- New Password -->
-                  <div class="mb-4">
-                    <label class="block text-sm font-medium mb-1" :style="{ color: 'rgba(255, 255, 255, 0.9)' }">
-                      New Password
-                    </label>
+                  <div>
+                    <label class="block text-sm font-medium mb-1 text-white/90">New Password</label>
                     <div class="relative">
                       <input
                         v-model="newPassword"
                         :type="showNewPassword ? 'text' : 'password'"
+                        class="w-full px-4 py-3 rounded-xl bg-white/15 border text-white placeholder-white/50 
+                               focus:bg-white/25 focus:border-white/50 focus:outline-none transition-all pr-10"
+                        :class="[resetErrors.newPassword ? 'border-red-500' : 'border-white/30']"
                         placeholder="Enter new password"
-                        class="w-full px-4 py-3 rounded-xl transition-all duration-200 placeholder-white/50"
-                        :style="{
-                          backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                          border: resetErrors.newPassword ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.3)',
-                          color: 'white', outline: 'none', backdropFilter: 'blur(5px)'
-                        }"
-                        @focus="handleModalFocus"
-                        @blur="handleModalBlur"
+                        :disabled="resetLoading || showSuccessMessage"
                       />
-                      <button type="button" @click="showNewPassword = !showNewPassword"
-                        class="absolute right-3 top-1/2 transform -translate-y-1/2"
-                        :style="{ color: 'rgba(255, 255, 255, 0.7)' }">
-                        <svg v-if="!showNewPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2.458 5.458C15.732 18.79 13.938 19.5 12 19.5c-1.938 0-3.732-.71-5.458-2.042C4.5 15.562 3 13.5 3 12s1.5-3.562 3.542-5.458C8.268 5.21 10.062 4.5 12 4.5c1.938 0 3.732.71 5.458 2.042C19.5 8.438 21 10.5 21 12s-1.5 3.562-3.542 5.458z" />
+                      <button
+                        type="button"
+                        @click="showNewPassword = !showNewPassword"
+                        class="absolute inset-y-0 right-3 flex items-center text-white/70 hover:text-white"
+                        :disabled="resetLoading || showSuccessMessage"
+                      >
+                        <svg v-if="!showNewPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
-                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.5 0-8.25-3-9-7.5a9.956 9.956 0 012.16-4.112M6.223 6.223A9.953 9.953 0 0112 4.5c4.5 0 8.25 3 9 7.5a9.953 9.953 0 01-4.223 6.277M6.223 6.223L3 3m3.223 3.223l11.314 11.314" />
+                        <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.5 0-8.25-3-9-7.5a9.956 9.956 0 012.16-4.112M6.223 6.223A9.953 9.953 0 0112 4.5c4.5 0 8.25 3 9 7.5a9.953 9.953 0 01-4.223 6.277M6.223 6.223L3 3m3.223 3.223l11.314 11.314"/>
                         </svg>
                       </button>
                     </div>
-                    <p v-if="resetErrors.newPassword" class="mt-1 text-sm text-red-300">{{ resetErrors.newPassword }}</p>
+                    <Transition name="fade">
+                      <p v-if="resetErrors.newPassword" class="mt-1 text-sm text-red-300">
+                        {{ resetErrors.newPassword }}
+                      </p>
+                    </Transition>
                   </div>
 
                   <!-- Confirm Password -->
-                  <div class="mb-6">
-                    <label class="block text-sm font-medium mb-1" :style="{ color: 'rgba(255, 255, 255, 0.9)' }">
-                      Confirm New Password
-                    </label>
+                  <div>
+                    <label class="block text-sm font-medium mb-1 text-white/90">Confirm Password</label>
                     <div class="relative">
                       <input
                         v-model="confirmPassword"
                         :type="showConfirmPassword ? 'text' : 'password'"
+                        class="w-full px-4 py-3 rounded-xl bg-white/15 border text-white placeholder-white/50 
+                               focus:bg-white/25 focus:border-white/50 focus:outline-none transition-all pr-10"
+                        :class="[resetErrors.confirmPassword ? 'border-red-500' : 'border-white/30']"
                         placeholder="Confirm new password"
-                        class="w-full px-4 py-3 rounded-xl transition-all duration-200 placeholder-white/50"
-                        :style="{
-                          backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                          border: resetErrors.confirmPassword ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.3)',
-                          color: 'white', outline: 'none', backdropFilter: 'blur(5px)'
-                        }"
-                        @focus="handleModalFocus"
-                        @blur="handleModalBlur"
+                        :disabled="resetLoading || showSuccessMessage"
                       />
-                      <button type="button" @click="showConfirmPassword = !showConfirmPassword"
-                        class="absolute right-3 top-1/2 transform -translate-y-1/2"
-                        :style="{ color: 'rgba(255, 255, 255, 0.7)' }">
-                        <svg v-if="!showConfirmPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2.458 5.458C15.732 18.79 13.938 19.5 12 19.5c-1.938 0-3.732-.71-5.458-2.042C4.5 15.562 3 13.5 3 12s1.5-3.562 3.542-5.458C8.268 5.21 10.062 4.5 12 4.5c1.938 0 3.732.71 5.458 2.042C19.5 8.438 21 10.5 21 12s-1.5 3.562-3.542 5.458z" />
+                      <button
+                        type="button"
+                        @click="showConfirmPassword = !showConfirmPassword"
+                        class="absolute inset-y-0 right-3 flex items-center text-white/70 hover:text-white"
+                        :disabled="resetLoading || showSuccessMessage"
+                      >
+                        <svg v-if="!showConfirmPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
-                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.5 0-8.25-3-9-7.5a9.956 9.956 0 012.16-4.112M6.223 6.223A9.953 9.953 0 0112 4.5c4.5 0 8.25 3 9 7.5a9.953 9.953 0 01-4.223 6.277M6.223 6.223L3 3m3.223 3.223l11.314 11.314" />
+                        <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.5 0-8.25-3-9-7.5a9.956 9.956 0 012.16-4.112M6.223 6.223A9.953 9.953 0 0112 4.5c4.5 0 8.25 3 9 7.5a9.953 9.953 0 01-4.223 6.277M6.223 6.223L3 3m3.223 3.223l11.314 11.314"/>
                         </svg>
                       </button>
                     </div>
-                    <p v-if="resetErrors.confirmPassword" class="mt-1 text-sm text-red-300">{{ resetErrors.confirmPassword }}</p>
+                    <Transition name="fade">
+                      <p v-if="resetErrors.confirmPassword" class="mt-1 text-sm text-red-300">
+                        {{ resetErrors.confirmPassword }}
+                      </p>
+                    </Transition>
                   </div>
 
-                  <!-- Success Message -->
-                  <Transition name="fade">
-                    <div
-                      v-if="showSuccessMessage"
-                      class="mb-4 p-3 rounded-xl text-center"
-                      :style="{
-                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                        border: '1px solid rgba(34, 197, 94, 0.5)',
-                        color: 'white',
-                        backdropFilter: 'blur(5px)'
-                      }"
-                    >
-                      <div class="flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <span>{{ successMessage }}</span>
-                      </div>
-                    </div>
-                  </Transition>
-
-                  <!-- Action Buttons -->
-                  <div class="flex justify-end gap-3">
+                  <!-- Modal Actions -->
+                  <div class="flex justify-end gap-3 mt-6">
                     <button
                       type="button"
                       @click="closeResetModal"
                       :disabled="resetLoading || showSuccessMessage"
-                      class="px-5 py-2.5 rounded-xl font-medium transition-all duration-200"
-                      :style="{
-                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                        color: 'white',
-                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                        backdropFilter: 'blur(5px)',
-                        opacity: (resetLoading || showSuccessMessage) ? 0.5 : 1,
-                        cursor: (resetLoading || showSuccessMessage) ? 'not-allowed' : 'pointer'
-                      }"
+                      class="px-5 py-2.5 rounded-xl font-medium bg-white/15 border border-white/30 
+                             text-white hover:bg-white/25 transition-all disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      :disabled="resetLoading || showSuccessMessage"
-                      class="relative px-5 py-2.5 rounded-xl font-medium transition-all duration-200 overflow-hidden"
-                      :style="{
-                        background: 'linear-gradient(135deg, rgba(26, 73, 114, 0.9), rgba(15, 47, 74, 0.95))',
-                        color: 'white',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        backdropFilter: 'blur(5px)',
-                        opacity: (resetLoading || showSuccessMessage) ? 0.7 : 1,
-                        cursor: (resetLoading || showSuccessMessage) ? 'not-allowed' : 'pointer'
-                      }"
+                      :disabled="resetLoading || showSuccessMessage || !isResetFormValid"
+                      class="px-5 py-2.5 rounded-xl font-medium bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] 
+                             text-white border border-white/20 transition-all disabled:opacity-50
+                             hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      <span class="relative z-10 flex items-center justify-center gap-2">
-                        <span v-if="resetLoading" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                        {{ resetLoading ? "Changing..." : showSuccessMessage ? "Success!" : "Change Password" }}
+                      <span class="flex items-center justify-center gap-2">
+                        <span
+                          v-if="resetLoading"
+                          class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"
+                        ></span>
+                        {{ resetLoading ? 'Changing...' : 'Change Password' }}
                       </span>
                     </button>
                   </div>
@@ -369,30 +410,35 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
+import Swal from "sweetalert2";
 import authService from "@/services/auth";
 import { useAuth } from '@/composables/useAuth';
-import backgroundImg from "../../assets/images/bg.jpg";
+import backgroundImg from "@/assets/images/bg.jpg";
+import api from "@/services/api"
+import userService from "@/services/userServices";
+import auditLogService from "@/services/auditLogService";
+import approvalService from "@/services/approvalService";
+import caseCategoryService from "@/services/caseCategoryService";
+// Import appUtils setters
+import { 
+  setUser,
+  setDashboard
+} from "@/utils/appUtils";
 
 const router = useRouter();
 const { refreshUser } = useAuth();
 const backgroundImage = ref(backgroundImg);
 
-// ── Fade-in animation ─────────────────────────────────────────────────────
-const visible = ref(false);
-onMounted(() => {
-  setTimeout(() => { visible.value = true; }, 0);
-});
-
-// Login form state
+// ==================== LOGIN FORM STATE ====================
 const email = ref("");
 const password = ref("");
 const loading = ref(false);
 const showPassword = ref(false);
-const hoverButton = ref(false);
+const error = ref("");
 
-// Modal state
+// ==================== PASSWORD CHANGE MODAL STATE ====================
 const showResetModal = ref(false);
 const resetEmail = ref("");
 const currentPassword = ref("");
@@ -402,62 +448,184 @@ const resetLoading = ref(false);
 const showSuccessMessage = ref(false);
 const successMessage = ref("");
 
-// Password visibility toggles
+// ==================== PASSWORD VISIBILITY ====================
 const showCurrentPassword = ref(false);
 const showNewPassword = ref(false);
 const showConfirmPassword = ref(false);
 
-// Error state
-const errors = reactive({ email: "", password: "", general: "" });
-const resetErrors = reactive({ currentPassword: "", newPassword: "", confirmPassword: "" });
+// ==================== ERROR STATE ====================
+const errors = reactive({ 
+  email: "", 
+  password: "" 
+});
 
-// ─── LOGIN HANDLER ────────────────────────────────────────────────────────
+const resetErrors = reactive({ 
+  currentPassword: "", 
+  newPassword: "", 
+  confirmPassword: "" 
+});
+
+// ==================== COMPUTED VALIDATION ====================
+const isFormValid = computed(() => {
+  return email.value && password.value && !errors.email && !errors.password;
+});
+
+const isResetFormValid = computed(() => {
+  return (
+    currentPassword.value &&
+    newPassword.value &&
+    confirmPassword.value &&
+    newPassword.value === confirmPassword.value &&
+    !resetErrors.currentPassword &&
+    !resetErrors.newPassword &&
+    !resetErrors.confirmPassword
+  );
+});
+
+// ==================== VALIDATION METHODS ====================
+const validateEmail = () => {
+  if (!email.value) {
+    errors.email = "Email is required";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+    errors.email = "Please enter a valid email address";
+  } else {
+    errors.email = "";
+  }
+};
+
+// ==================== LOAD ONLY DASHBOARD (FAST) ====================
+const loadDashboardOnly = async () => {
+  try {
+    const response = await api.get('/dashboard');
+    if (response.data) {
+      setDashboard(response.data);
+      console.log('✅ Dashboard loaded');
+      return true;
+    }
+  } catch (error) {
+    console.error('Dashboard load failed:', error);
+    return false;
+  }
+};
+
+// ==================== LOGIN HANDLER ====================
 const handleLogin = async () => {
+  // Validate before submission
+  if (!email.value || !password.value) {
+    if (!email.value) errors.email = "Email is required";
+    if (!password.value) errors.password = "Password is required";
+    
+    Swal.fire({
+      icon: "warning",
+      title: "Invalid Inputs",
+      text: "Please fill in all fields",
+      showConfirmButton: false,
+      timer: 1500,
+    });
+    return;
+  }
+
+  validateEmail();
+  if (!isFormValid.value) return;
+
   loading.value = true;
-  
-  errors.email = "";
-  errors.password = "";
-  errors.general = "";
+  error.value = "";
 
   try {
+    // Step 1: Login
     const response = await authService.login({ 
-      email: email.value, 
+      email: email.value.trim(), 
       password: password.value 
     });
-    
+
     if (response.requires_password_change) {
       resetEmail.value = response.user.email;
       showResetModal.value = true;
+      Swal.close();
       return;
     }
-    
-    // Refresh auth state
+
+    // Step 2: Store user
+    setUser(response.user);
     await refreshUser();
+
+    // Step 3: Load ONLY dashboard data (one request, fast)
+    await loadDashboardOnly();
+
+    // Step 4: Close loading
+    Swal.close();
+
+    // Step 5: Show success toast
+    Swal.fire({
+      icon: "success",
+      title: "Welcome!",
+      text: `Login successful`,
+      timer: 1000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
+    });
+    await userService.getUsers({ per_page: 100 }); // <-- THIS MUST BE HERE
+    await auditLogService.getCombinedLogs({ per_page: 100 }); 
+    await approvalService.getApprovals({ per_page: 100 });
+    await caseCategoryService.getCategories({ per_page: 100 });
+    router.replace("/dashboard");
+
+  } catch (err) {
+    Swal.close();
+    handleLoginError(err);
     
-    // Navigate to dashboard - will show INSTANTLY from cache
-    router.push("/dashboard");
-    
-  } catch (error) {
-    if (error.response?.data?.errors) {
-      const backendErrors = error.response.data.errors;
-      if (backendErrors.email) errors.email = backendErrors.email[0];
-      if (backendErrors.password) errors.password = backendErrors.password[0];
-    } else if (error.response?.data?.message) {
-      errors.general = error.response.data.message;
-    } else {
-      errors.general = "An error occurred. Please try again.";
-    }
+    Swal.fire({
+      icon: "error",
+      title: "Login Failed",
+      text: err.response?.data?.message || err.message || "Invalid credentials",
+      timer: 1500,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
+    });
   } finally {
     loading.value = false;
   }
 };
 
-// ─── PASSWORD CHANGE HANDLER ──────────────────────────────────────────────
+// ==================== ERROR HANDLING ====================
+const handleLoginError = (err) => {
+  if (err.response?.data?.errors) {
+    const backendErrors = err.response.data.errors;
+    if (backendErrors.email) errors.email = backendErrors.email[0];
+    if (backendErrors.password) errors.password = backendErrors.password[0];
+  } else if (err.response?.data?.message) {
+    error.value = err.response.data.message;
+  } else {
+    error.value = "Unable to connect to server. Please try again.";
+  }
+};
+
+// ==================== PASSWORD RESET HANDLER ====================
 const handleResetPassword = async () => {
-  resetErrors.currentPassword = "";
-  resetErrors.newPassword = "";
-  resetErrors.confirmPassword = "";
-  
+  // Validation
+  if (!currentPassword.value) {
+    resetErrors.currentPassword = "Current password is required";
+    return;
+  }
+  if (!newPassword.value) {
+    resetErrors.newPassword = "New password is required";
+    return;
+  }
+  if (!confirmPassword.value) {
+    resetErrors.confirmPassword = "Please confirm your password";
+    return;
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    resetErrors.confirmPassword = "Passwords do not match";
+    return;
+  }
+  if (newPassword.value.length < 6) {
+    resetErrors.newPassword = "Password must be at least 6 characters";
+    return;
+  }
+
   resetLoading.value = true;
 
   try {
@@ -472,60 +640,49 @@ const handleResetPassword = async () => {
     successMessage.value = response.message || "Password updated successfully!";
 
     setTimeout(() => {
-      showResetModal.value = false;
-      showSuccessMessage.value = false;
-      currentPassword.value = "";
-      newPassword.value = "";
-      confirmPassword.value = "";
-      errors.general = "Password updated. Please login with your new password.";
+      closeResetModal();
+      error.value = "Password updated. Please login with your new password.";
     }, 2000);
 
-  } catch (error) {
-    if (error.response?.data?.errors) {
-      const backendErrors = error.response.data.errors;
-      if (backendErrors.current_password) resetErrors.currentPassword = backendErrors.current_password[0];
-      if (backendErrors.new_password) resetErrors.newPassword = backendErrors.new_password[0];
-      if (backendErrors.new_password_confirmation) resetErrors.confirmPassword = backendErrors.new_password_confirmation[0];
-    } else if (error.response?.data?.message) {
-      resetErrors.newPassword = error.response.data.message;
+  } catch (err) {
+    if (err.response?.data?.errors) {
+      const be = err.response.data.errors;
+      if (be.current_password) resetErrors.currentPassword = be.current_password[0];
+      if (be.new_password) resetErrors.newPassword = be.new_password[0];
+      if (be.new_password_confirmation) resetErrors.confirmPassword = be.new_password_confirmation[0];
+    } else {
+      resetErrors.newPassword = err.message || "Failed to change password";
     }
   } finally {
     resetLoading.value = false;
   }
 };
 
+// ==================== MODAL CONTROLS ====================
 const closeResetModal = () => {
   showResetModal.value = false;
+  showSuccessMessage.value = false;
   currentPassword.value = "";
   newPassword.value = "";
   confirmPassword.value = "";
-  showSuccessMessage.value = false;
+  resetErrors.currentPassword = "";
+  resetErrors.newPassword = "";
+  resetErrors.confirmPassword = "";
 };
 
-// Input focus handlers
-const handleFocus = (e) => {
-  e.target.style.backgroundColor = "rgba(255, 255, 255, 0.25)";
-  e.target.style.borderColor = "rgba(255, 255, 255, 0.5)";
-};
-
-const handleBlur = (e) => {
-  e.target.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
-  e.target.style.borderColor = "rgba(255, 255, 255, 0.3)";
-};
-
-const handleModalFocus = handleFocus;
-const handleModalBlur = handleBlur;
-
-const clearFieldError = (field) => {
-  errors[field] = "";
+// ==================== OPTIONAL FORGOT PASSWORD ====================
+const handleForgotPassword = () => {
+  console.log("Forgot password clicked");
 };
 </script>
-
 <style scoped>
 .min-h-screen::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.3);
   pointer-events: none;
 }
@@ -535,45 +692,77 @@ const clearFieldError = (field) => {
   z-index: 10;
 }
 
-input, button, a {
-  transition: all 0.2s ease;
-}
-
 input::placeholder {
   color: rgba(255, 255, 255, 0.5);
-}
-
-.text-red-300 {
-  color: #fca5a5;
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
-  padding-left: 0.25rem;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  animation: shake 0.5s ease-in-out;
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-  20%, 40%, 60%, 80% { transform: translateX(2px); }
+  font-weight: 300;
 }
 
 .modal-enter-active,
 .modal-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
-  transform: scale(0.9);
+  transform: scale(0.95);
 }
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease;
 }
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@media (max-width: 640px) {
+  .backdrop-blur-md {
+    backdrop-blur: 8px;
+  }
+  
+  .p-8 {
+    padding: 1.5rem;
+  }
+  
+  h1.text-3xl {
+    font-size: 1.5rem;
+  }
+}
+
+input:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
 }
 </style>

@@ -43,160 +43,176 @@ class ApprovalsController extends Controller
      * GET /admin/approvals
      * Get all movements with filters
      */
-    public function index(Request $request): JsonResponse
-    {
-        // Check role at the beginning of each method
-        $this->checkRole();
-        
-        try {
-            $status = $request->input('status', 'ALL');
-            $type = $request->input('type', 'all');
-            $direction = $request->input('direction', 'ALL');
-            $search = $request->input('search', '');
+/**
+ * GET /admin/approvals
+ * Get all movements with filters
+ */
+public function index(Request $request): JsonResponse
+{
+    // Check role at the beginning of each method
+    $this->checkRole();
+    
+    try {
+        $status = $request->input('status', 'ALL');
+        $type = $request->input('type', 'all');
+        $direction = $request->input('direction', 'ALL');
+        $search = $request->input('search', '');
 
-            $result = [];
+        $result = [];
 
-            // Get checklist movements
-            if ($type === 'all' || $type === 'checklist') {
-                $query = ChecklistMovement::with([
-                        'checklist:id,task',
-                        'recorder:id,full_name',
-                        'approver:id,full_name',
-                        'case:id,case_code'
-                    ])
-                    ->orderBy('created_at', 'desc');
+        // Get checklist movements - FIXED: Don't try to select 'task' column
+        if ($type === 'all' || $type === 'checklist') {
+            $query = ChecklistMovement::with([
+                    'checklist' => function($q) {
+                        $q->select('id', 'document_type_id', 'status', 'due_date', 'assigned_to', 'notes', 'is_out')
+                          ->with('document:id,type,category,color');
+                    },
+                    'recorder:id,full_name',
+                    'approver:id,full_name',
+                    'case:id,case_code'
+                ])
+                ->orderBy('created_at', 'desc');
 
-                if ($status !== 'ALL') {
-                    $query->where('approval_status', $status);
-                }
-
-                if ($direction !== 'ALL') {
-                    $query->where('type', $direction);
-                }
-
-                $checklists = $query->get();
-
-                foreach ($checklists as $m) {
-                    $result[] = [
-                        'id' => $m->id,
-                        'source' => 'checklist',
-                        'case_id' => $m->case_id,
-                        'case_code' => $m->case?->case_code,
-                        'type' => $m->type,
-                        'approval_status' => $m->approval_status,
-                        'from_to' => $m->from_to,
-                        'date' => $m->date,
-                        'purpose' => $m->purpose,
-                        'handled_by' => $m->handled_by,
-                        'task_name' => $m->task_name,
-                        'notes' => $m->notes,
-                        'checklist' => $m->checklist ? [
-                            'id' => $m->checklist->id,
-                            'task' => $m->checklist->task
-                        ] : null,
-                        'recorder' => $m->recorder ? [
-                            'id' => $m->recorder->id,
-                            'full_name' => $m->recorder->full_name
-                        ] : null,
-                        'approver' => $m->approver ? [
-                            'id' => $m->approver->id,
-                            'full_name' => $m->approver->full_name
-                        ] : null,
-                        'created_at' => $m->created_at,
-                        'approved_at' => $m->approved_at
-                    ];
-                }
+            if ($status !== 'ALL') {
+                $query->where('approval_status', $status);
             }
 
-            // Get folder movements
-            if ($type === 'all' || $type === 'folder') {
-                $query = FolderMovement::with([
-                        'recorder:id,full_name',
-                        'approver:id,full_name',
-                        'case:id,case_code'
-                    ])
-                    ->orderBy('created_at', 'desc');
-
-                if ($status !== 'ALL') {
-                    $query->where('approval_status', $status);
-                }
-
-                if ($direction !== 'ALL') {
-                    $query->where('type', $direction);
-                }
-
-                $folders = $query->get();
-
-                foreach ($folders as $m) {
-                    $result[] = [
-                        'id' => $m->id,
-                        'source' => 'folder',
-                        'case_id' => $m->case_id,
-                        'case_code' => $m->case?->case_code,
-                        'type' => $m->type,
-                        'approval_status' => $m->approval_status,
-                        'from_to' => $m->from_to,
-                        'date' => $m->date,
-                        'purpose' => $m->purpose,
-                        'handled_by' => $m->handled_by,
-                        'notes' => $m->notes,
-                        'recorder' => $m->recorder ? [
-                            'id' => $m->recorder->id,
-                            'full_name' => $m->recorder->full_name
-                        ] : null,
-                        'approver' => $m->approver ? [
-                            'id' => $m->approver->id,
-                            'full_name' => $m->approver->full_name
-                        ] : null,
-                        'created_at' => $m->created_at,
-                        'approved_at' => $m->approved_at
-                    ];
-                }
+            if ($direction !== 'ALL') {
+                $query->where('type', $direction);
             }
 
-            // Apply search filter
-            if ($search) {
-                $search = strtolower($search);
-                $result = array_filter($result, function($item) use ($search) {
-                    return str_contains(strtolower($item['case_code'] ?? ''), $search)
-                        || str_contains(strtolower($item['from_to'] ?? ''), $search)
-                        || str_contains(strtolower($item['handled_by'] ?? ''), $search)
-                        || str_contains(strtolower($item['purpose'] ?? ''), $search)
-                        || str_contains(strtolower($item['task_name'] ?? ''), $search)
-                        || str_contains(strtolower($item['recorder']['full_name'] ?? ''), $search);
-                });
+            $checklists = $query->get();
+
+            foreach ($checklists as $m) {
+                // Get task name from document if available
+                $taskName = $m->task_name;
+                if (!$taskName && $m->checklist && $m->checklist->document) {
+                    $taskName = $m->checklist->document->type;
+                } elseif (!$taskName && $m->checklist) {
+                    $taskName = 'Checklist Item';
+                }
+
+                $result[] = [
+                    'id' => $m->id,
+                    'source' => 'checklist',
+                    'case_id' => $m->case_id,
+                    'case_code' => $m->case?->case_code,
+                    'type' => $m->type,
+                    'approval_status' => $m->approval_status,
+                    'from_to' => $m->from_to,
+                    'date' => $m->date,
+                    'purpose' => $m->purpose,
+                    'handled_by' => $m->handled_by,
+                    'task_name' => $taskName,
+                    'notes' => $m->notes,
+                    'checklist' => $m->checklist ? [
+                        'id' => $m->checklist->id,
+                        'document_type' => $m->checklist->document?->type,
+                        'status' => $m->checklist->status,
+                        'assigned_to' => $m->checklist->assigned_to,
+                    ] : null,
+                    'recorder' => $m->recorder ? [
+                        'id' => $m->recorder->id,
+                        'full_name' => $m->recorder->full_name
+                    ] : null,
+                    'approver' => $m->approver ? [
+                        'id' => $m->approver->id,
+                        'full_name' => $m->approver->full_name
+                    ] : null,
+                    'created_at' => $m->created_at,
+                    'approved_at' => $m->approved_at
+                ];
             }
-
-            // Sort: PENDING first, then by date
-            usort($result, function($a, $b) {
-                if ($a['approval_status'] === 'PENDING' && $b['approval_status'] !== 'PENDING') return -1;
-                if ($a['approval_status'] !== 'PENDING' && $b['approval_status'] === 'PENDING') return 1;
-                return strtotime($b['date']) - strtotime($a['date']);
-            });
-
-            // Calculate stats
-            $stats = [
-                'total' => count($result),
-                'pending' => count(array_filter($result, fn($i) => $i['approval_status'] === 'PENDING')),
-                'approved' => count(array_filter($result, fn($i) => $i['approval_status'] === 'APPROVED')),
-                'rejected' => count(array_filter($result, fn($i) => $i['approval_status'] === 'REJECTED'))
-            ];
-
-            return response()->json([
-                'success' => true,
-                'data' => array_values($result),
-                'stats' => $stats
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch approvals',
-                'error' => $e->getMessage()
-            ], 500);
         }
-    }
 
+        // Get folder movements
+        if ($type === 'all' || $type === 'folder') {
+            $query = FolderMovement::with([
+                    'recorder:id,full_name',
+                    'approver:id,full_name',
+                    'case:id,case_code'
+                ])
+                ->orderBy('created_at', 'desc');
+
+            if ($status !== 'ALL') {
+                $query->where('approval_status', $status);
+            }
+
+            if ($direction !== 'ALL') {
+                $query->where('type', $direction);
+            }
+
+            $folders = $query->get();
+
+            foreach ($folders as $m) {
+                $result[] = [
+                    'id' => $m->id,
+                    'source' => 'folder',
+                    'case_id' => $m->case_id,
+                    'case_code' => $m->case?->case_code,
+                    'type' => $m->type,
+                    'approval_status' => $m->approval_status,
+                    'from_to' => $m->from_to,
+                    'date' => $m->date,
+                    'purpose' => $m->purpose,
+                    'handled_by' => $m->handled_by,
+                    'notes' => $m->notes,
+                    'recorder' => $m->recorder ? [
+                        'id' => $m->recorder->id,
+                        'full_name' => $m->recorder->full_name
+                    ] : null,
+                    'approver' => $m->approver ? [
+                        'id' => $m->approver->id,
+                        'full_name' => $m->approver->full_name
+                    ] : null,
+                    'created_at' => $m->created_at,
+                    'approved_at' => $m->approved_at
+                ];
+            }
+        }
+
+        // Apply search filter
+        if ($search) {
+            $search = strtolower($search);
+            $result = array_filter($result, function($item) use ($search) {
+                return str_contains(strtolower($item['case_code'] ?? ''), $search)
+                    || str_contains(strtolower($item['from_to'] ?? ''), $search)
+                    || str_contains(strtolower($item['handled_by'] ?? ''), $search)
+                    || str_contains(strtolower($item['purpose'] ?? ''), $search)
+                    || str_contains(strtolower($item['task_name'] ?? ''), $search)
+                    || str_contains(strtolower($item['recorder']['full_name'] ?? ''), $search);
+            });
+        }
+
+        // Sort: PENDING first, then by date
+        usort($result, function($a, $b) {
+            if ($a['approval_status'] === 'PENDING' && $b['approval_status'] !== 'PENDING') return -1;
+            if ($a['approval_status'] !== 'PENDING' && $b['approval_status'] === 'PENDING') return 1;
+            return strtotime($b['date']) - strtotime($a['date']);
+        });
+
+        // Calculate stats
+        $stats = [
+            'total' => count($result),
+            'pending' => count(array_filter($result, fn($i) => $i['approval_status'] === 'PENDING')),
+            'approved' => count(array_filter($result, fn($i) => $i['approval_status'] === 'APPROVED')),
+            'rejected' => count(array_filter($result, fn($i) => $i['approval_status'] === 'REJECTED'))
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => array_values($result),
+            'stats' => $stats
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch approvals',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
     /**
      * GET /admin/approvals/pending-count
      * Get count of pending approvals for badge

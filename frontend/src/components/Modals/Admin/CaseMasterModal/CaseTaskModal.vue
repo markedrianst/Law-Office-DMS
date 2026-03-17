@@ -505,9 +505,10 @@ const syncTask = () => {
   if (props.task) {
     console.log('Syncing task:', props.task);
     
-    // Map the task data to local form
+    // Map the task data to local form - NO 'task' field
     Object.assign(localTask, {
-      task: props.task.task || props.task.document_type || '',
+      // Use document_type as the task description
+      task: props.task.document_type || 'Untitled Task',
       document_type_id: props.task.document_type_id || null,
       document_type: props.task.document_type || '',
       document_category: props.task.document_category || '',
@@ -520,18 +521,6 @@ const syncTask = () => {
       created_at: props.task.created_at || null,
       updated_at: props.task.updated_at || null,
     });
-
-    // If document_type_id is missing but we have document_type, try to find it
-    if (!localTask.document_type_id && localTask.document_type && documents.value?.length > 0) {
-      const matched = documents.value.find(
-        d => d.type.toLowerCase() === localTask.document_type.toLowerCase()
-      );
-      if (matched) {
-        localTask.document_type_id = matched.id;
-        localTask.document_category = matched.category || '';
-        localTask.document_color = matched.color || '#94a3b8';
-      }
-    }
 
     // Pre-fill doc search box
     docSearch.value = localTask.document_type || '';
@@ -623,7 +612,8 @@ const handleSave = () => {
   }
 
   const payload = {
-    task: localTask.task || localTask.document_type,
+    // Use document_type as task
+    task: localTask.document_type,
     document_type_id: localTask.document_type_id,
     document_type: localTask.document_type,
     document_category: localTask.document_category,

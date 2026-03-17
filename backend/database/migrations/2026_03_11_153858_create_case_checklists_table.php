@@ -12,11 +12,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('case_id')->constrained()->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users');
-            
-            $table->string('task');
+            $table->foreignId('document_type_id')->nullable()->constrained('documents')->nullOnDelete();
+
             $table->enum('status', ['todo', 'in-progress', 'done'])->default('todo');
             $table->date('due_date')->nullable();
-            
             // Assignment
             $table->foreignId('assigned_clerk_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('assigned_to')->nullable();
@@ -24,12 +23,6 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->boolean('is_out')->default(false);
             $table->timestamp('completed_at')->nullable();
-            // In case_checklists table migration
-            $table->foreignId('document_type_id')->nullable()->constrained('documents')->nullOnDelete();
-            $table->string('document_type')->nullable();
-            $table->string('document_category')->nullable();
-            $table->string('document_color')->nullable();
-            
             $table->timestamps();
             
             $table->index(['case_id', 'status']);

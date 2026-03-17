@@ -20,7 +20,7 @@
         </div>
       </div>
 
-      <!-- Total Users -->
+      <!-- Total Users (REAL-TIME UPDATES) -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
@@ -41,7 +41,7 @@
         </div>
       </div>
 
-      <!-- Pending Approvals (Combined) -->
+      <!-- Pending Approvals -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -62,7 +62,7 @@
         </div>
       </div>
 
-      <!-- Total Clients -->
+      <!-- Total Clients (REAL-TIME UPDATES) -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
@@ -77,34 +77,6 @@
       </div>
     </div>
 
-    <!-- User Activity Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 class="text-sm font-semibold text-slate-700 mb-4">System Activity (Last 7 Days)</h3>
-        <div class="h-64 flex items-center justify-center bg-slate-50 rounded-xl">
-          <p class="text-slate-400">Activity chart coming soon</p>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 class="text-sm font-semibold text-slate-700 mb-4">User Logins Today</h3>
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-600">Active Users Today</span>
-            <span class="text-lg font-bold text-[#1a4972]">{{ displayAdminStats.active_today || 0 }}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-600">Logins Today</span>
-            <span class="text-lg font-bold text-[#1a4972]">{{ displayAdminStats.logins_today || 0 }}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-600">Activities (7 days)</span>
-            <span class="text-lg font-bold text-[#1a4972]">{{ displayAdminStats.activities_last_7_days || 0 }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Recent Activities -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100">
@@ -116,12 +88,15 @@
             <div class="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
             <div class="flex-1">
               <p class="text-sm text-slate-700">
-                <span class="font-semibold">{{ activity.user }}</span>
+                <span class="font-semibold">{{ activity.user_name || 'System' }}</span>
                 {{ activity.action }}
               </p>
-              <p class="text-xs text-slate-400 mt-1">{{ formatDate(activity.created_at) }}</p>
+              <p class="text-xs text-slate-400 mt-1">{{ formatDateTime(activity.created_at) }}</p>
             </div>
           </div>
+        </div>
+        <div v-if="!displayRecentActivities.length" class="px-6 py-8 text-center text-slate-400">
+          No recent activities
         </div>
       </div>
     </div>
@@ -129,7 +104,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { 
+  formatDateTime,
+  listenForUpdates,
+  getUsers,
+  getClients
+} from '@/utils/appUtils';
 
 const props = defineProps({
   stats: Object,
@@ -140,7 +121,7 @@ const props = defineProps({
   pendingTotal: [Number, String]
 });
 
-// Create reactive local copies that update when props change
+// Create reactive local copies
 const displayStats = ref({ ...props.stats });
 const displayAdminStats = ref({ ...props.adminStats });
 const displayRecentActivities = ref([...props.recentActivities || []]);
@@ -148,38 +129,76 @@ const displayPendingDocuments = ref(props.pendingDocuments || 0);
 const displayPendingMovements = ref(props.pendingMovements || 0);
 const displayPendingTotal = ref(props.pendingTotal || 0);
 
-// Watch for prop changes and update local refs
-watch(() => props.stats, (newVal) => {
-  displayStats.value = { ...newVal };
-}, { deep: true, immediate: true });
+// ==================== REAL-TIME UPDATE HANDLERS ====================
 
-watch(() => props.adminStats, (newVal) => {
-  displayAdminStats.value = { ...newVal };
-}, { deep: true, immediate: true });
-
-watch(() => props.recentActivities, (newVal) => {
-  displayRecentActivities.value = [...(newVal || [])];
-}, { deep: true, immediate: true });
-
-watch(() => props.pendingDocuments, (newVal) => {
-  displayPendingDocuments.value = newVal || 0;
-}, { immediate: true });
-
-watch(() => props.pendingMovements, (newVal) => {
-  displayPendingMovements.value = newVal || 0;
-}, { immediate: true });
-
-watch(() => props.pendingTotal, (newVal) => {
-  displayPendingTotal.value = newVal || 0;
-}, { immediate: true });
-
-const formatDate = (date) => {
-  if (!date) return '';
-  return new Date(date).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+// Update when users change (add/edit/delete)
+const handleUsersUpdate = (event) => {
+  const users = event.detail || [];
+  const lawyers = users.filter(u => u.role?.toLowerCase() === 'lawyer').length;
+  const clerks = users.filter(u => u.role?.toLowerCase() === 'clerk').length;
+  
+  displayAdminStats.value = {
+    ...displayAdminStats.value,
+    total_users: users.length,
+    lawyers,
+    clerks
+  };
 };
+
+// Update when clients change (add/edit/delete)
+const handleClientsUpdate = (event) => {
+  const clients = event.detail || [];
+  displayStats.value = {
+    ...displayStats.value,
+    total_clients: clients.length
+  };
+};
+
+// Update when dashboard data changes
+const handleDashboardUpdate = (event) => {
+  const dashboard = event.detail;
+  if (dashboard) {
+    if (dashboard.stats) displayStats.value = { ...dashboard.stats };
+    if (dashboard.adminStats) displayAdminStats.value = { ...dashboard.adminStats };
+    if (dashboard.recentActivities) displayRecentActivities.value = [...dashboard.recentActivities];
+  }
+};
+
+// Cleanup functions
+let cleanupUsers, cleanupClients, cleanupDashboard;
+
+onMounted(() => {
+  // Listen for real-time updates
+  cleanupUsers = listenForUpdates('users-updated', handleUsersUpdate);
+  cleanupClients = listenForUpdates('clients-updated', handleClientsUpdate);
+  cleanupDashboard = listenForUpdates('dashboard-updated', handleDashboardUpdate);
+  
+  // Initial sync with current data
+  const users = getUsers();
+  if (users?.length) {
+    const lawyers = users.filter(u => u.role?.toLowerCase() === 'lawyer').length;
+    const clerks = users.filter(u => u.role?.toLowerCase() === 'clerk').length;
+    displayAdminStats.value = {
+      ...displayAdminStats.value,
+      total_users: users.length,
+      lawyers,
+      clerks
+    };
+  }
+  
+  const clients = getClients();
+  if (clients?.length) {
+    displayStats.value = {
+      ...displayStats.value,
+      total_clients: clients.length
+    };
+  }
+});
+
+onUnmounted(() => {
+  // Clean up listeners
+  if (cleanupUsers) cleanupUsers();
+  if (cleanupClients) cleanupClients();
+  if (cleanupDashboard) cleanupDashboard();
+});
 </script>

@@ -1,18 +1,18 @@
+<!-- src/layouts/Layout.vue - Fully responsive -->
 <template>
-  <div class="flex h-screen overflow-hidden bg-[#f5f7fa]">
-
-    <!-- ══ SIDEBAR ══════════════════════════════════════════════════════════
-         Desktop: static in the flex row (takes up space)
-         Mobile:  fixed overlay, slides in/out
-    ════════════════════════════════════════════════════════════════════════ -->
-
+  <div class="flex h-screen overflow-hidden bg-slate-100">
     <!-- Desktop sidebar (md and above) -->
     <div class="hidden md:flex md:flex-shrink-0">
       <Sidebar @navigate="closeSidebarOnMobile" />
     </div>
 
-    <!-- Mobile sidebar (below md) -->
-    <Transition name="slide">
+    <!-- Mobile sidebar -->
+    <Transition
+      enter-active-class="transition-transform duration-250 ease-out"
+      leave-active-class="transition-transform duration-200 ease-in"
+      enter-from-class="-translate-x-full"
+      leave-to-class="-translate-x-full"
+    >
       <div
         v-if="sidebarOpen"
         class="fixed inset-y-0 left-0 z-50 flex md:hidden"
@@ -21,34 +21,42 @@
       </div>
     </Transition>
 
-    <!-- Mobile overlay backdrop -->
-    <Transition name="fade">
+    <!-- Mobile backdrop -->
+    <Transition
+      enter-active-class="transition-opacity duration-200"
+      leave-active-class="transition-opacity duration-150"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+    >
       <div
         v-if="sidebarOpen && isMobile"
-        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+        class="fixed inset-0 z-40 bg-black/60 md:hidden"
         @click="sidebarOpen = false"
       />
     </Transition>
 
-    <!-- ══ MAIN COLUMN ═══════════════════════════════════════════════════════
-         Fills remaining width, header is fixed-height, only main scrolls
-    ════════════════════════════════════════════════════════════════════════ -->
-    <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
-
-      <!-- Header — never scrolls -->
+    <!-- Main Column -->
+    <div class="flex flex-col flex-1 min-w-0 overflow-hidden bg-slate-100">
       <Header
         :sidebar-open="sidebarOpen"
         @toggle-sidebar="toggleSidebar"
       />
 
-      <!-- Page content — ONLY this scrolls -->
-      <main class="flex-1 min-h-0 overflow-y-auto bg-[#f5f7fa] p-6 sm:p-4 max-[480px]:p-3">
-        <router-view />
+      <!-- Page content - responsive padding -->
+      <main 
+        class="flex-1 min-h-0 overflow-y-auto bg-slate-100
+               px-2 py-2
+               xs:px-3 xs:py-3
+               sm:px-4 sm:py-4
+               md:px-5 md:py-5
+               lg:px-6 lg:py-6"
+      >
+        <div class="w-full mx-auto max-w-[1920px]">
+          <router-view />
+        </div>
       </main>
 
-      <!-- Footer — never scrolls -->
       <Footer />
-
     </div>
   </div>
 </template>
@@ -56,39 +64,45 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import Sidebar from '@/components/Sidebar.vue'
-import Header  from '@/components/Header.vue'
-import Footer  from '@/components/Footer.vue'
+import Header from '@/components/Header.vue'
+import Footer from '@/components/Footer.vue'
 
-const sidebarOpen  = ref(false)
-const isMobile     = ref(false)
+const sidebarOpen = ref(false)
+const isMobile = ref(false)
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 768
-  if (!isMobile.value) sidebarOpen.value = false // auto-close on desktop resize
+  if (!isMobile.value) sidebarOpen.value = false
 }
 
-const toggleSidebar        = () => { sidebarOpen.value = !sidebarOpen.value }
-const closeSidebarOnMobile = () => { if (isMobile.value) sidebarOpen.value = false }
+const toggleSidebar = () => {
+  sidebarOpen.value = !sidebarOpen.value
+}
+
+const closeSidebarOnMobile = () => {
+  if (isMobile.value) sidebarOpen.value = false
+}
 
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
 })
+
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
 })
 </script>
 
-<style scoped>
-/* Sidebar slides in from the left on mobile */
-.slide-enter-active,
-.slide-leave-active { transition: transform 0.3s ease; }
-.slide-enter-from,
-.slide-leave-to     { transform: translateX(-100%); }
-
-/* Overlay fades */
-.fade-enter-active,
-.fade-leave-active  { transition: opacity 0.25s ease; }
-.fade-enter-from,
-.fade-leave-to      { opacity: 0; }
+<style>
+/* Add xs breakpoint for very small devices */
+@media (min-width: 480px) {
+  .xs\:px-3 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  .xs\:py-3 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}
 </style>

@@ -34,7 +34,7 @@ return new class extends Migration
 
         Schema::create('login_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('action', 50);
             $table->text('details')->nullable();
             $table->string('email_attempted', 120);

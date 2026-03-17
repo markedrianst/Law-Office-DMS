@@ -258,7 +258,7 @@
       :clerks="lookups.clerks"
       :all-users="lookups.users"
       @close="showViewModal = false"
-      @refresh="loadCases"
+      @refresh="fetchCases"
     />
   </div>
 </template>
@@ -608,7 +608,7 @@ const onClientCreated = (updatedClients) => {
   refreshClients(updatedClients);
 };
 
-// Submit form
+// ==================== FIXED SUBMIT FORM WITH PROPER ERROR HANDLING ====================
 const submitForm = async () => {
   formLoading.value = true;
   clearErrors();
@@ -659,19 +659,53 @@ const submitForm = async () => {
     await fetchCases(true);
 
   } catch (error) {
-    if (error.errors) {
-      if (error.errors.case_no) errors.case_no = error.errors.case_no[0];
-      if (error.errors.title) errors.title = error.errors.title[0];
-      if (error.errors.client_id) errors.client_id = error.errors.client_id[0];
-      if (error.errors.assigned_lawyer_id) errors.assigned_lawyer_id = error.errors.assigned_lawyer_id[0];
+    console.error('Form submission error:', error);
+    
+    // Handle validation errors (422)
+    if (error.response?.status === 422) {
+      const validationErrors = error.response.data.errors || {};
+      
+      // Map Laravel validation errors to your form errors object
+      if (validationErrors.case_no) {
+        errors.case_no = Array.isArray(validationErrors.case_no) 
+          ? validationErrors.case_no[0] 
+          : validationErrors.case_no;
+      }
+      if (validationErrors.title) {
+        errors.title = Array.isArray(validationErrors.title) 
+          ? validationErrors.title[0] 
+          : validationErrors.title;
+      }
+      if (validationErrors.client_id) {
+        errors.client_id = Array.isArray(validationErrors.client_id) 
+          ? validationErrors.client_id[0] 
+          : validationErrors.client_id;
+      }
+      if (validationErrors.assigned_lawyer_id) {
+        errors.assigned_lawyer_id = Array.isArray(validationErrors.assigned_lawyer_id) 
+          ? validationErrors.assigned_lawyer_id[0] 
+          : validationErrors.assigned_lawyer_id;
+      }
+      
+      // Show a small notification that validation failed
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: 'Please check the form for errors',
+        timer: 2000,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
+      });
+    } else {
+      // Handle other errors
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.message || error.message || 'Failed to save case',
+        confirmButtonColor: '#dc2626'
+      });
     }
-
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: error.message || 'Failed to save case',
-      confirmButtonColor: '#dc2626'
-    });
 
   } finally {
     formLoading.value = false;
@@ -729,8 +763,6 @@ onMounted(() => {
   fetchLookups();
 });
 </script>
-
-
 
 <style scoped>
 @keyframes fadeIn {

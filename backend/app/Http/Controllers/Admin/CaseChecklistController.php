@@ -18,44 +18,45 @@ class CaseChecklistController extends Controller
     /**
      * Get all checklist items for a case
      */
-    public function index($caseId)
-    {
-        try {
-            $case = Cases::findOrFail($caseId);
+public function index($caseId)
+{
+    try {
+        $case = Cases::findOrFail($caseId);
+        
+        $items = CaseChecklist::where('case_id', $caseId)
+            ->with('document') // eager load the document relationship
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'case_id' => $item->case_id,
+                    'document_type_id' => $item->document_type_id,
+                    // ✅ These come from the relationship, NOT from $item directly
+                    'document_type' => $item->document?->type,
+                    'document_category' => $item->document?->category,
+                    'document_color' => $item->document?->color,
+                    'status' => $item->status,
+                    'due_date' => $item->due_date?->format('Y-m-d'),
+                    'assigned_clerk_id' => $item->assigned_clerk_id,
+                    'assigned_to' => $item->assigned_to,
+                    'notes' => $item->notes,
+                    'is_out' => $item->is_out,
+                    'completed_at' => $item->completed_at,
+                    'created_at' => $item->created_at,
+                    'updated_at' => $item->updated_at,
+                ];
+            });
             
-            $items = CaseChecklist::where('case_id', $caseId)
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function($item) {
-                    return [
-                        'id' => $item->id,
-                        'case_id' => $item->case_id,
-                        'task' => $item->task,
-                        'document_type_id' => $item->document_type_id,
-                        'document_type' => $item->document_type,
-                        'document_category' => $item->document_category,
-                        'document_color' => $item->document_color,
-                        'status' => $item->status,
-                        'due_date' => $item->due_date?->format('Y-m-d'),
-                        'assigned_clerk_id' => $item->assigned_clerk_id,
-                        'assigned_to' => $item->assigned_to,
-                        'notes' => $item->notes,
-                        'is_out' => $item->is_out,
-                        'completed_at' => $item->completed_at,
-                        'created_at' => $item->created_at,
-                        'updated_at' => $item->updated_at,
-                    ];
-                });
+        return response()->json(['data' => $items]);
 
-            return response()->json(['data' => $items]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to fetch checklist',
-                'errors' => ['server' => [$e->getMessage()]]
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Failed to fetch checklist',
+            'errors' => ['server' => [$e->getMessage()]]
+        ], 500);
     }
+} 
 
     /**
      * Store a new checklist item
@@ -69,11 +70,7 @@ public function store(Request $request, $caseId)
         $case = Cases::findOrFail($caseId);
 
         $validator = Validator::make($request->all(), [
-            'task' => 'required|string|max:500',
             'document_type_id' => 'nullable|exists:documents,id',
-            'document_type' => 'nullable|string|max:255',
-            'document_category' => 'nullable|string|max:100',
-            'document_color' => 'nullable|string|max:7',
             'status' => 'required|in:todo,in-progress,done',
             'due_date' => 'nullable|date',
             'assigned_clerk_id' => 'nullable|exists:users,id',
@@ -110,11 +107,7 @@ public function store(Request $request, $caseId)
         $item = CaseChecklist::create([
             'case_id' => $caseId,
             'created_by' => auth()->id(),
-            'task' => $request->task,
             'document_type_id' => $request->document_type_id,
-            'document_type' => $documentType,
-            'document_category' => $documentCategory,
-            'document_color' => $documentColor,
             'status' => $request->status,
             'due_date' => $request->due_date,
             'assigned_clerk_id' => $clerk?->id,
@@ -145,7 +138,6 @@ public function store(Request $request, $caseId)
                 'data' => [
                     'case_id' => $caseId,
                     'case_code' => $case->case_code,
-                    'task' => $item->task,
                     'due_date' => $item->due_date?->format('Y-m-d'),
                     'document_type' => $item->document_type,
                 ],
@@ -161,11 +153,7 @@ public function store(Request $request, $caseId)
             'data' => [
                 'id' => $item->id,
                 'case_id' => $item->case_id,
-                'task' => $item->task,
                 'document_type_id' => $item->document_type_id,
-                'document_type' => $item->document_type,
-                'document_category' => $item->document_category,
-                'document_color' => $item->document_color,
                 'status' => $item->status,
                 'due_date' => $item->due_date?->format('Y-m-d'),
                 'assigned_clerk_id' => $item->assigned_clerk_id,
@@ -202,11 +190,7 @@ public function update(Request $request, $caseId, $id)
             ->firstOrFail();
 
         $validator = Validator::make($request->all(), [
-            'task' => 'sometimes|required|string|max:500',
             'document_type_id' => 'nullable|exists:documents,id',
-            'document_type' => 'nullable|string|max:255',
-            'document_category' => 'nullable|string|max:100',
-            'document_color' => 'nullable|string|max:7',
             'status' => 'sometimes|required|in:todo,in-progress,done',
             'due_date' => 'nullable|date',
             'assigned_clerk_id' => 'nullable|exists:users,id',
@@ -247,11 +231,7 @@ public function update(Request $request, $caseId, $id)
         }
 
         $item->update([
-            'task' => $request->task ?? $item->task,
             'document_type_id' => $documentTypeId,
-            'document_type' => $documentType,
-            'document_category' => $documentCategory,
-            'document_color' => $documentColor,
             'status' => $request->status ?? $item->status,
             'due_date' => $request->due_date ?? $item->due_date,
             'assigned_clerk_id' => $clerk?->id ?? $item->assigned_clerk_id,
@@ -282,7 +262,6 @@ public function update(Request $request, $caseId, $id)
                 'data' => [
                     'case_id' => $caseId,
                     'case_code' => $item->case?->case_code,
-                    'task' => $item->task,
                     'due_date' => $item->due_date?->format('Y-m-d'),
                 ],
                 'action_url' => "/casemaster"
@@ -320,9 +299,6 @@ public function update(Request $request, $caseId, $id)
                 'case_id' => $item->case_id,
                 'task' => $item->task,
                 'document_type_id' => $item->document_type_id,
-                'document_type' => $item->document_type,
-                'document_category' => $item->document_category,
-                'document_color' => $item->document_color,
                 'status' => $item->status,
                 'due_date' => $item->due_date?->format('Y-m-d'),
                 'assigned_clerk_id' => $item->assigned_clerk_id,

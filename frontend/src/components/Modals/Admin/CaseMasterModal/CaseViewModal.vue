@@ -1,10 +1,10 @@
 <template>
   <Transition name="modal">
-    <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="$emit('close')">
+    <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="closeModal">
 
       <div v-if="viewCase" class="relative bg-white w-full max-w-6xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
 
-        <!-- ══ HEADER ══════════════════════════════════════════════════════ -->
+        <!-- Header -->
         <div class="flex items-center justify-between px-8 py-5 border-b border-gray-100 bg-white">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
@@ -19,7 +19,7 @@
           </div>
 
           <div class="flex items-center gap-3">
-            <button @click="$emit('close')" class="p-2 hover:bg-gray-100 rounded-xl transition text-gray-400 hover:text-gray-600">
+            <button @click="closeModal" class="p-2 hover:bg-gray-100 rounded-xl transition text-gray-400 hover:text-gray-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -27,10 +27,10 @@
           </div>
         </div>
 
-        <!-- ══ BODY ════════════════════════════════════════════════════════ -->
+        <!-- Body -->
         <div class="flex-1 overflow-y-auto px-8 py-6 space-y-5 bg-gray-50">
 
-          <!-- ── Row 1: Case Information + Folder Status ─────────────────── -->
+          <!-- Case Information + Folder Status -->
           <div class="grid grid-cols-3 gap-5">
 
             <!-- Case Information -->
@@ -118,7 +118,7 @@
             </div>
           </div>
 
-          <!-- ── Case Checklist ──────────────────────────────────────────── -->
+          <!-- Case Checklist -->
           <div class="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
               <div class="flex items-center gap-3">
@@ -167,7 +167,7 @@
                     </td>
                     <td class="px-5 py-3.5">
                       <p class="text-sm font-semibold" :class="task.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800'">
-                        {{ task.task || '—' }}
+                        {{ task.task || task.document_type || '--' }}
                       </p>
                     </td>
                     <td class="px-5 py-3.5">
@@ -217,6 +217,7 @@
                 </tbody>
               </table>
             </div>
+            
             <!-- Checklist Pagination -->
             <div v-if="checklist.length > 0" class="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/50">
               <p class="text-xs text-gray-400">
@@ -240,7 +241,7 @@
             </div>
           </div>
 
-          <!-- ══ TABS ════════════════════════════════════════════════════════ -->
+          <!-- Tabs -->
           <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             <div class="flex border-b border-gray-100 px-2 pt-1">
               <button v-for="tab in tabs" :key="tab" @click="activeTab = tab"
@@ -250,12 +251,11 @@
               </button>
             </div>
 
-            <!-- ── FOLDER TRACKER ──────────────────────────────────────── -->
+            <!-- Folder Tracker -->
             <div v-if="activeTab === 'Folder Tracker'" class="p-6">
               <div class="flex justify-between items-center mb-4">
                 <h4 class="text-sm font-bold text-gray-800">Folder Movement History</h4>
                 <div class="flex gap-2">
-                  <!-- OUT Button -->
                   <button @click="openFolderModal('OUT')" 
                     :disabled="viewCase.is_out || hasPendingFolderOut"
                     class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
@@ -266,7 +266,6 @@
                     Release (OUT)
                   </button>
                   
-                  <!-- IN Button -->
                   <button @click="openFolderModal('IN')" 
                     :disabled="!viewCase.is_out || hasPendingFolderIn"
                     class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
@@ -333,6 +332,7 @@
                   </tbody>
                 </table>
               </div>
+              
               <!-- Folder Tracker Pagination -->
               <div v-if="folderMovements.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50 mt-2 rounded-b-xl">
                 <p class="text-xs text-gray-400">
@@ -356,12 +356,11 @@
               </div>
             </div>
 
-            <!-- ── CHECKLIST TRACKER ───────────────────────────────────── -->
+            <!-- Checklist Tracker -->
             <div v-if="activeTab === 'Checklist Tracker'" class="p-6">
               <div class="flex justify-between items-center mb-4">
                 <h4 class="text-sm font-bold text-gray-800">Checklist Movement History</h4>
                 <div class="flex gap-2">
-                  <!-- OUT Button -->
                   <button @click="openChecklistTrackerModal('OUT')" 
                     :disabled="viewCase.is_out || hasPendingChecklistOut"
                     class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
@@ -372,7 +371,6 @@
                     Release (OUT)
                   </button>
                   
-                  <!-- IN Button -->
                   <button @click="openChecklistTrackerModal('IN')" 
                     :disabled="!hasOutItems || hasPendingChecklistIn || viewCase.is_out"
                     class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
@@ -441,6 +439,7 @@
                   </tbody>
                 </table>
               </div>
+              
               <!-- Checklist Tracker Pagination -->
               <div v-if="checklistMovements.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50 mt-2 rounded-b-xl">
                 <p class="text-xs text-gray-400">
@@ -464,7 +463,7 @@
               </div>
             </div>
 
-            <!-- ── ACTIVITY LOGS ───────────────────────────────────────── -->
+            <!-- Activity Logs -->
             <div v-if="activeTab === 'Activity Logs'" class="p-6">
               <h4 class="text-sm font-bold text-gray-800 mb-4">Activity History</h4>
               <div class="space-y-3">
@@ -482,6 +481,7 @@
                   No activity logs available
                 </div>
               </div>
+              
               <!-- Activity Logs Pagination -->
               <div v-if="activityLogs.length > 0" class="flex items-center justify-between pt-4 mt-2 border-t border-gray-100">
                 <p class="text-xs text-gray-400">
@@ -510,7 +510,7 @@
     </div>
   </Transition>
 
-  <!-- ══ TASK MODAL ══════════════════════════════════════════════════════════ -->
+  <!-- Task Modal -->
   <CaseTaskModal
     :show="taskModal.show"
     :mode="taskModal.mode"
@@ -521,7 +521,7 @@
     @switch-to-edit="taskModal.mode = 'edit'"
   />
 
-  <!-- ══ FOLDER MOVEMENT MODAL ══════════════════════════════════════════════ -->
+  <!-- Folder Movement Modal -->
   <Transition name="modal">
     <div v-if="folderModal.show" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="folderModal.show = false">
       <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
@@ -545,23 +545,13 @@
           </button>
         </div>
         <div class="px-6 py-5 space-y-4">
-          <!-- Date Field - Disabled, shows current date -->
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-              Date <span class="text-red-400">*</span>
-            </label>
-            <input 
-              :value="folderModal.form.date" 
-              type="text" 
-              disabled
-              class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Date</label>
+            <input :value="folderModal.form.date" type="text" disabled class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
           </div>
           
-          <!-- From/To Field - Searchable Users (Required) -->
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-              From / To <span class="text-red-400">*</span>
-            </label>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">From / To <span class="text-red-400">*</span></label>
             <div class="relative" ref="fromToDropdownRef">
               <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -583,7 +573,6 @@
                 </svg>
               </button>
 
-              <!-- Dropdown list -->
               <Transition name="dropdown">
                 <div v-if="fromToDropdownOpen"
                   class="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
@@ -611,24 +600,16 @@
             </div>
           </div>
           
-          <!-- Purpose/Remarks - Optional -->
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Purpose / Remarks</label>
             <input v-model="folderModal.form.purpose" type="text" placeholder="e.g. For Review, For Submission…" 
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition"/>
           </div>
           
-          <!-- Handled By - Auto-filled with assigned clerk, disabled -->
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-              Handled By <span class="text-red-400">*</span>
-            </label>
-            <input 
-              v-model="folderModal.form.handled_by" 
-              type="text" 
-              disabled
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Handled By</label>
+            <input v-model="folderModal.form.handled_by" type="text" disabled
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
-            <p class="text-xs text-gray-400 mt-1">Automatically set to assigned clerk</p>
           </div>
         </div>
         <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
@@ -647,7 +628,7 @@
     </div>
   </Transition>
 
-  <!-- ══ CHECKLIST TRACKER MODAL ════════════════════════════════════════════ -->
+  <!-- Checklist Tracker Modal -->
   <Transition name="modal">
     <div v-if="checklistTrackerModal.show" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="checklistTrackerModal.show = false">
       <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
@@ -671,19 +652,12 @@
           </button>
         </div>
         <div class="px-6 py-5 space-y-4">
-          <!-- Date Field - Disabled, shows current date -->
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-              Date <span class="text-red-400">*</span>
-            </label>
-            <input 
-              :value="checklistTrackerModal.form.date" 
-              type="text" 
-              disabled
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Date</label>
+            <input :value="checklistTrackerModal.form.date" type="text" disabled
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
           </div>
 
-          <!-- Document / Task -->
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Document / Task</label>
             <select v-model="checklistTrackerModal.form.checklist_id" 
@@ -691,7 +665,7 @@
               <option value="">All / General</option>
               <option v-for="task in checklist" :key="task.id" :value="task.id" 
                 :disabled="checklistTrackerModal.type === 'OUT' ? task.is_out : !task.is_out">
-                {{ task.task }} ({{ task.is_out ? 'OUT' : 'IN' }})
+                {{ task.task || task.document_type }} ({{ task.is_out ? 'OUT' : 'IN' }})
               </option>
             </select>
             <p v-if="checklistTrackerModal.type === 'OUT'" class="text-xs text-amber-600 mt-1">
@@ -702,11 +676,8 @@
             </p>
           </div>
 
-          <!-- From/To Field - Searchable Users (Required) -->
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-              From / To <span class="text-red-400">*</span>
-            </label>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">From / To <span class="text-red-400">*</span></label>
             <div class="relative" ref="ctFromToDropdownRef">
               <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -728,7 +699,6 @@
                 </svg>
               </button>
 
-              <!-- Dropdown list -->
               <Transition name="dropdown">
                 <div v-if="ctFromToDropdownOpen"
                   class="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
@@ -756,24 +726,16 @@
             </div>
           </div>
 
-          <!-- Purpose/Remarks - Optional -->
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Purpose / Remarks</label>
             <input v-model="checklistTrackerModal.form.purpose" type="text" placeholder="e.g. For Review, For Submission…" 
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition"/>
           </div>
 
-          <!-- Handled By - Auto-filled with assigned clerk, disabled -->
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-              Handled By <span class="text-red-400">*</span>
-            </label>
-            <input 
-              v-model="checklistTrackerModal.form.handled_by" 
-              type="text" 
-              disabled
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Handled By</label>
+            <input v-model="checklistTrackerModal.form.handled_by" type="text" disabled
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
-            <p class="text-xs text-gray-400 mt-1">Automatically set to assigned clerk</p>
           </div>
         </div>
         <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
@@ -792,7 +754,6 @@
     </div>
   </Transition>
 </template>
-
 <script setup>
 import { ref, computed, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 import CaseTaskModal from './CaseTaskModal.vue';
@@ -818,7 +779,7 @@ const checklist = ref([]);
 const folderMovements = ref([]);
 const checklistMovements = ref([]);
 const activityLogs = ref([]);
-const stageUpdating = ref(false);
+const loading = ref(false);
 
 // Pagination
 const PAGE_SIZE = 5;
@@ -871,7 +832,7 @@ const refreshMovements = async () => {
 
 const startPolling = () => {
   stopPolling();
-  poller = setInterval(refreshMovements, 10000); // Poll every 10 seconds
+  poller = setInterval(refreshMovements, 10000);
 };
 
 const stopPolling = () => {
@@ -958,7 +919,6 @@ const activityTotalPages = computed(() =>
 const filteredUsers = computed(() => {
   const searchTerm = folderModal.show ? fromToSearch.value.toLowerCase() : ctFromToSearch.value.toLowerCase();
   
-  // Build users list from props
   let users = [];
   if (props.allUsers?.length) {
     users = props.allUsers;
@@ -970,7 +930,6 @@ const filteredUsers = computed(() => {
     }));
   }
   
-  // Add lawyer from case if available
   if (viewCase.value?.lawyer && viewCase.value.lawyer !== '—') {
     const exists = users.some(u => u.full_name === viewCase.value.lawyer);
     if (!exists) {
@@ -982,7 +941,6 @@ const filteredUsers = computed(() => {
     }
   }
   
-  // Filter by search term
   if (searchTerm && users.length) {
     return users.filter(u => 
       u.full_name?.toLowerCase().includes(searchTerm)
@@ -1003,16 +961,42 @@ watch(activeTab, () => {
   activityPage.value = 1;
 });
 
+// MAIN FIX: Properly process case data when received
 watch(() => props.caseData, async (newVal) => {
   if (newVal) {
+    console.log('📊 CaseViewModal received caseData:', newVal);
     viewCase.value = newVal;
-    checklist.value = newVal.checklists || [];
+    
+    // Process checklists with proper mapping - NO 'task' field
+    checklist.value = (newVal.checklists || []).map(item => ({
+      id: item.id,
+      case_id: item.case_id,
+      // Use document_type as the task display
+      task: item.document_type || 'Untitled Task',
+      document_type_id: item.document_type_id,
+      document_type: item.document_type,
+      document_category: item.document_category,
+      document_color: item.document_color || '#94a3b8',
+      status: item.status || 'todo',
+      due_date: item.due_date,
+      assigned_clerk_id: item.assigned_clerk_id,
+      assigned_to: item.assigned_to,
+      notes: item.notes,
+      is_out: item.is_out || false,
+      completed_at: item.completed_at,
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }));
+    
     folderMovements.value = newVal.folder_movements || [];
     checklistMovements.value = newVal.checklist_movements || [];
     activityLogs.value = newVal.activity_logs || [];
+    
+    console.log('✅ Processed checklist:', checklist.value.length, 'items');
+    console.log('📋 OUT items:', checklist.value.filter(t => t.is_out));
+    console.log('📋 IN items:', checklist.value.filter(t => !t.is_out));
   }
 }, { immediate: true });
-
 watch(() => props.show, (newVal) => {
   if (newVal && viewCase.value) {
     refreshMovements();
@@ -1045,6 +1029,11 @@ onBeforeUnmount(() => {
   stopPolling();
 });
 
+// ========== CLOSE MODAL ==========
+const closeModal = () => {
+  emit('close');
+};
+
 // ========== HELPERS ==========
 const getInitials = (name) => {
   if (!name || name === '—') return '?';
@@ -1056,22 +1045,30 @@ const getInitials = (name) => {
 
 const formatDate = (date) => {
   if (!date) return '—';
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  try {
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch {
+    return '—';
+  }
 };
 
 const formatDateTime = (date) => {
   if (!date) return '—';
-  return new Date(date).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  try {
+    return new Date(date).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '—';
+  }
 };
 
 const formatStatus = (status) => {
@@ -1099,11 +1096,15 @@ const statusDotClass = (status) => {
 
 const isOverdue = (date) => {
   if (!date) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const due = new Date(date);
-  due.setHours(0, 0, 0, 0);
-  return due < today;
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(date);
+    due.setHours(0, 0, 0, 0);
+    return due < today;
+  } catch {
+    return false;
+  }
 };
 
 const taskStatusLabel = (status) => {
@@ -1138,7 +1139,7 @@ const approvalStatusClass = (status) => {
   return classes[status] || 'border-gray-300 text-gray-500';
 };
 
-// ========== ACTIONS ==========
+// ========== TASK ACTIONS ==========
 const openTaskModal = (task, mode) => {
   taskModal.task = task ? { ...task } : null;
   taskModal.mode = mode;
@@ -1155,7 +1156,6 @@ const onTaskSave = async ({ mode, data }) => {
     
     taskModal.show = false;
     
-    // Refresh checklist
     const response = await caseService.getChecklist(viewCase.value.id);
     checklist.value = response.data || [];
     
@@ -1182,7 +1182,6 @@ const toggleDone = async (task) => {
   const newStatus = task.status === 'done' ? 'todo' : 'done';
   const oldStatus = task.status;
   
-  // Optimistic update
   const index = checklist.value.findIndex(t => t.id === task.id);
   if (index !== -1) {
     checklist.value[index].status = newStatus;
@@ -1194,7 +1193,6 @@ const toggleDone = async (task) => {
       status: newStatus
     });
   } catch (error) {
-    // Revert on error
     if (index !== -1) {
       checklist.value[index].status = oldStatus;
     }
@@ -1207,7 +1205,7 @@ const toggleDone = async (task) => {
   }
 };
 
-// From/To methods
+// ========== DROPDOWN METHODS ==========
 const selectFromTo = (user) => {
   folderModal.form.from_to = user.full_name;
   fromToSearch.value = user.full_name;
@@ -1232,9 +1230,8 @@ const clearCtFromTo = () => {
   ctFromToDropdownOpen.value = false;
 };
 
-// Folder movement
+// ========== FOLDER MOVEMENT ==========
 const openFolderModal = (type) => {
-  // Validation
   if (type === 'OUT' && viewCase.value.is_out) {
     Swal.fire({
       icon: 'warning',
@@ -1255,7 +1252,6 @@ const openFolderModal = (type) => {
     return;
   }
   
-  // Format date as YYYY-MM-DD for display
   const today = new Date();
   const formattedDate = today.toLocaleDateString('en-US', { 
     year: 'numeric', 
@@ -1274,63 +1270,6 @@ const openFolderModal = (type) => {
   folderModal.show = true;
 };
 
-// Checklist movement
-const openChecklistTrackerModal = (type) => {
-  // Validation
-  if (viewCase.value.is_out) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Case Folder is OUT',
-      text: 'You must receive the case folder back before managing checklist movements.',
-      confirmButtonColor: '#f59e0b'
-    });
-    return;
-  }
-  
-  if (type === 'OUT') {
-    const inItems = checklist.value.filter(task => !task.is_out);
-    if (inItems.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Nothing to Release',
-        text: 'All checklist items are already OUT.',
-        confirmButtonColor: '#f59e0b'
-      });
-      return;
-    }
-  } else {
-    const outItems = checklist.value.filter(task => task.is_out);
-    if (outItems.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Nothing to Receive',
-        text: 'No checklist items are currently OUT.',
-        confirmButtonColor: '#f59e0b'
-      });
-      return;
-    }
-  }
-  
-  // Format date as YYYY-MM-DD for display
-  const today = new Date();
-  const formattedDate = today.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: '2-digit', 
-    day: '2-digit' 
-  }).replace(/\//g, ' / ');
-  
-  checklistTrackerModal.type = type;
-  checklistTrackerModal.form = {
-    date: formattedDate,
-    checklist_id: '',
-    from_to: '',
-    purpose: '',
-    handled_by: viewCase.value?.clerk || ''
-  };
-  ctFromToSearch.value = '';
-  checklistTrackerModal.show = true;
-};
-
 const submitFolderMovement = async () => {
   try {
     const payload = {
@@ -1338,17 +1277,14 @@ const submitFolderMovement = async () => {
       from_to: folderModal.form.from_to,
       purpose: folderModal.form.purpose,
       handled_by: folderModal.form.handled_by,
-      date: new Date().toISOString().split('T')[0] // Send as YYYY-MM-DD to backend
+      date: new Date().toISOString().split('T')[0]
     };
     
     await caseService.createFolderTrackerEntry(viewCase.value.id, payload);
     
     folderModal.show = false;
-    
-    // Refresh data
     await refreshMovements();
     
-    // Also refresh case data to update is_out status
     const caseRes = await caseService.getCase(viewCase.value.id);
     viewCase.value = caseRes.data;
     
@@ -1374,6 +1310,67 @@ const submitFolderMovement = async () => {
   }
 };
 
+// ========== CHECKLIST MOVEMENT ==========
+const openChecklistTrackerModal = (type) => {
+  if (viewCase.value.is_out) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Case Folder is OUT',
+      text: 'You must receive the case folder back before managing checklist movements.',
+      confirmButtonColor: '#f59e0b'
+    });
+    return;
+  }
+  
+  console.log('📋 Current checklist items:', checklist.value.map(t => ({
+    id: t.id,
+    task: t.task,
+    is_out: t.is_out
+  })));
+  
+  if (type === 'OUT') {
+    const inItems = checklist.value.filter(task => !task.is_out);
+    if (inItems.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Nothing to Release',
+        text: 'All checklist items are already OUT.',
+        confirmButtonColor: '#f59e0b'
+      });
+      return;
+    }
+  } else {
+    const outItems = checklist.value.filter(task => task.is_out);
+    if (outItems.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Nothing to Receive',
+        text: 'No checklist items are currently OUT.',
+        confirmButtonColor: '#f59e0b'
+      });
+      return;
+    }
+  }
+  
+  const today = new Date();
+  const formattedDate = today.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).replace(/\//g, ' / ');
+  
+  checklistTrackerModal.type = type;
+  checklistTrackerModal.form = {
+    date: formattedDate,
+    checklist_id: '',
+    from_to: '',
+    purpose: '',
+    handled_by: viewCase.value?.clerk || ''
+  };
+  ctFromToSearch.value = '';
+  checklistTrackerModal.show = true;
+};
+
 const submitChecklistMovement = async () => {
   try {
     const payload = {
@@ -1382,19 +1379,19 @@ const submitChecklistMovement = async () => {
       from_to: checklistTrackerModal.form.from_to,
       purpose: checklistTrackerModal.form.purpose,
       handled_by: checklistTrackerModal.form.handled_by,
-      date: new Date().toISOString().split('T')[0] // Send as YYYY-MM-DD to backend
+      date: new Date().toISOString().split('T')[0]
     };
     
     await caseService.createChecklistTrackerEntry(viewCase.value.id, payload);
     
     checklistTrackerModal.show = false;
-    
-    // Refresh data
     await refreshMovements();
     
-    // Also refresh checklist to update is_out status
     const checklistRes = await caseService.getChecklist(viewCase.value.id);
-    checklist.value = checklistRes.data || [];
+    checklist.value = (checklistRes.data || []).map(item => ({
+      ...item,
+      is_out: item.is_out || false
+    }));
     
     Swal.fire({
       icon: 'success',

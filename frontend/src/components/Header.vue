@@ -5,22 +5,21 @@
     </h1>
 
     <div class="flex items-center gap-2 flex-shrink-0">
-
-      <!-- ══ NOTIFICATION BELL ══════════════════════════════════════════════ -->
+      <!-- NOTIFICATION BELL -->
       <div class="relative" ref="notificationDropdownRef">
         <button
           class="relative w-9 h-9 rounded-lg border border-white/20 bg-white/10 text-white/80 hover:bg-white/20 flex items-center justify-center transition-all"
           :class="{ 'bg-white/20': isNotificationOpen }"
           @click="toggleNotification"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
           <span
             v-if="unreadCount > 0"
-              class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0f2f4a]"
-            >
+            class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0f2f4a]"
+          >
             {{ unreadCount > 9 ? '9+' : unreadCount }}
           </span>
         </button>
@@ -50,7 +49,6 @@
 
             <!-- List -->
             <div class="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
-
               <!-- Empty state -->
               <div v-if="notifications.length === 0" class="p-12 flex flex-col items-center gap-3 text-center">
                 <div class="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
@@ -70,23 +68,15 @@
                 v-for="item in notifications"
                 :key="item.id"
                 class="flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-all duration-150 relative"
-                :class="item.is_read
-                  ? 'bg-white hover:bg-slate-50'
-                  : 'bg-blue-50/70 hover:bg-blue-50 border-l-[3px] border-[#1a4972]'"
+                :class="item.is_read ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/70 hover:bg-blue-50 border-l-[3px] border-[#1a4972]'"
                 @click="goToNotification(item)"
               >
-                <!-- Unread glow strip -->
-                <div
-                  v-if="!item.is_read"
-                  class="absolute inset-0 bg-gradient-to-r from-blue-100/40 to-transparent pointer-events-none"
-                ></div>
-
                 <!-- Icon badge -->
                 <div
                   class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm z-10"
-                  :class="getIconClass(item)"
+                  :class="getNotificationIconClass(item.type)"
                 >
-                  {{ getIcon(item) }}
+                  {{ getNotificationIcon(item.type) }}
                 </div>
 
                 <!-- Content -->
@@ -95,7 +85,6 @@
                     <p class="text-xs font-bold leading-snug" :class="item.is_read ? 'text-slate-700' : 'text-slate-900'">
                       {{ item.title }}
                     </p>
-                    <!-- Unread dot -->
                     <span
                       v-if="!item.is_read"
                       class="w-2 h-2 rounded-full bg-[#1a4972] flex-shrink-0 mt-1"
@@ -106,12 +95,8 @@
                     {{ item.message }}
                   </p>
 
-                  <p v-if="item.data?.notes" class="text-xs text-slate-400 mt-1 italic line-clamp-1">
-                    📝 {{ item.data.notes }}
-                  </p>
-
                   <p class="text-[10px] mt-1.5 font-medium" :class="item.is_read ? 'text-slate-400' : 'text-[#1a4972]/70'">
-                    {{ timeAgo(item.created_at) }}
+                    {{ formatTimeAgo(item.created_at) }}
                   </p>
                 </div>
               </div>
@@ -127,7 +112,7 @@
         </Transition>
       </div>
 
-      <!-- ══ USER MENU ══════════════════════════════════════════════════════ -->
+      <!-- USER MENU -->
       <div class="relative" ref="dropdownRef">
         <button
           class="flex items-center gap-2 sm:gap-2.5 pl-1 sm:pl-1.5 pr-2 sm:pr-3 py-1 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 transition-colors whitespace-nowrap"
@@ -139,7 +124,7 @@
           </div>
           <div class="hidden sm:flex flex-col text-left max-w-[100px]">
             <span class="text-xs font-semibold text-white truncate">{{ userName }}</span>
-            <span class="text-[11px] text-white/50 capitalize truncate">{{ userRole }}</span>
+            <span class="text-[11px] text-white/50 capitalize truncate">{{ userRoleLabel }}</span>
           </div>
           <svg
             class="w-3 h-3 text-white/50 transition-transform duration-200"
@@ -162,7 +147,7 @@
               </div>
               <div class="min-w-0">
                 <p class="text-sm font-bold text-white truncate">{{ userName }}</p>
-                <p class="text-xs text-white/40 capitalize truncate">{{ userRole }}</p>
+                <p class="text-xs text-white/40 capitalize truncate">{{ userRoleLabel }}</p>
               </div>
             </div>
 
@@ -201,7 +186,7 @@
         </Transition>
       </div>
 
-      <!-- ══ HAMBURGER (mobile) ═════════════════════════════════════════════ -->
+      <!-- HAMBURGER (mobile) -->
       <button
         v-if="showHamburger"
         class="flex flex-col gap-1 w-9 h-9 items-center justify-center bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors md:hidden"
@@ -215,7 +200,7 @@
     </div>
   </header>
 
-  <!-- ══ LOGOUT CONFIRMATION MODAL ═════════════════════════════════════════ -->
+  <!-- LOGOUT CONFIRMATION MODAL -->
   <Teleport to="body">
     <Transition name="modal">
       <div
@@ -254,92 +239,104 @@
     </Transition>
   </Teleport>
 </template>
-
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
-import { useNotifications } from '@/composables/useNotifications'
+
+// Import appUtils
+import { 
+  getUserName,
+  getUserRole,
+  getUserInitials,
+  getRoleLabel,
+  getNotifications,
+  getUnreadCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  getNotificationIcon,
+  getNotificationIconClass,
+  formatTimeAgo,
+  clearData,
+  listenForUpdates
+} from '@/utils/appUtils'
+
 import authService from '@/services/auth'
 
 const router = useRouter()
-const route  = useRoute()
-const { userName, userRole, userInitials, clearSession } = useAuth()
-const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
+const route = useRoute()
 
-// ── State ──────────────────────────────────────────────────────────────────
-const isUserMenuOpen       = ref(false)
-const dropdownRef          = ref(null)
-const isNotificationOpen   = ref(false)
+// ==================== STATE ====================
+const userName = ref(getUserName() || 'User')
+const userRole = ref(getUserRole() || 'user')
+const userRoleLabel = ref(getRoleLabel(userRole.value) || 'User')
+const userInitials = ref(getUserInitials() || 'U')
+const notifications = ref(getNotifications() || [])
+const unreadCount = ref(getUnreadCount() || 0)
+
+// UI State
+const isUserMenuOpen = ref(false)
+const dropdownRef = ref(null)
+const isNotificationOpen = ref(false)
 const notificationDropdownRef = ref(null)
-const showLogoutModal      = ref(false)
-const isLoggingOut         = ref(false)
-const showHamburger        = ref(false)
+const showLogoutModal = ref(false)
+const isLoggingOut = ref(false)
+const showHamburger = ref(false)
 
-// ── Props / Emits ──────────────────────────────────────────────────────────
+// Props
 const props = defineProps({
   sidebarOpen: { type: Boolean, default: false }
 })
-defineEmits(['toggle-sidebar'])
+const emit = defineEmits(['toggle-sidebar'])
 
-// ── Page title ─────────────────────────────────────────────────────────────
+// ==================== COMPUTED ====================
 const pageTitle = computed(() => {
   const titles = {
-    '/dashboard':       'Dashboard',
+    '/dashboard': 'Dashboard',
     '/account-setting': 'Account Settings',
-    '/usermanagement':  'User Management',
-    '/casemaster':      'Case Master',
-    '/approvals':       'Approvals',
-    '/audit-trail':     'Audit Trail',
-    '/casecategories':  'Case Categories',
-    '/courts':          'Courts & Offices',
-    '/documents':       'Document Types',
+    '/usermanagement': 'User Management',
+    '/casemaster': 'Case Master',
+    '/approvals': 'Approvals',
+    '/audit-trail': 'Audit Trail',
+    '/casecategories': 'Case Categories',
+    '/courts': 'Courts & Offices',
+    '/documents': 'Document Types',
   }
   return titles[route.path] || 'Dashboard'
 })
 
-// ── Notification helpers ───────────────────────────────────────────────────
-const getIcon = (item) => {
-  if (item.type?.includes('approved'))  return '✅'
-  if (item.type?.includes('rejected'))  return '❌'
-  if (item.type?.includes('pending'))   return '⏳'
-  if (item.type?.includes('folder'))    return '📂'
-  if (item.type?.includes('checklist')) return '📋'
-  if (item.type?.includes('task'))      return '📝'
-  if (item.type?.includes('case'))      return '📁'
-  return '🔔'
+// ==================== UPDATE FUNCTIONS ====================
+const updateUserData = () => {
+  userName.value = getUserName() || 'User'
+  userRole.value = getUserRole() || 'user'
+  userRoleLabel.value = getRoleLabel(userRole.value) || 'User'
+  userInitials.value = getUserInitials() || 'U'
 }
 
-const getIconClass = (item) => {
-  if (item.type?.includes('approved'))  return 'bg-emerald-100'
-  if (item.type?.includes('rejected'))  return 'bg-red-100'
-  if (item.type?.includes('pending'))   return 'bg-amber-100'
-  if (item.type?.includes('task'))      return 'bg-blue-100'
-  return 'bg-slate-100'
+const updateNotifications = () => {
+  notifications.value = getNotifications() || []
+  unreadCount.value = getUnreadCount() || 0
 }
 
-const timeAgo = (dateStr) => {
-  if (!dateStr) return ''
-  const seconds = Math.floor((Date.now() - new Date(dateStr)) / 1000)
-  if (seconds < 60)   return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60)   return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24)     return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
-
+// ==================== NOTIFICATION METHODS ====================
 const toggleNotification = () => {
   isNotificationOpen.value = !isNotificationOpen.value
   if (isNotificationOpen.value) isUserMenuOpen.value = false
 }
 
 const goToNotification = async (item) => {
-  if (!item.is_read) await markAsRead(item.id)
+  if (!item.is_read) {
+    markNotificationAsRead(item.id)
+    updateNotifications()
+  }
   isNotificationOpen.value = false
-  if (item.action_url)               router.push(item.action_url)
-  else if (item.data?.case_id)       router.push(`/casemaster`)
-  else if (item.type?.includes('approval')&& item.data?.approval_id==userRole.value=='lawyer') router.push('/approvals')
+  
+  if (item.action_url) {
+    router.push(item.action_url)
+  } else if (item.data?.case_id) {
+    router.push(`/casemaster`)
+  } else if (item.type?.includes('approval')) {
+    router.push('/approvals')
+  }
 }
 
 const viewAll = () => {
@@ -347,7 +344,12 @@ const viewAll = () => {
   router.push('/notifications')
 }
 
-// ── User menu ──────────────────────────────────────────────────────────────
+const markAllAsRead = async () => {
+  markAllNotificationsAsRead()
+  updateNotifications()
+}
+
+// ==================== USER MENU METHODS ====================
 const askLogout = () => {
   isUserMenuOpen.value = false
   showLogoutModal.value = true
@@ -357,10 +359,11 @@ const confirmLogout = async () => {
   isLoggingOut.value = true
   try {
     await authService.logout()
-    clearSession()
+    clearData()
     router.replace('/')
-  } catch {
-    clearSession()
+  } catch (error) {
+    console.error('Logout error:', error)
+    clearData()
     router.replace('/')
   } finally {
     isLoggingOut.value = false
@@ -368,7 +371,7 @@ const confirmLogout = async () => {
   }
 }
 
-// ── Outside click handler ──────────────────────────────────────────────────
+// ==================== UI HELPERS ====================
 const handleOutside = (e) => {
   if (dropdownRef.value && !dropdownRef.value.contains(e.target)) {
     isUserMenuOpen.value = false
@@ -378,16 +381,49 @@ const handleOutside = (e) => {
   }
 }
 
-const handleResize = () => { showHamburger.value = window.innerWidth < 768 }
+const handleResize = () => { 
+  showHamburger.value = window.innerWidth < 768 
+}
+
+// ==================== LIFECYCLE ====================
+let cleanupUser = null
+let cleanupNotifications = null
 
 onMounted(() => {
+  console.log('📌 Header mounted')
+  
+  // Initial updates
+  updateUserData()
+  updateNotifications()
+  
+  // Listen for updates from appUtils
+  cleanupUser = listenForUpdates('user-updated', updateUserData)
+  cleanupNotifications = listenForUpdates('notifications-updated', updateNotifications)
+  
+  // Storage events for multi-tab
+  const handleStorageChange = (e) => {
+    if (e.key === 'user') {
+      updateUserData()
+    } else if (e.key === 'notifications') {
+      updateNotifications()
+    }
+  }
+  
+  // Event listeners
   document.addEventListener('mousedown', handleOutside)
   window.addEventListener('resize', handleResize)
+  window.addEventListener('storage', handleStorageChange)
+  
   handleResize()
-})
-onUnmounted(() => {
-  document.removeEventListener('mousedown', handleOutside)
-  window.removeEventListener('resize', handleResize)
+  
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (cleanupUser) cleanupUser()
+    if (cleanupNotifications) cleanupNotifications()
+    document.removeEventListener('mousedown', handleOutside)
+    window.removeEventListener('resize', handleResize)
+    window.removeEventListener('storage', handleStorageChange)
+  })
 })
 </script>
 

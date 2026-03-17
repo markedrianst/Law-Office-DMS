@@ -11,7 +11,7 @@ class LoginLog extends Model
 
     protected $table = 'login_logs';
     
-    public $timestamps = false; // Because we use created_at manually
+    public $timestamps = false;
 
     protected $fillable = [
         'user_id',

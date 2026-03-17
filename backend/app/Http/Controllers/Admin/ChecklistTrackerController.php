@@ -17,50 +17,70 @@ class ChecklistTrackerController extends Controller
 {
     /**
      * Get all checklist movements for a case
-     */
-    public function index($caseId)
-    {
-        try {
-            $case = Cases::findOrFail($caseId);
-            
-            $movements = ChecklistMovement::where('case_id', $caseId)
-                ->with([
-                    'checklist:id,task',
-                    'recorder:id,full_name',
-                    'approver:id,full_name'
-                ])
-                ->orderBy('date', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function($item) {
-                    return [
-                        'id' => $item->id,
-                        'case_id' => $item->case_id,
-                        'checklist_id' => $item->checklist_id,
-                        'type' => $item->type,
-                        'from_to' => $item->from_to,
-                        'date' => $item->date,
-                        'purpose' => $item->purpose,
-                        'handled_by' => $item->handled_by,
-                        'task_name' => $item->task_name ?? $item->checklist?->task,
-                        'approval_status' => $item->approval_status,
-                        'recorder' => $item->recorder?->full_name,
-                        'approver' => $item->approver?->full_name,
-                        'approved_at' => $item->approved_at,
-                        'created_at' => $item->created_at,
-                    ];
-                });
+     *//**
+ * Get all checklist movements for a case
+ */
+public function index($caseId)
+{
+    try {
+        $case = Cases::findOrFail($caseId);
+        
+        $movements = ChecklistMovement::where('case_id', $caseId)
+            ->with([
+                'checklist' => function($q) {
+                    $q->select('id', 'document_type_id', 'status', 'due_date', 'assigned_to', 'notes', 'is_out')
+                      ->with('document:id,type,category,color');
+                },
+                'recorder:id,full_name',
+                'approver:id,full_name'
+            ])
+            ->orderBy('date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($item) {
+                // Get task name from document if available
+                $taskName = $item->task_name;
+                if (!$taskName && $item->checklist && $item->checklist->document) {
+                    $taskName = $item->checklist->document->type;
+                }
+                
+                return [
+                    'id' => $item->id,
+                    'case_id' => $item->case_id,
+                    'checklist_id' => $item->checklist_id,
+                    'type' => $item->type,
+                    'from_to' => $item->from_to,
+                    'date' => $item->date,
+                    'purpose' => $item->purpose,
+                    'handled_by' => $item->handled_by,
+                    'task_name' => $taskName,
+                    'approval_status' => $item->approval_status,
+                    'recorder' => $item->recorder?->full_name,
+                    'approver' => $item->approver?->full_name,
+                    'approved_at' => $item->approved_at,
+                    'created_at' => $item->created_at,
+                    'checklist' => $item->checklist ? [
+                        'id' => $item->checklist->id,
+                        'document_type' => $item->checklist->document?->type,
+                        'document_category' => $item->checklist->document?->category,
+                        'document_color' => $item->checklist->document?->color,
+                        'status' => $item->checklist->status,
+                        'due_date' => $item->checklist->due_date,
+                        'assigned_to' => $item->checklist->assigned_to,
+                        'is_out' => $item->checklist->is_out,
+                    ] : null,
+                ];
+            });
 
-            return response()->json(['data' => $movements]);
+        return response()->json(['data' => $movements]);
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to fetch checklist movements',
-                'errors' => ['server' => [$e->getMessage()]]
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Failed to fetch checklist movements',
+            'errors' => ['server' => [$e->getMessage()]]
+        ], 500);
     }
-
+}
     /**
      * Get pending checklist movements for a case
      */

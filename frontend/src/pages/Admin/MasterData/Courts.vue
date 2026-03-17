@@ -36,6 +36,20 @@
           <option value="false">Inactive Only</option>
         </select>
 
+        <!-- Manual Refresh Button -->
+        <button @click="manualRefresh" :disabled="isRefreshing"
+          class="px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5">
+          <svg v-if="isRefreshing" class="animate-spin w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
+        </button>
+
+        <!-- Add Court Button -->
         <button @click="openCreateModal" :disabled="isAdding"
           class="text-white px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] shadow-md shadow-[#1a4972]/30">
           <svg v-if="!isAdding" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,8 +64,14 @@
       </div>
     </div>
 
+    <!-- Loading State - Only shown on first visit -->
+    <div v-if="isLoading" class="bg-white rounded-2xl shadow-sm border border-slate-100 py-16 flex flex-col items-center">
+      <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-[#1a4972] animate-spin mb-4"></div>
+      <p class="text-sm text-slate-500">Loading courts...</p>
+    </div>
+
     <!-- Courts Table -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div v-else class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-slate-100 bg-[#1a4972]/5">
@@ -73,7 +93,7 @@
         </thead>
 
         <tbody class="divide-y divide-slate-50">
-          <tr v-for="(item, index) in courts" :key="item.id" 
+          <tr v-for="(item, index) in paginatedCourts" :key="item.id" 
             class="transition-all duration-300 hover:bg-blue-50/30 group"
             :style="{ animation: `fadeIn 0.3s ease-out ${index * 0.03}s both` }">
             
@@ -112,7 +132,7 @@
             </td>
 
             <!-- Created At -->
-            <td class="px-5 py-4 text-sm text-slate-400">{{ formatDate(item.created_at) }}</td>
+            <td class="px-5 py-4 text-sm text-slate-400">{{ formatDateHelper(item.created_at) }}</td>
 
             <!-- Actions -->
             <td class="px-5 py-4">
@@ -299,10 +319,21 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { debounce } from 'lodash';
 import { courtService } from '@/services/masterData';
 import Swal from 'sweetalert2';
+
+// Import from appUtils
+import { 
+  getCourts,
+  setCourts,
+  addCourt,
+  updateCourtInStore,
+  removeCourtFromStore,
+  listenForUpdates,
+  formatDate
+} from '@/utils/appUtils';
 
 // Columns
 const columns = [
@@ -315,16 +346,22 @@ const columns = [
   { label: 'Actions', field: 'actions', sortable: false },
 ];
 
-// State
-const courts = ref([]);
+// ========== STATE ==========
+// Get initial data from appUtils (INSTANT!)
+const initialCourts = getCourts();
+
+const courts = ref(initialCourts || []);
 const courtTypes = ref(['Court', 'Prosecutor', 'Agency', 'Others']);
+const isLoading = ref(!initialCourts || initialCourts.length === 0);
+const isRefreshing = ref(false);
+
 const pagination = ref({
   current_page: 1,
   last_page: 1,
   per_page: 15,
-  total: 0,
-  from: 0,
-  to: 0
+  total: courts.value.length,
+  from: 1,
+  to: courts.value.length
 });
 
 const searchQuery = ref('');
@@ -363,7 +400,23 @@ const errors = reactive({
   contact_info: ''
 });
 
-// Computed
+// ========== HELPER FUNCTION FOR SORT ORDER ==========
+const getNextSortOrder = () => {
+  // Get all sort orders except "Others" (which is 9999)
+  const normalItems = courts.value.filter(c => c.sort_order < 9000);
+  
+  if (normalItems.length === 0) {
+    return 1; // First item
+  }
+  
+  // Find the maximum sort order among normal items
+  const maxSortOrder = Math.max(...normalItems.map(c => c.sort_order));
+  
+  // Return max + 1 (this will be the next number after the largest)
+  return maxSortOrder + 1;
+};
+
+// ========== COMPUTED ==========
 const displayedPages = computed(() => {
   const pages = [];
   const max = 5;
@@ -380,6 +433,68 @@ const displayedPages = computed(() => {
   return pages;
 });
 
+// Filter and sort courts (client-side for instant response)
+const filteredCourts = computed(() => {
+  let filtered = courts.value;
+  
+  // Apply type filter
+  if (typeFilter.value) {
+    filtered = filtered.filter(c => c.type === typeFilter.value);
+  }
+  
+  // Apply status filter
+  if (statusFilter.value) {
+    const isActive = statusFilter.value === 'true';
+    filtered = filtered.filter(c => c.is_active === isActive);
+  }
+  
+  // Apply search filter
+  if (searchQuery.value) {
+    const search = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(c => 
+      c.name?.toLowerCase().includes(search) ||
+      c.address?.toLowerCase().includes(search) ||
+      c.contact_info?.toLowerCase().includes(search)
+    );
+  }
+  
+  // Apply sorting
+  filtered = [...filtered].sort((a, b) => {
+    let aVal = a[sortField.value];
+    let bVal = b[sortField.value];
+    
+    if (sortField.value === 'created_at') {
+      aVal = aVal ? new Date(aVal) : 0;
+      bVal = bVal ? new Date(bVal) : 0;
+    }
+    
+    if (aVal < bVal) return sortDirection.value === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+  
+  return filtered;
+});
+
+// Paginated courts
+const paginatedCourts = computed(() => {
+  const start = (currentPage.value - 1) * pagination.value.per_page;
+  const end = start + pagination.value.per_page;
+  return filteredCourts.value.slice(start, end);
+});
+
+// Update pagination when filtered courts change
+watch(filteredCourts, (newVal) => {
+  pagination.value.total = newVal.length;
+  pagination.value.last_page = Math.ceil(newVal.length / pagination.value.per_page);
+  pagination.value.from = (currentPage.value - 1) * pagination.value.per_page + 1;
+  pagination.value.to = Math.min(currentPage.value * pagination.value.per_page, newVal.length);
+  
+  if (currentPage.value > pagination.value.last_page) {
+    currentPage.value = 1;
+  }
+}, { immediate: true });
+
 // Helper for type badge
 const typeBadgeClass = (type) => {
   const classes = {
@@ -391,8 +506,9 @@ const typeBadgeClass = (type) => {
   return classes[type] || 'bg-slate-50 text-slate-600';
 };
 
-// Load data
-const loadCourts = async () => {
+// ========== FETCH COURTS ==========
+const fetchCourts = async (showLoading = false) => {
+  
   try {
     const params = {
       search: searchQuery.value || undefined,
@@ -404,19 +520,22 @@ const loadCourts = async () => {
       per_page: pagination.value.per_page
     };
 
-    const response = await courtService.getCourts(params);
-    courts.value = response.data || [];
-    pagination.value = response.meta || {
-      current_page: currentPage.value,
-      last_page: 1,
-      per_page: 15,
-      total: courts.value.length,
-      from: 1,
-      to: courts.value.length
-    };
+    await courtService.getCourts(params);
+    
   } catch (error) {
     console.error('Failed to load courts:', error);
-    courts.value = [];
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: error.message || 'Failed to load courts',
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
+    });
+  } finally {
+    if (showLoading) isLoading.value = false;
+    isRefreshing.value = false;
   }
 };
 
@@ -430,15 +549,28 @@ const loadCourtTypes = async () => {
   }
 };
 
-// Filters
+// ========== INITIALIZE ==========
+const initialize = async () => {
+  // Load court types first
+  await loadCourtTypes();
+  
+  // If no data in appUtils, show loading and fetch
+  if (courts.value.length === 0) {
+    manualRefresh();
+  } else {
+    // Data already exists, show instantly and refresh in background
+    isLoading.value = false;
+    fetchCourts(false);
+  }
+};
+
+// ========== FILTER HANDLERS ==========
 const debouncedSearch = debounce(() => {
   currentPage.value = 1;
-  loadCourts();
 }, 500);
 
 const handleFilterChange = () => {
   currentPage.value = 1;
-  loadCourts();
 };
 
 const sortBy = (field) => {
@@ -448,40 +580,43 @@ const sortBy = (field) => {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-  loadCourts();
 };
 
-// Pagination
+// ========== PAGINATION ==========
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
-    loadCourts();
   }
 };
 
 const nextPage = () => {
   if (currentPage.value < pagination.value.last_page) {
     currentPage.value++;
-    loadCourts();
   }
 };
 
 const goToPage = (page) => {
   currentPage.value = page;
-  loadCourts();
 };
 
-// Format date
-const formatDate = (date) => {
-  if (!date) return 'N/A';
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+// ========== MANUAL REFRESH ==========
+const manualRefresh = async () => {
+  isRefreshing.value = true;
+  await fetchCourts(true);
+  isRefreshing.value = false;
+  
+  Swal.fire({
+    icon: 'success',
+    title: 'Refreshed!',
+    text: 'Courts list refreshed',
+    timer: 1500,
+    showConfirmButton: false,
+    position: 'top-end',
+    toast: true
   });
 };
 
-// Modal functions
+// ========== MODAL FUNCTIONS ==========
 const resetForm = () => {
   form.name = '';
   form.type = 'Court';
@@ -507,30 +642,8 @@ const openCreateModal = async () => {
   isEditing.value = false;
   editingItemId.value = null;
   
-  // Get the next available sort order (excluding "Others")
-  try {
-    const response = await courtService.getCourts({ 
-      sort_by: 'sort_order', 
-      sort_direction: 'desc',
-      per_page: 100 // Get enough to find max
-    });
-    
-    if (response.data && response.data.length > 0) {
-      // Find max sort_order that's less than 9000 (normal items)
-      const normalItems = response.data.filter(item => item.sort_order < 9000);
-      if (normalItems.length > 0) {
-        const maxSortOrder = Math.max(...normalItems.map(item => item.sort_order));
-        form.sort_order = maxSortOrder + 1;
-      } else {
-        form.sort_order = 1; // Start at 1 if no normal items
-      }
-    } else {
-      form.sort_order = 1; // Start at 1 if no items at all
-    }
-  } catch (error) {
-    console.error('Failed to get next sort order:', error);
-    form.sort_order = 1;
-  }
+  // Get the next available sort order
+  form.sort_order = getNextSortOrder();
   
   showModal.value = true;
 };
@@ -553,7 +666,7 @@ const closeModal = () => {
   resetForm();
 };
 
-// Submit form
+// ========== SUBMIT FORM ==========
 const submitForm = async () => {
   formLoading.value = true;
   clearErrors();
@@ -571,18 +684,10 @@ const submitForm = async () => {
     if (isEditing.value) {
       editingId.value = editingItemId.value;
       
-      // Optimistic update
-      const index = courts.value.findIndex(c => c.id === editingItemId.value);
-      if (index !== -1) {
-        courts.value[index] = {
-          ...courts.value[index],
-          ...payload
-        };
-      }
-
+      // Call API - it will update the store
       await courtService.updateCourt(editingItemId.value, payload);
-
-      await Swal.fire({
+       await fetchCourts(true);
+      Swal.fire({
         icon: 'success',
         title: 'Success!',
         text: 'Court updated successfully',
@@ -594,13 +699,11 @@ const submitForm = async () => {
 
     } else {
       isAdding.value = true;
-      const response = await courtService.createCourt(payload);
       
-      if (response.data) {
-        courts.value.unshift(response.data);
-      }
-
-      await Swal.fire({
+      // Call API - it will add to store
+      const response = await courtService.createCourt(payload);
+       await fetchCourts(true);
+      Swal.fire({
         icon: 'success',
         title: 'Success!',
         text: 'Court created successfully',
@@ -612,21 +715,23 @@ const submitForm = async () => {
     }
 
     closeModal();
-    await loadCourts(); // Refresh in background
 
   } catch (error) {
     if (error.errors) {
-      if (error.errors.name) errors.name = error.errors.name[0] || error.errors.name;
-      if (error.errors.type) errors.type = error.errors.type[0] || error.errors.type;
-      if (error.errors.address) errors.address = error.errors.address[0] || error.errors.address;
-      if (error.errors.contact_info) errors.contact_info = error.errors.contact_info[0] || error.errors.contact_info;
+      if (error.errors.name) errors.name = error.errors.name[0];
+      if (error.errors.type) errors.type = error.errors.type[0];
+      if (error.errors.address) errors.address = error.errors.address[0];
+      if (error.errors.contact_info) errors.contact_info = error.errors.contact_info[0];
     }
 
-    await Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Error!',
       text: error.message || 'An error occurred',
-      confirmButtonColor: '#dc2626'
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
 
   } finally {
@@ -636,23 +741,15 @@ const submitForm = async () => {
   }
 };
 
-// Toggle status
+// ========== TOGGLE STATUS ==========
 const toggleStatus = async (item) => {
   togglingId.value = item.id;
 
   try {
-    // Optimistic update
-    const index = courts.value.findIndex(c => c.id === item.id);
-    if (index !== -1) {
-      courts.value[index] = {
-        ...courts.value[index],
-        is_active: !item.is_active
-      };
-    }
-
+    // Call API - it will update the store
     await courtService.toggleCourt(item.id);
-
-    await Swal.fire({
+     await fetchCourts(true);
+    Swal.fire({
       icon: 'success',
       title: 'Success!',
       text: `Court ${!item.is_active ? 'activated' : 'deactivated'} successfully`,
@@ -663,14 +760,14 @@ const toggleStatus = async (item) => {
     });
 
   } catch (error) {
-    // Revert on error
-    await loadCourts();
-
-    await Swal.fire({
+    Swal.fire({
       icon: 'error',
       title: 'Error!',
       text: error.message || 'Failed to toggle status',
-      confirmButtonColor: '#dc2626'
+      timer: 2000,
+      showConfirmButton: false,
+      position: 'top-end',
+      toast: true
     });
 
   } finally {
@@ -678,7 +775,7 @@ const toggleStatus = async (item) => {
   }
 };
 
-// Delete
+// ========== DELETE ==========
 const confirmDelete = async (item) => {
   const result = await Swal.fire({
     title: 'Delete Court?',
@@ -695,12 +792,11 @@ const confirmDelete = async (item) => {
     deletingId.value = item.id;
 
     try {
-      // Optimistic delete
-      courts.value = courts.value.filter(c => c.id !== item.id);
-
+      // Call API - it will remove from store
       await courtService.deleteCourt(item.id);
-
-      await Swal.fire({
+      await fetchCourts(true);
+      
+      Swal.fire({
         icon: 'success',
         title: 'Deleted!',
         text: 'Court deleted successfully',
@@ -710,17 +806,15 @@ const confirmDelete = async (item) => {
         toast: true
       });
 
-      await loadCourts(); // Refresh
-
     } catch (error) {
-      // Revert on error
-      await loadCourts();
-
-      await Swal.fire({
+      Swal.fire({
         icon: 'error',
         title: 'Error!',
         text: error.message || 'Failed to delete court',
-        confirmButtonColor: '#dc2626'
+        timer: 2000,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
       });
 
     } finally {
@@ -729,16 +823,31 @@ const confirmDelete = async (item) => {
   }
 };
 
-// Watch for page changes
-watch(currentPage, () => {
-  loadCourts();
+// ========== LISTEN FOR UPDATES ==========
+const handleCourtsUpdated = (event) => {
+  courts.value = event.detail;
+  if (courts.value.length > 0) {
+    isLoading.value = false;
+  }
+};
+
+let cleanup = null;
+
+// ========== LIFECYCLE ==========
+onMounted(async () => {
+  await initialize();
+  
+  cleanup = listenForUpdates('courts-updated', handleCourtsUpdated);
 });
 
-// Initial load
-onMounted(() => {
-  loadCourtTypes();
-  loadCourts();
+onUnmounted(() => {
+  if (cleanup) cleanup();
+  debouncedSearch.cancel();
 });
+
+const formatDateHelper = (date) => {
+  return formatDate(date);
+};
 </script>
 
 <style scoped>

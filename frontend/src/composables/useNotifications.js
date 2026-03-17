@@ -1,13 +1,13 @@
 // src/composables/useNotifications.js
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import notificationService from '@/services/notificationService';
+import AppUtils from '@/utils/appUtils';
 import { useAuth } from './Useauth';
 
 export function useNotifications() {
   const { user } = useAuth();
-  const notifications = ref([]);
-  const unreadCount = ref(0);
-  const lastSync = ref(null);
+  const notifications = ref(AppUtils.getNotifications() || []);
+  const unreadCount = ref(AppUtils.getUnreadCount() || 0);
   const isLoading = ref(false);
   let poller = null;
 
@@ -18,9 +18,11 @@ export function useNotifications() {
     isLoading.value = true;
     try {
       const response = await notificationService.sync();
-      notifications.value = response.data || [];
-      unreadCount.value = response.unread_count || 0;
-      lastSync.value = response.server_time;
+      if (response.data) {
+        AppUtils.setNotifications(response.data);
+        notifications.value = response.data;
+        unreadCount.value = response.unread_count || 0;
+      }
     } catch (error) {
       console.error('Failed to load notifications:', error);
     } finally {
@@ -28,31 +30,17 @@ export function useNotifications() {
     }
   };
 
-  // Smart polling for updates
+  // Poll for updates
   const pollUpdates = async () => {
     if (!user.value) return;
     
     try {
-      const response = await notificationService.sync(lastSync.value);
-      const updatedNotifications = response.data || [];
-
-      if (updatedNotifications.length > 0) {
-        // Update existing notifications or add new ones
-        updatedNotifications.forEach(updated => {
-          const index = notifications.value.findIndex(n => n.id === updated.id);
-          if (index !== -1) {
-            notifications.value[index] = updated;
-          } else {
-            notifications.value.unshift(updated);
-          }
-        });
-        
-        // Keep only latest 50
-        notifications.value = notifications.value.slice(0, 50);
+      const response = await notificationService.sync();
+      if (response.data?.length > 0) {
+        response.data.forEach(notif => AppUtils.addNotification(notif));
+        notifications.value = AppUtils.getNotifications();
+        unreadCount.value = AppUtils.getUnreadCount();
       }
-
-      unreadCount.value = response.unread_count;
-      lastSync.value = response.server_time;
     } catch (error) {
       console.error('Polling failed:', error);
     }
@@ -62,11 +50,9 @@ export function useNotifications() {
   const markAsRead = async (id) => {
     try {
       await notificationService.markAsRead(id);
-      const index = notifications.value.findIndex(n => n.id === id);
-      if (index !== -1) {
-        notifications.value[index].is_read = true;
-      }
-      unreadCount.value = Math.max(0, unreadCount.value - 1);
+      AppUtils.markNotificationAsRead(id);
+      notifications.value = AppUtils.getNotifications();
+      unreadCount.value = AppUtils.getUnreadCount();
     } catch (error) {
       console.error('Failed to mark as read:', error);
     }
@@ -76,33 +62,12 @@ export function useNotifications() {
   const markAllAsRead = async () => {
     try {
       await notificationService.markAllAsRead();
-      notifications.value.forEach(n => n.is_read = true);
+      AppUtils.markAllNotificationsAsRead();
+      notifications.value = AppUtils.getNotifications();
       unreadCount.value = 0;
     } catch (error) {
       console.error('Failed to mark all as read:', error);
     }
-  };
-
-  // Get notification icon based on type
-  const getNotificationIcon = (type) => {
-    if (type.includes('case_assigned')) return '📁';
-    if (type.includes('case_reassigned')) return '🔄';
-    if (type.includes('stage_changed')) return '📊';
-    if (type.includes('checklist')) return '✅';
-    if (type.includes('folder')) return '📂';
-    if (type.includes('task')) return '📋';
-    if (type.includes('approved')) return '✔️';
-    if (type.includes('rejected')) return '❌';
-    return '🔔';
-  };
-
-  // Get notification color based on type
-  const getNotificationColor = (type) => {
-    if (type.includes('approved')) return 'text-emerald-600 bg-emerald-100';
-    if (type.includes('rejected')) return 'text-red-600 bg-red-100';
-    if (type.includes('pending')) return 'text-amber-600 bg-amber-100';
-    if (type.includes('task')) return 'text-blue-600 bg-blue-100';
-    return 'text-slate-600 bg-slate-100';
   };
 
   // Start polling
@@ -119,6 +84,7 @@ export function useNotifications() {
     }
   };
 
+  // Lifecycle hooks - MUST be called directly in setup function
   onMounted(() => {
     loadNotifications();
     startPolling();
@@ -134,8 +100,6 @@ export function useNotifications() {
     isLoading,
     markAsRead,
     markAllAsRead,
-    getNotificationIcon,
-    getNotificationColor,
     refresh: loadNotifications
   };
 }
