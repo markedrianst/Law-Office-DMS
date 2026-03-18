@@ -1,4 +1,3 @@
-<!-- src/components/Calendar/EventModal.vue -->
 <template>
   <Transition name="modal">
     <div v-if="show" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="$emit('close')">
@@ -152,6 +151,7 @@
                     <p class="text-sm font-medium text-[#1a4972]">
                       {{ localEvent.case.case_code }} - {{ localEvent.case.title }}
                     </p>
+                    <p class="text-xs text-slate-500 mt-1">Client: {{ localEvent.case.client?.full_name }}</p>
                   </div>
                   <div v-else class="p-4">
                     <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Case</p>
@@ -174,7 +174,7 @@
                       <div class="w-6 h-6 rounded-full bg-gradient-to-br from-[#1a4972] to-[#2d6db5] flex items-center justify-center text-xs font-bold text-white">
                         {{ getInitials(localEvent.assignedTo.full_name) }}
                       </div>
-                      <span class="text-sm text-slate-700">{{ localEvent.assignedTo.full_name }}</span>
+                      <span class="text-sm text-slate-700">{{ localEvent.assignedTo.full_name }} (Lawyer)</span>
                     </div>
                   </div>
 
@@ -296,19 +296,85 @@
                 </div>
               </div>
 
-              <!-- Case Selection -->
+              <!-- Case Selection with Search -->
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">Link to Case</label>
-                <select 
-                  v-model="form.case_id" 
-                  @change="clearFieldError('case_id')"
-                  class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 transition"
-                  :disabled="form.hearing_date && isPastDate(form.hearing_date)">
-                  <option value="">— Personal Event (No Case) —</option>
-                  <option v-for="caseItem in cases" :key="caseItem.id" :value="caseItem.id">
-                    {{ caseItem.case_code }} - {{ caseItem.title }}
-                  </option>
-                </select>
+                <div class="relative" ref="caseDropdownRef">
+                  <!-- Search Input -->
+                  <div class="relative">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" 
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input
+                      v-model="caseSearch"
+                      @focus="caseDropdownOpen = true"
+                      @input="caseDropdownOpen = true"
+                      type="text"
+                      placeholder="Search by case code or client name..."
+                      class="w-full pl-9 pr-8 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 transition"
+                      :class="{ 'border-[#1a4972] font-medium': form.case_id }"
+                      :disabled="form.hearing_date && isPastDate(form.hearing_date)" />
+                    
+                    <!-- Clear button -->
+                    <button v-if="caseSearch || form.case_id" type="button" @click.prevent="clearCase"
+                      class="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <!-- Dropdown list -->
+                  <Transition name="dropdown">
+                    <div v-if="caseDropdownOpen" 
+                      class="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                      <div class="max-h-60 overflow-y-auto">
+                        <!-- Personal Event Option -->
+                        <div
+                          @mousedown.prevent="selectCase(null)"
+                          class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50"
+                          :class="{ 'bg-blue-50/60': !form.case_id }">
+                          <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-medium text-slate-500">
+                            📌
+                          </div>
+                          <span class="text-sm text-slate-600 flex-1">— Personal Event (No Case) —</span>
+                          <svg v-if="!form.case_id" class="w-3.5 h-3.5 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                          </svg>
+                        </div>
+
+                        <!-- Case Options -->
+                        <div v-for="caseItem in filteredCases" :key="caseItem.id"
+                          @mousedown.prevent="selectCase(caseItem)"
+                          class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50 last:border-0"
+                          :class="{ 'bg-blue-50/60': form.case_id === caseItem.id }">
+                          <div class="w-6 h-6 rounded-full bg-[#1a4972] flex items-center justify-center text-xs font-bold text-white">
+                            {{ getCaseInitials(caseItem) }}
+                          </div>
+                          <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                              <span class="text-sm font-semibold text-[#1a4972]">{{ caseItem.case_code }}</span>
+                              <span class="text-xs px-1.5 py-0.5 rounded-full" :class="priorityClass(caseItem.priority)">
+                                {{ caseItem.priority }}
+                              </span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-0.5">{{ caseItem.client }} • {{ caseItem.title }}</p>
+                          </div>
+                          <svg v-if="form.case_id === caseItem.id" class="w-3.5 h-3.5 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                          </svg>
+                        </div>
+
+                        <!-- No results -->
+                        <div v-if="filteredCases.length === 0 && caseSearch" class="px-4 py-4 text-center">
+                          <p class="text-xs text-slate-500">No cases match "<span class="font-medium">{{ caseSearch }}</span>"</p>
+                        </div>
+                      </div>
+                    </div>
+                  </Transition>
+                </div>
+                <p v-if="errors.case_id" class="text-xs text-red-500 mt-1">{{ errors.case_id }}</p>
               </div>
 
               <!-- Location & Court Grid -->
@@ -323,24 +389,80 @@
                     class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 transition"
                     :disabled="form.hearing_date && isPastDate(form.hearing_date)" />
                 </div>
+                
+                <!-- Court Selection with Search -->
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-1.5">Court</label>
-                  <select 
-                    v-model="form.court_id" 
-                    @change="clearFieldError('court_id')"
-                    class="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 transition"
-                    :disabled="form.hearing_date && isPastDate(form.hearing_date)">
-                    <option value="">— Select Court —</option>
-                    <option v-for="court in courts" :key="court.id" :value="court.id">
-                      {{ court.name }}
-                    </option>
-                  </select>
+                  <div class="relative" ref="courtDropdownRef">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" 
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input
+                      v-model="courtSearch"
+                      @focus="courtDropdownOpen = true"
+                      @input="courtDropdownOpen = true"
+                      type="text"
+                      placeholder="Search court..."
+                      class="w-full pl-9 pr-8 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 transition"
+                      :class="{ 'border-[#1a4972] font-medium': form.court_id }"
+                      :disabled="form.hearing_date && isPastDate(form.hearing_date)" />
+                    
+                    <!-- Clear button -->
+                    <button v-if="courtSearch || form.court_id" type="button" @click.prevent="clearCourt"
+                      class="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+
+                    <!-- Dropdown list -->
+                    <Transition name="dropdown">
+                      <div v-if="courtDropdownOpen" 
+                        class="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                        <div class="max-h-48 overflow-y-auto">
+                          <!-- No Court Option -->
+                          <div
+                            @mousedown.prevent="selectCourt(null)"
+                            class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50"
+                            :class="{ 'bg-blue-50/60': !form.court_id }">
+                            <span class="text-sm text-slate-600 flex-1">— No Court —</span>
+                            <svg v-if="!form.court_id" class="w-3.5 h-3.5 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                            </svg>
+                          </div>
+
+                          <!-- Court Options -->
+                          <div v-for="court in filteredCourts" :key="court.id"
+                            @mousedown.prevent="selectCourt(court)"
+                            class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50 last:border-0"
+                            :class="{ 'bg-blue-50/60': form.court_id === court.id }">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                            <div class="flex-1">
+                              <span class="text-sm font-medium text-slate-800">{{ court.name }}</span>
+                              <span class="text-xs text-slate-400 ml-2">{{ court.type }}</span>
+                            </div>
+                            <svg v-if="form.court_id === court.id" class="w-3.5 h-3.5 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                            </svg>
+                          </div>
+
+                          <!-- No results -->
+                          <div v-if="filteredCourts.length === 0 && courtSearch" class="px-4 py-4 text-center">
+                            <p class="text-xs text-slate-500">No courts match "<span class="font-medium">{{ courtSearch }}</span>"</p>
+                          </div>
+                        </div>
+                      </div>
+                    </Transition>
+                  </div>
                 </div>
               </div>
 
-              <!-- Assignment -->
+              <!-- Assignment - ONLY LAWYERS -->
               <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1.5">Assign To</label>
+                <label class="block text-sm font-semibold text-slate-700 mb-1.5">Assign To Lawyer</label>
                 <select 
                   v-model="form.assigned_to" 
                   @change="clearFieldError('assigned_to')"
@@ -348,9 +470,10 @@
                   :disabled="form.hearing_date && isPastDate(form.hearing_date)">
                   <option value="">— Unassigned —</option>
                   <option v-for="user in availableUsers" :key="user.id" :value="user.id">
-                    {{ user.full_name }} ({{ user.role }})
+                    Atty. {{ user.full_name }}
                   </option>
                 </select>
+                <p class="text-xs text-slate-400 mt-1">Events can only be assigned to lawyers</p>
               </div>
 
               <!-- Description -->
@@ -441,7 +564,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import Swal from 'sweetalert2';
 import { 
   formatDate, 
@@ -487,6 +610,15 @@ const form = reactive({
 
 const errors = ref({});
 
+// Search states
+const caseSearch = ref('');
+const caseDropdownOpen = ref(false);
+const caseDropdownRef = ref(null);
+
+const courtSearch = ref('');
+const courtDropdownOpen = ref(false);
+const courtDropdownRef = ref(null);
+
 // Computed today date in YYYY-MM-DD format
 const today = computed(() => {
   const date = new Date();
@@ -496,39 +628,39 @@ const today = computed(() => {
   return `${year}-${month}-${day}`;
 });
 
-// Check if user can edit this event
-const canEdit = computed(() => {
-  if (props.canEdit !== undefined) return props.canEdit;
+// Filtered cases based on search
+const filteredCases = computed(() => {
+  if (!props.cases || !Array.isArray(props.cases)) return [];
   
-  if (!props.event) return false;
-  if (props.isPast) return false;
-  if (props.event.status !== 'scheduled') return false;
+  if (!caseSearch.value) return props.cases;
   
-  const userRole = user.value?.role?.toLowerCase();
-  const userId = user.value?.id;
-  
-  if (userRole === 'admin') return true;
-  if (props.event.created_by === userId) return true;
-  if (props.event.assigned_to === userId) return true;
-  
-  if (userRole === 'lawyer' && props.event.case_id) {
-    return props.event.case?.assigned_lawyer_id === userId;
-  }
-  
-  if (userRole === 'clerk' && props.event.case_id) {
-    return props.event.case?.assigned_clerk_id === userId;
-  }
-  
-  return false;
+  const searchLower = caseSearch.value.toLowerCase();
+  return props.cases.filter(caseItem => {
+    return (caseItem.case_code?.toLowerCase().includes(searchLower)) ||
+           (caseItem.client?.toLowerCase().includes(searchLower)) ||
+           (caseItem.title?.toLowerCase().includes(searchLower));
+  });
 });
 
-// Available users for assignment
+// Filtered courts based on search
+const filteredCourts = computed(() => {
+  if (!props.courts || !Array.isArray(props.courts)) return [];
+  
+  if (!courtSearch.value) return props.courts;
+  
+  const searchLower = courtSearch.value.toLowerCase();
+  return props.courts.filter(court => {
+    return court.name?.toLowerCase().includes(searchLower) ||
+           court.type?.toLowerCase().includes(searchLower);
+  });
+});
+
+// Available users for assignment - ONLY LAWYERS
 const availableUsers = computed(() => {
   if (!props.users || !Array.isArray(props.users)) return [];
   
   return props.users.filter(user => 
-    user.role?.toLowerCase() === 'lawyer' || 
-    user.role?.toLowerCase() === 'clerk'
+    user.role?.toLowerCase() === 'lawyer'
   ).map(user => ({
     id: user.id,
     full_name: user.full_name,
@@ -538,11 +670,44 @@ const availableUsers = computed(() => {
 
 const localEvent = computed(() => props.event || {});
 
-// Helper to format date for display
+// Helper to get case initials
+const getCaseInitials = (caseItem) => {
+  if (!caseItem.client) return '?';
+  const parts = caseItem.client.split(' ').filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
+// Priority class for case display
+const priorityClass = (priority) => {
+  const classes = {
+    'urgent': 'bg-red-50 text-red-700',
+    'normal': 'bg-blue-50 text-blue-700',
+    'low': 'bg-slate-100 text-slate-600'
+  };
+  return classes[priority] || 'bg-slate-100 text-slate-500';
+};
+
+// Helper to format date for display - FIXED
 const formatDisplayDate = (date) => {
   if (!date) return '—';
+  
+  // Parse YYYY-MM-DD format manually to avoid timezone issues
+  if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = date.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+  
+  // Fallback for other formats
   const d = new Date(date);
   if (isNaN(d.getTime())) return date;
+  
   return d.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -558,6 +723,16 @@ const formatTime = (time) => {
     return `${parts[0]}:${parts[1]}`;
   }
   return time;
+};
+
+// Click outside handlers
+const handleClickOutside = (event) => {
+  if (caseDropdownRef.value && !caseDropdownRef.value.contains(event.target)) {
+    caseDropdownOpen.value = false;
+  }
+  if (courtDropdownRef.value && !courtDropdownRef.value.contains(event.target)) {
+    courtDropdownOpen.value = false;
+  }
 };
 
 // Clear field error
@@ -590,6 +765,42 @@ const handleSubmit = () => {
   };
   
   emit('save', { mode: props.mode, data: payload });
+};
+
+// Case selection methods
+const selectCase = (caseItem) => {
+  if (caseItem) {
+    form.case_id = caseItem.id;
+    caseSearch.value = `${caseItem.case_code} - ${caseItem.client || ''}`;
+  } else {
+    form.case_id = '';
+    caseSearch.value = '';
+  }
+  caseDropdownOpen.value = false;
+};
+
+const clearCase = () => {
+  form.case_id = '';
+  caseSearch.value = '';
+  caseDropdownOpen.value = false;
+};
+
+// Court selection methods
+const selectCourt = (court) => {
+  if (court) {
+    form.court_id = court.id;
+    courtSearch.value = court.name;
+  } else {
+    form.court_id = '';
+    courtSearch.value = '';
+  }
+  courtDropdownOpen.value = false;
+};
+
+const clearCourt = () => {
+  form.court_id = '';
+  courtSearch.value = '';
+  courtDropdownOpen.value = false;
 };
 
 // Enhanced Reschedule Modal
@@ -724,19 +935,26 @@ const openCancelModal = async () => {
   }
 };
 
-// Watch for event changes
+// Watch for event changes - FIXED
 watch(() => props.event, (newVal) => {
   if (newVal) {
     let hearingDate = '';
+    
     if (newVal.hearing_date) {
-      const date = new Date(newVal.hearing_date);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        hearingDate = `${year}-${month}-${day}`;
-      } else {
+      // Check if it's already in YYYY-MM-DD format
+      if (typeof newVal.hearing_date === 'string' && newVal.hearing_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
         hearingDate = newVal.hearing_date;
+      } else {
+        // Try to parse other formats
+        const date = new Date(newVal.hearing_date);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          hearingDate = `${year}-${month}-${day}`;
+        } else {
+          hearingDate = newVal.hearing_date;
+        }
       }
     }
     
@@ -760,6 +978,21 @@ watch(() => props.event, (newVal) => {
       description: newVal.description || '',
       reschedule_reason: newVal.reschedule_reason || ''
     });
+
+    // Set search fields
+    if (newVal.case_id && props.cases) {
+      const selectedCase = props.cases.find(c => c.id === newVal.case_id);
+      if (selectedCase) {
+        caseSearch.value = `${selectedCase.case_code} - ${selectedCase.client || ''}`;
+      }
+    }
+    
+    if (newVal.court_id && props.courts) {
+      const selectedCourt = props.courts.find(c => c.id === newVal.court_id);
+      if (selectedCourt) {
+        courtSearch.value = selectedCourt.name;
+      }
+    }
     
     errors.value = {};
   }
@@ -770,8 +1003,19 @@ watch(() => props.show, (newVal) => {
   if (!newVal) {
     setTimeout(() => {
       errors.value = {};
+      caseSearch.value = '';
+      courtSearch.value = '';
     }, 300);
   }
+});
+
+// Lifecycle
+onMounted(() => {
+  document.addEventListener('mousedown', handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', handleClickOutside);
 });
 </script>
 
@@ -782,6 +1026,20 @@ watch(() => props.show, (newVal) => {
 .modal-enter-from, .modal-leave-to {
   opacity: 0;
   transform: scale(0.95);
+}
+
+.dropdown-enter-active {
+  transition: all 0.15s ease;
+}
+.dropdown-enter-from {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.dropdown-leave-active {
+  transition: all 0.1s ease;
+}
+.dropdown-leave-to {
+  opacity: 0;
 }
 
 /* Custom scrollbar */

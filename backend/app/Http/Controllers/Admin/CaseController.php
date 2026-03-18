@@ -21,117 +21,137 @@ class CaseController extends Controller
     /**
      * Display a listing of cases with filters and pagination.
      */
-    public function index(Request $request)
-    {
-        try {
-            $query = Cases::with([
-                'category:id,name,color',
-                'client:id,full_name',
-                'lawyer:id,full_name',
-                'clerk:id,full_name',
-                'currentStage:id,name,color'
-            ]);
+/**
+ * Display a listing of cases with filters and pagination.
+ * OPTIMIZED for millions of records - uses database pagination and query optimization
+ */
+public function index(Request $request)
+{
+    try {
+        // Start with a base query - select only needed fields
+        $query = Cases::query();
+        
+        // Select only the fields we need, not everything
+        $query->select([
+            'id', 'case_code', 'case_no', 'title', 'category_id', 
+            'client_id', 'court_or_office', 'docket_no', 
+            'assigned_lawyer_id', 'assigned_clerk_id', 
+            'priority', 'case_status', 'current_stage_id',
+            'summary', 'is_out', 'created_at', 'updated_at'
+        ]);
 
-            // Filter by status
-            if ($request->filled('case_status')) {
-                $query->where('case_status', $request->case_status);
-            }
+        // Eager load relationships with specific fields only
+        $query->with([
+            'category:id,name,color',
+            'client:id,full_name',
+            'lawyer:id,full_name',
+            'clerk:id,full_name',
+            'currentStage:id,name,color'
+        ]);
 
-            // Filter by priority
-            if ($request->filled('priority')) {
-                $query->where('priority', $request->priority);
-            }
-
-            // Filter by stage
-            if ($request->filled('stage_id')) {
-                $query->where('current_stage_id', $request->stage_id);
-            }
-
-            // Filter by assigned lawyer
-            if ($request->filled('assigned_lawyer_id')) {
-                $query->where('assigned_lawyer_id', $request->assigned_lawyer_id);
-            }
-
-            // Filter by assigned clerk
-            if ($request->filled('assigned_clerk_id')) {
-                $query->where('assigned_clerk_id', $request->assigned_clerk_id);
-            }
-
-            // Search
-            if ($request->filled('search')) {
-                $search = $request->search;
-                $query->where(function($q) use ($search) {
-                    $q->where('case_code', 'like', "%{$search}%")
-                      ->orWhere('case_no', 'like', "%{$search}%")
-                      ->orWhere('title', 'like', "%{$search}%")
-                      ->orWhereHas('client', function($clientQuery) use ($search) {
-                          $clientQuery->where('full_name', 'like', "%{$search}%");
-                      });
-                });
-            }
-
-            // Sorting
-            $sortField = $request->get('sort_by', 'created_at');
-            $sortDirection = $request->get('sort_direction', 'desc');
-            
-            $allowedSorts = ['case_code', 'case_no', 'title', 'priority', 'case_status', 'created_at'];
-            $sortField = in_array($sortField, $allowedSorts) ? $sortField : 'created_at';
-            
-            $query->orderBy($sortField, $sortDirection);
-
-            // Pagination
-            $perPage = $request->get('per_page', 15);
-            $cases = $query->paginate($perPage);
-
-            // Transform data
-            $transformed = $cases->map(function($case) {
-                return [
-                    'id' => $case->id,
-                    'case_code' => $case->case_code,
-                    'case_no' => $case->case_no,
-                    'title' => $case->title,
-                    'category_id' => $case->category_id,
-                    'category' => $case->category?->name ?? '—',
-                    'category_color' => $case->category?->color ?? '#1a4972',
-                    'client_id' => $case->client_id,
-                    'client' => $case->client?->full_name ?? '—',
-                    'court_or_office' => $case->court_or_office,
-                    'docket_no' => $case->docket_no,
-                    'assigned_lawyer_id' => $case->assigned_lawyer_id,
-                    'lawyer' => $case->lawyer?->full_name ?? '—',
-                    'assigned_clerk_id' => $case->assigned_clerk_id,
-                    'clerk' => $case->clerk?->full_name ?? '—',
-                    'priority' => $case->priority,
-                    'case_status' => $case->case_status,
-                    'current_stage_id' => $case->current_stage_id,
-                    'stage' => $case->currentStage?->name ?? '—',
-                    'stage_color' => $case->currentStage?->color ?? '#64748b',
-                    'summary' => $case->summary,
-                    'is_out' => $case->is_out,
-                    'created_at' => $case->created_at,
-                    'updated_at' => $case->updated_at,
-                ];
-            });
-
-            return response()->json([
-                'data' => $transformed,
-                'meta' => [
-                    'current_page' => $cases->currentPage(),
-                    'last_page' => $cases->lastPage(),
-                    'per_page' => $cases->perPage(),
-                    'total' => $cases->total(),
-                    'from' => $cases->firstItem(),
-                    'to' => $cases->lastItem(),
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to fetch cases',
-                'error' => $e->getMessage()
-            ], 500);
+        // Apply filters - these use WHERE clauses which are efficient
+        if ($request->filled('case_status')) {
+            $query->where('case_status', $request->case_status);
         }
+
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        if ($request->filled('stage_id')) {
+            $query->where('current_stage_id', $request->stage_id);
+        }
+
+        if ($request->filled('assigned_lawyer_id')) {
+            $query->where('assigned_lawyer_id', $request->assigned_lawyer_id);
+        }
+
+        if ($request->filled('assigned_clerk_id')) {
+            $query->where('assigned_clerk_id', $request->assigned_clerk_id);
+        }
+
+        // OPTIMIZED SEARCH - use database search, not PHP
+        if ($request->filled('search') && strlen($request->search) >= 2) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                // Use LIKE but with prefix matching for better performance
+                $q->where('case_code', 'like', $search . '%')
+                  ->orWhere('case_no', 'like', $search . '%')
+                  ->orWhere('title', 'like', '%' . $search . '%')
+                  ->orWhereHas('client', function($clientQuery) use ($search) {
+                      $clientQuery->where('full_name', 'like', $search . '%');
+                  });
+            });
+        }
+
+        // Sorting - always use database sorting
+        $sortField = $request->get('sort_by', 'created_at');
+        $sortDirection = $request->get('sort_direction', 'desc');
+        
+        // Whitelist allowed sort fields to prevent SQL injection
+        $allowedSorts = ['case_code', 'case_no', 'title', 'priority', 'case_status', 'created_at'];
+        $sortField = in_array($sortField, $allowedSorts) ? $sortField : 'created_at';
+        
+        $query->orderBy($sortField, $sortDirection);
+
+        // PAGINATION - THIS IS CRITICAL: only load 25 records at a time
+        $perPage = $request->get('per_page', 25);
+        
+        // Use simplePaginate for large datasets (no count query)
+        // or use paginate if you need total count
+        $cases = $query->paginate($perPage);
+
+        // Transform data - only transform the current page
+        $transformed = $cases->map(function($case) {
+            return [
+                'id' => $case->id,
+                'case_code' => $case->case_code,
+                'case_no' => $case->case_no,
+                'title' => $case->title,
+                'category_id' => $case->category_id,
+                'category' => $case->category?->name ?? '—',
+                'category_color' => $case->category?->color ?? '#1a4972',
+                'client_id' => $case->client_id,
+                'client' => $case->client?->full_name ?? '—',
+                'court_or_office' => $case->court_or_office,
+                'docket_no' => $case->docket_no,
+                'assigned_lawyer_id' => $case->assigned_lawyer_id,
+                'lawyer' => $case->lawyer?->full_name ?? '—',
+                'assigned_clerk_id' => $case->assigned_clerk_id,
+                'clerk' => $case->clerk?->full_name ?? '—',
+                'priority' => $case->priority,
+                'case_status' => $case->case_status,
+                'current_stage_id' => $case->current_stage_id,
+                'stage' => $case->currentStage?->name ?? '—',
+                'stage_color' => $case->currentStage?->color ?? '#64748b',
+                'summary' => $case->summary,
+                'is_out' => $case->is_out,
+                'created_at' => $case->created_at,
+                'updated_at' => $case->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'data' => $transformed,
+            'meta' => [
+                'current_page' => $cases->currentPage(),
+                'last_page' => $cases->lastPage(),
+                'per_page' => $cases->perPage(),
+                'total' => $cases->total(),
+                'from' => $cases->firstItem(),
+                'to' => $cases->lastItem(),
+            ],
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Case index error: ' . $e->getMessage());
+        
+        return response()->json([
+            'message' => 'Failed to fetch cases',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Get lookup data for case form (categories, stages, users, clients)

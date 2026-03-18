@@ -218,24 +218,35 @@
               </table>
             </div>
             
-            <!-- Checklist Pagination -->
+            <!-- Checklist Pagination - STYLE 1-5, 6-10, 11-15, etc. -->
             <div v-if="checklist.length > 0" class="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/50">
               <p class="text-xs text-gray-400">
-                Showing {{ (checklistPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(checklistPage * PAGE_SIZE, checklist.length) }} of {{ checklist.length }}
+                Showing <span class="font-semibold text-gray-700">{{ pagination.checklist.from }}</span> to 
+                <span class="font-semibold text-gray-700">{{ pagination.checklist.to }}</span> of 
+                <span class="font-semibold text-gray-700">{{ pagination.checklist.total }}</span> tasks
               </p>
               <div class="flex items-center gap-1">
-                <button @click="checklistPage--" :disabled="checklistPage === 1"
-                  class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                <button @click="goToChecklistPage(pagination.checklist.current_page - 1)" 
+                  :disabled="pagination.checklist.current_page === 1"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  :class="pagination.checklist.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+                  ← Prev
                 </button>
-                <button v-for="p in checklistTotalPages" :key="p" @click="checklistPage = p"
-                  class="w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition"
-                  :class="checklistPage === p ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'">
-                  {{ p }}
+                
+                <button 
+                  v-for="page in displayedChecklistPages" 
+                  :key="page" 
+                  @click="goToChecklistPage(page)"
+                  class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
+                  :class="pagination.checklist.current_page === page ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'">
+                  {{ page }}
                 </button>
-                <button @click="checklistPage++" :disabled="checklistPage === checklistTotalPages"
-                  class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                
+                <button @click="goToChecklistPage(pagination.checklist.current_page + 1)" 
+                  :disabled="pagination.checklist.current_page === pagination.checklist.last_page"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  :class="pagination.checklist.current_page === pagination.checklist.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+                  Next →
                 </button>
               </div>
             </div>
@@ -333,24 +344,35 @@
                 </table>
               </div>
               
-              <!-- Folder Tracker Pagination -->
+              <!-- Folder Tracker Pagination - STYLE 1-5, 6-10, 11-15, etc. -->
               <div v-if="folderMovements.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50 mt-2 rounded-b-xl">
                 <p class="text-xs text-gray-400">
-                  Showing {{ (folderPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(folderPage * PAGE_SIZE, folderMovements.length) }} of {{ folderMovements.length }}
+                  Showing <span class="font-semibold text-gray-700">{{ pagination.folder.from }}</span> to 
+                  <span class="font-semibold text-gray-700">{{ pagination.folder.to }}</span> of 
+                  <span class="font-semibold text-gray-700">{{ pagination.folder.total }}</span> movements
                 </p>
                 <div class="flex items-center gap-1">
-                  <button @click="folderPage--" :disabled="folderPage === 1"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                  <button @click="goToFolderPage(pagination.folder.current_page - 1)" 
+                    :disabled="pagination.folder.current_page === 1"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.folder.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+                    ← Prev
                   </button>
-                  <button v-for="p in folderTotalPages" :key="p" @click="folderPage = p"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition"
-                    :class="folderPage === p ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'">
-                    {{ p }}
+                  
+                  <button 
+                    v-for="page in displayedFolderPages" 
+                    :key="page" 
+                    @click="goToFolderPage(page)"
+                    class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.folder.current_page === page ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'">
+                    {{ page }}
                   </button>
-                  <button @click="folderPage++" :disabled="folderPage === folderTotalPages"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  
+                  <button @click="goToFolderPage(pagination.folder.current_page + 1)" 
+                    :disabled="pagination.folder.current_page === pagination.folder.last_page"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.folder.current_page === pagination.folder.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+                    Next →
                   </button>
                 </div>
               </div>
@@ -440,24 +462,35 @@
                 </table>
               </div>
               
-              <!-- Checklist Tracker Pagination -->
+              <!-- Checklist Tracker Pagination - STYLE 1-5, 6-10, 11-15, etc. -->
               <div v-if="checklistMovements.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50 mt-2 rounded-b-xl">
                 <p class="text-xs text-gray-400">
-                  Showing {{ (checklistTrackerPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(checklistTrackerPage * PAGE_SIZE, checklistMovements.length) }} of {{ checklistMovements.length }}
+                  Showing <span class="font-semibold text-gray-700">{{ pagination.checklistTracker.from }}</span> to 
+                  <span class="font-semibold text-gray-700">{{ pagination.checklistTracker.to }}</span> of 
+                  <span class="font-semibold text-gray-700">{{ pagination.checklistTracker.total }}</span> movements
                 </p>
                 <div class="flex items-center gap-1">
-                  <button @click="checklistTrackerPage--" :disabled="checklistTrackerPage === 1"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                  <button @click="goToChecklistTrackerPage(pagination.checklistTracker.current_page - 1)" 
+                    :disabled="pagination.checklistTracker.current_page === 1"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.checklistTracker.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+                    ← Prev
                   </button>
-                  <button v-for="p in checklistTrackerTotalPages" :key="p" @click="checklistTrackerPage = p"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition"
-                    :class="checklistTrackerPage === p ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'">
-                    {{ p }}
+                  
+                  <button 
+                    v-for="page in displayedChecklistTrackerPages" 
+                    :key="page" 
+                    @click="goToChecklistTrackerPage(page)"
+                    class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.checklistTracker.current_page === page ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'">
+                    {{ page }}
                   </button>
-                  <button @click="checklistTrackerPage++" :disabled="checklistTrackerPage === checklistTrackerTotalPages"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  
+                  <button @click="goToChecklistTrackerPage(pagination.checklistTracker.current_page + 1)" 
+                    :disabled="pagination.checklistTracker.current_page === pagination.checklistTracker.last_page"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.checklistTracker.current_page === pagination.checklistTracker.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+                    Next →
                   </button>
                 </div>
               </div>
@@ -482,24 +515,35 @@
                 </div>
               </div>
               
-              <!-- Activity Logs Pagination -->
+              <!-- Activity Logs Pagination - STYLE 1-5, 6-10, 11-15, etc. -->
               <div v-if="activityLogs.length > 0" class="flex items-center justify-between pt-4 mt-2 border-t border-gray-100">
                 <p class="text-xs text-gray-400">
-                  Showing {{ (activityPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(activityPage * PAGE_SIZE, activityLogs.length) }} of {{ activityLogs.length }}
+                  Showing <span class="font-semibold text-gray-700">{{ pagination.activity.from }}</span> to 
+                  <span class="font-semibold text-gray-700">{{ pagination.activity.to }}</span> of 
+                  <span class="font-semibold text-gray-700">{{ pagination.activity.total }}</span> logs
                 </p>
                 <div class="flex items-center gap-1">
-                  <button @click="activityPage--" :disabled="activityPage === 1"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                  <button @click="goToActivityPage(pagination.activity.current_page - 1)" 
+                    :disabled="pagination.activity.current_page === 1"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.activity.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+                    ← Prev
                   </button>
-                  <button v-for="p in activityTotalPages" :key="p" @click="activityPage = p"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition"
-                    :class="activityPage === p ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'">
-                    {{ p }}
+                  
+                  <button 
+                    v-for="page in displayedActivityPages" 
+                    :key="page" 
+                    @click="goToActivityPage(page)"
+                    class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.activity.current_page === page ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'">
+                    {{ page }}
                   </button>
-                  <button @click="activityPage++" :disabled="activityPage === activityTotalPages"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  
+                  <button @click="goToActivityPage(pagination.activity.current_page + 1)" 
+                    :disabled="pagination.activity.current_page === pagination.activity.last_page"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    :class="pagination.activity.current_page === pagination.activity.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+                    Next →
                   </button>
                 </div>
               </div>
@@ -754,6 +798,7 @@
     </div>
   </Transition>
 </template>
+
 <script setup>
 import { ref, computed, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 import CaseTaskModal from './CaseTaskModal.vue';
@@ -781,12 +826,44 @@ const checklistMovements = ref([]);
 const activityLogs = ref([]);
 const loading = ref(false);
 
-// Pagination
+// Pagination settings
 const PAGE_SIZE = 5;
-const checklistPage = ref(1);
-const folderPage = ref(1);
-const checklistTrackerPage = ref(1);
-const activityPage = ref(1);
+
+// Pagination state for each section
+const pagination = reactive({
+  checklist: {
+    current_page: 1,
+    last_page: 1,
+    per_page: PAGE_SIZE,
+    total: 0,
+    from: 0,
+    to: 0
+  },
+  folder: {
+    current_page: 1,
+    last_page: 1,
+    per_page: PAGE_SIZE,
+    total: 0,
+    from: 0,
+    to: 0
+  },
+  checklistTracker: {
+    current_page: 1,
+    last_page: 1,
+    per_page: PAGE_SIZE,
+    total: 0,
+    from: 0,
+    to: 0
+  },
+  activity: {
+    current_page: 1,
+    last_page: 1,
+    per_page: PAGE_SIZE,
+    total: 0,
+    from: 0,
+    to: 0
+  }
+});
 
 // Tabs
 const tabs = ['Folder Tracker', 'Checklist Tracker', 'Activity Logs'];
@@ -825,6 +902,10 @@ const refreshMovements = async () => {
     ]);
     folderMovements.value = folderRes.data || [];
     checklistMovements.value = checklistRes.data || [];
+    
+    // Update pagination for folder and checklist tracker
+    updateFolderPagination();
+    updateChecklistTrackerPagination();
   } catch (error) {
     console.error('Failed to refresh movements:', error);
   }
@@ -841,6 +922,219 @@ const stopPolling = () => {
     poller = null;
   }
 };
+
+// ========== PAGINATION UPDATE FUNCTIONS ==========
+const updateChecklistPagination = () => {
+  const total = checklist.value.length;
+  pagination.checklist.total = total;
+  pagination.checklist.last_page = Math.ceil(total / PAGE_SIZE) || 1;
+  
+  // Ensure current page is valid
+  if (pagination.checklist.current_page > pagination.checklist.last_page) {
+    pagination.checklist.current_page = pagination.checklist.last_page;
+  }
+  
+  pagination.checklist.from = total > 0 ? (pagination.checklist.current_page - 1) * PAGE_SIZE + 1 : 0;
+  pagination.checklist.to = total > 0 ? Math.min(pagination.checklist.current_page * PAGE_SIZE, total) : 0;
+};
+
+const updateFolderPagination = () => {
+  const total = folderMovements.value.length;
+  pagination.folder.total = total;
+  pagination.folder.last_page = Math.ceil(total / PAGE_SIZE) || 1;
+  
+  if (pagination.folder.current_page > pagination.folder.last_page) {
+    pagination.folder.current_page = pagination.folder.last_page;
+  }
+  
+  pagination.folder.from = total > 0 ? (pagination.folder.current_page - 1) * PAGE_SIZE + 1 : 0;
+  pagination.folder.to = total > 0 ? Math.min(pagination.folder.current_page * PAGE_SIZE, total) : 0;
+};
+
+const updateChecklistTrackerPagination = () => {
+  const total = checklistMovements.value.length;
+  pagination.checklistTracker.total = total;
+  pagination.checklistTracker.last_page = Math.ceil(total / PAGE_SIZE) || 1;
+  
+  if (pagination.checklistTracker.current_page > pagination.checklistTracker.last_page) {
+    pagination.checklistTracker.current_page = pagination.checklistTracker.last_page;
+  }
+  
+  pagination.checklistTracker.from = total > 0 ? (pagination.checklistTracker.current_page - 1) * PAGE_SIZE + 1 : 0;
+  pagination.checklistTracker.to = total > 0 ? Math.min(pagination.checklistTracker.current_page * PAGE_SIZE, total) : 0;
+};
+
+const updateActivityPagination = () => {
+  const total = activityLogs.value.length;
+  pagination.activity.total = total;
+  pagination.activity.last_page = Math.ceil(total / PAGE_SIZE) || 1;
+  
+  if (pagination.activity.current_page > pagination.activity.last_page) {
+    pagination.activity.current_page = pagination.activity.last_page;
+  }
+  
+  pagination.activity.from = total > 0 ? (pagination.activity.current_page - 1) * PAGE_SIZE + 1 : 0;
+  pagination.activity.to = total > 0 ? Math.min(pagination.activity.current_page * PAGE_SIZE, total) : 0;
+};
+
+// ========== PAGINATION PAGE METHODS ==========
+const goToChecklistPage = (page) => {
+  if (page < 1 || page > pagination.checklist.last_page) return;
+  pagination.checklist.current_page = page;
+  updateChecklistPagination();
+};
+
+const goToFolderPage = (page) => {
+  if (page < 1 || page > pagination.folder.last_page) return;
+  pagination.folder.current_page = page;
+  updateFolderPagination();
+};
+
+const goToChecklistTrackerPage = (page) => {
+  if (page < 1 || page > pagination.checklistTracker.last_page) return;
+  pagination.checklistTracker.current_page = page;
+  updateChecklistTrackerPagination();
+};
+
+const goToActivityPage = (page) => {
+  if (page < 1 || page > pagination.activity.last_page) return;
+  pagination.activity.current_page = page;
+  updateActivityPagination();
+};
+
+// ========== DISPLAYED PAGES COMPUTED ==========
+const displayedChecklistPages = computed(() => {
+  const pages = [];
+  const max = 5;
+  const total = pagination.checklist.last_page || 1;
+  const current = pagination.checklist.current_page || 1;
+  
+  if (total <= max) {
+    for (let i = 1; i <= total; i++) pages.push(i);
+  } else {
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + max - 1);
+    if (end - start + 1 < max) start = Math.max(1, end - max + 1);
+    
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push('...');
+    }
+    
+    for (let i = start; i <= end; i++) pages.push(i);
+    
+    if (end < total) {
+      if (end < total - 1) pages.push('...');
+      pages.push(total);
+    }
+  }
+  return pages;
+});
+
+const displayedFolderPages = computed(() => {
+  const pages = [];
+  const max = 5;
+  const total = pagination.folder.last_page || 1;
+  const current = pagination.folder.current_page || 1;
+  
+  if (total <= max) {
+    for (let i = 1; i <= total; i++) pages.push(i);
+  } else {
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + max - 1);
+    if (end - start + 1 < max) start = Math.max(1, end - max + 1);
+    
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push('...');
+    }
+    
+    for (let i = start; i <= end; i++) pages.push(i);
+    
+    if (end < total) {
+      if (end < total - 1) pages.push('...');
+      pages.push(total);
+    }
+  }
+  return pages;
+});
+
+const displayedChecklistTrackerPages = computed(() => {
+  const pages = [];
+  const max = 5;
+  const total = pagination.checklistTracker.last_page || 1;
+  const current = pagination.checklistTracker.current_page || 1;
+  
+  if (total <= max) {
+    for (let i = 1; i <= total; i++) pages.push(i);
+  } else {
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + max - 1);
+    if (end - start + 1 < max) start = Math.max(1, end - max + 1);
+    
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push('...');
+    }
+    
+    for (let i = start; i <= end; i++) pages.push(i);
+    
+    if (end < total) {
+      if (end < total - 1) pages.push('...');
+      pages.push(total);
+    }
+  }
+  return pages;
+});
+
+const displayedActivityPages = computed(() => {
+  const pages = [];
+  const max = 5;
+  const total = pagination.activity.last_page || 1;
+  const current = pagination.activity.current_page || 1;
+  
+  if (total <= max) {
+    for (let i = 1; i <= total; i++) pages.push(i);
+  } else {
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + max - 1);
+    if (end - start + 1 < max) start = Math.max(1, end - max + 1);
+    
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push('...');
+    }
+    
+    for (let i = start; i <= end; i++) pages.push(i);
+    
+    if (end < total) {
+      if (end < total - 1) pages.push('...');
+      pages.push(total);
+    }
+  }
+  return pages;
+});
+
+// ========== PAGINATED DATA COMPUTED ==========
+const paginatedChecklist = computed(() => {
+  const start = (pagination.checklist.current_page - 1) * PAGE_SIZE;
+  return checklist.value.slice(start, start + PAGE_SIZE);
+});
+
+const paginatedFolderMovements = computed(() => {
+  const start = (pagination.folder.current_page - 1) * PAGE_SIZE;
+  return folderMovements.value.slice(start, start + PAGE_SIZE);
+});
+
+const paginatedChecklistMovements = computed(() => {
+  const start = (pagination.checklistTracker.current_page - 1) * PAGE_SIZE;
+  return checklistMovements.value.slice(start, start + PAGE_SIZE);
+});
+
+const paginatedActivityLogs = computed(() => {
+  const start = (pagination.activity.current_page - 1) * PAGE_SIZE;
+  return activityLogs.value.slice(start, start + PAGE_SIZE);
+});
 
 // ========== COMPUTED ==========
 const lastFolderHandler = computed(() => {
@@ -882,40 +1176,6 @@ const hasPendingChecklistIn = computed(() =>
   checklistMovements.value.some(m => m.type === 'IN' && m.approval_status === 'PENDING')
 );
 
-// Pagination
-const paginatedChecklist = computed(() => {
-  const start = (checklistPage.value - 1) * PAGE_SIZE;
-  return checklist.value.slice(start, start + PAGE_SIZE);
-});
-
-const paginatedFolderMovements = computed(() => {
-  const start = (folderPage.value - 1) * PAGE_SIZE;
-  return folderMovements.value.slice(start, start + PAGE_SIZE);
-});
-
-const paginatedChecklistMovements = computed(() => {
-  const start = (checklistTrackerPage.value - 1) * PAGE_SIZE;
-  return checklistMovements.value.slice(start, start + PAGE_SIZE);
-});
-
-const paginatedActivityLogs = computed(() => {
-  const start = (activityPage.value - 1) * PAGE_SIZE;
-  return activityLogs.value.slice(start, start + PAGE_SIZE);
-});
-
-const checklistTotalPages = computed(() => 
-  Math.max(1, Math.ceil(checklist.value.length / PAGE_SIZE))
-);
-const folderTotalPages = computed(() => 
-  Math.max(1, Math.ceil(folderMovements.value.length / PAGE_SIZE))
-);
-const checklistTrackerTotalPages = computed(() => 
-  Math.max(1, Math.ceil(checklistMovements.value.length / PAGE_SIZE))
-);
-const activityTotalPages = computed(() => 
-  Math.max(1, Math.ceil(activityLogs.value.length / PAGE_SIZE))
-);
-
 const filteredUsers = computed(() => {
   const searchTerm = folderModal.show ? fromToSearch.value.toLowerCase() : ctFromToSearch.value.toLowerCase();
   
@@ -950,15 +1210,30 @@ const filteredUsers = computed(() => {
 });
 
 // ========== WATCHERS ==========
-watch(checklist, () => { checklistPage.value = 1; });
-watch(folderMovements, () => { folderPage.value = 1; });
-watch(checklistMovements, () => { checklistTrackerPage.value = 1; });
-watch(activityLogs, () => { activityPage.value = 1; });
+watch(checklist, () => { 
+  pagination.checklist.current_page = 1;
+  updateChecklistPagination();
+});
+
+watch(folderMovements, () => { 
+  pagination.folder.current_page = 1;
+  updateFolderPagination();
+});
+
+watch(checklistMovements, () => { 
+  pagination.checklistTracker.current_page = 1;
+  updateChecklistTrackerPagination();
+});
+
+watch(activityLogs, () => { 
+  pagination.activity.current_page = 1;
+  updateActivityPagination();
+});
 
 watch(activeTab, () => {
-  folderPage.value = 1;
-  checklistTrackerPage.value = 1;
-  activityPage.value = 1;
+  pagination.folder.current_page = 1;
+  pagination.checklistTracker.current_page = 1;
+  pagination.activity.current_page = 1;
 });
 
 // MAIN FIX: Properly process case data when received
@@ -966,11 +1241,10 @@ watch(() => props.caseData, async (newVal) => {
   if (newVal) {
     viewCase.value = newVal;
     
-    // Process checklists with proper mapping - NO 'task' field
+    // Process checklists with proper mapping
     checklist.value = (newVal.checklists || []).map(item => ({
       id: item.id,
       case_id: item.case_id,
-      // Use document_type as the task display
       task: item.document_type || 'Untitled Task',
       document_type_id: item.document_type_id,
       document_type: item.document_type,
@@ -990,8 +1264,15 @@ watch(() => props.caseData, async (newVal) => {
     folderMovements.value = newVal.folder_movements || [];
     checklistMovements.value = newVal.checklist_movements || [];
     activityLogs.value = newVal.activity_logs || [];
+    
+    // Update all pagination
+    updateChecklistPagination();
+    updateFolderPagination();
+    updateChecklistTrackerPagination();
+    updateActivityPagination();
   }
 }, { immediate: true });
+
 watch(() => props.show, (newVal) => {
   if (newVal && viewCase.value) {
     refreshMovements();
@@ -1002,6 +1283,12 @@ watch(() => props.show, (newVal) => {
     folderModal.show = false;
     checklistTrackerModal.show = false;
     activeTab.value = 'Folder Tracker';
+    
+    // Reset pagination when modal closes
+    pagination.checklist.current_page = 1;
+    pagination.folder.current_page = 1;
+    pagination.checklistTracker.current_page = 1;
+    pagination.activity.current_page = 1;
   }
 });
 
@@ -1316,12 +1603,6 @@ const openChecklistTrackerModal = (type) => {
     });
     return;
   }
-  
-  console.log('📋 Current checklist items:', checklist.value.map(t => ({
-    id: t.id,
-    task: t.task,
-    is_out: t.is_out
-  })));
   
   if (type === 'OUT') {
     const inItems = checklist.value.filter(task => !task.is_out);

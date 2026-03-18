@@ -11,6 +11,7 @@ use App\Models\Court;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ImportController extends Controller
@@ -23,6 +24,14 @@ class ImportController extends Controller
     protected $skippedCount = 0;
     protected $uniqueCourts = [];
     protected $uniqueDocuments = [];
+    protected $checklistBatch = [];
+    protected $batchSize = 100;
+    
+    // Cache arrays for faster lookups
+    protected $existingCases = [];
+    protected $existingClients = [];
+    protected $existingDocs = [];
+    protected $existingCourts = [];
 
     public function import(Request $request)
     {
@@ -41,53 +50,42 @@ class ImportController extends Controller
         $clerkId = $request->clerk_id;
         $importCourts = $request->import_courts === '1';
 
+        // Start timing
+        $startTime = microtime(true);
+
         DB::beginTransaction();
 
         try {
             $spreadsheet = IOFactory::load($path);
             
             // Reset counters
-            $this->caseCount = 0;
-            $this->clientCount = 0;
-            $this->checklistCount = 0;
-            $this->courtCount = 0;
-            $this->documentCount = 0;
-            $this->skippedCount = 0;
-            $this->uniqueCourts = [];
-            $this->uniqueDocuments = [];
+            $this->resetCounters();
+            
+            // Cache existing data for faster lookups
+            $this->cacheExistingData();
             
             // Process sheets
             $this->processMainSheet($spreadsheet->getSheetByName('Sheet1'), $categoryId, $lawyerId, $clerkId);
-            $this->processSheet2($spreadsheet->getSheetByName('Sheet2'), $categoryId, $lawyerId, $clerkId);
+            
+            // Flush any remaining checklist items
+            $this->flushChecklistBatch();
             
             // Import courts if option is enabled
             if ($importCourts && !empty($this->uniqueCourts)) {
                 $this->importCourts();
             }
             
-            // Import documents (always import unique document types)
+            // Import documents
             if (!empty($this->uniqueDocuments)) {
                 $this->importDocuments();
             }
             
             DB::commit();
 
-            $message = "Import completed! ";
-            $message .= "{$this->caseCount} new cases, ";
-            $message .= "{$this->clientCount} new clients, ";
-            $message .= "{$this->checklistCount} checklist items";
-            
-            if ($this->courtCount > 0) {
-                $message .= ", {$this->courtCount} courts added";
-            }
-            
-            if ($this->documentCount > 0) {
-                $message .= ", {$this->documentCount} document types added";
-            }
-            
-            if ($this->skippedCount > 0) {
-                $message .= ", {$this->skippedCount} cases skipped (duplicates)";
-            }
+            $endTime = microtime(true);
+            $executionTime = round($endTime - $startTime, 2);
+
+            $message = $this->buildSuccessMessage() . " (Time: {$executionTime}s)";
 
             return response()->json([
                 'success' => true,
@@ -98,7 +96,8 @@ class ImportController extends Controller
                     'checklists_added' => $this->checklistCount,
                     'courts_added' => $this->courtCount,
                     'documents_added' => $this->documentCount,
-                    'skipped' => $this->skippedCount
+                    'skipped' => $this->skippedCount,
+                    'execution_time' => $executionTime
                 ]
             ]);
 
@@ -112,6 +111,122 @@ class ImportController extends Controller
         }
     }
 
+    /**
+     * Cache existing data for faster lookups
+     */
+    private function cacheExistingData()
+    {
+        // Cache all existing case numbers
+        $this->existingCases = Cases::pluck('id', 'case_no')->toArray();
+        
+        // Cache all existing client names
+        $this->existingClients = Client::pluck('id', 'full_name')->toArray();
+        
+        // Cache all existing document types
+        $this->existingDocs = Document::pluck('id', 'type')->toArray();
+        
+        // Cache all existing courts
+        $this->existingCourts = Court::pluck('id', 'name')->toArray();
+        
+        \Log::info('Data cached: ' . count($this->existingCases) . ' cases, ' . 
+                   count($this->existingClients) . ' clients, ' .
+                   count($this->existingDocs) . ' documents');
+    }
+
+    /**
+     * Reset all counters
+     */
+    private function resetCounters()
+    {
+        $this->caseCount = 0;
+        $this->clientCount = 0;
+        $this->checklistCount = 0;
+        $this->courtCount = 0;
+        $this->documentCount = 0;
+        $this->skippedCount = 0;
+        $this->uniqueCourts = [];
+        $this->uniqueDocuments = [];
+        $this->checklistBatch = [];
+    }
+
+    /**
+     * Build success message
+     */
+    private function buildSuccessMessage()
+    {
+        $message = "Import completed! ";
+        $message .= "{$this->caseCount} new cases, ";
+        $message .= "{$this->clientCount} new clients, ";
+        $message .= "{$this->checklistCount} checklist items";
+        
+        if ($this->courtCount > 0) {
+            $message .= ", {$this->courtCount} new courts added";
+        }
+        
+        if ($this->documentCount > 0) {
+            $message .= ", {$this->documentCount} new document types added";
+        }
+        
+        if ($this->skippedCount > 0) {
+            $message .= ", {$this->skippedCount} existing cases updated with checklist items";
+        }
+        
+        return $message;
+    }
+
+    /**
+     * Convert any date format to MySQL date (YYYY-MM-DD)
+     */
+    private function convertToMySQLDate($dateString)
+    {
+        if (empty($dateString) || $dateString === '?' || $dateString === '') {
+            return null;
+        }
+        
+        // If it's already in YYYY-MM-DD format, return as is
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateString)) {
+            return $dateString;
+        }
+        
+        // If it's in YYYY-MM-DD HH:MM:SS format, extract date part
+        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $dateString)) {
+            return substr($dateString, 0, 10);
+        }
+        
+        // Remove ordinal suffixes (st, nd, rd, th)
+        $cleaned = preg_replace('/(\d+)(st|nd|rd|th)/', '$1', $dateString);
+        
+        // Remove dots from month abbreviations (Oct. -> Oct)
+        $cleaned = str_replace('.', '', $cleaned);
+        
+        // Try to parse with strtotime
+        $timestamp = strtotime($cleaned);
+        
+        if ($timestamp !== false && $timestamp > 0) {
+            return date('Y-m-d', $timestamp);
+        }
+        
+        // Try with comma removal
+        $cleaned = str_replace(',', '', $cleaned);
+        $timestamp = strtotime($cleaned);
+        
+        if ($timestamp !== false && $timestamp > 0) {
+            return date('Y-m-d', $timestamp);
+        }
+        
+        // Try with different format: "October 23 2019" (no comma)
+        $timestamp = strtotime(str_replace(',', '', $dateString));
+        
+        if ($timestamp !== false && $timestamp > 0) {
+            return date('Y-m-d', $timestamp);
+        }
+        
+        // Log unparseable dates
+        \Log::warning("Could not parse date: {$dateString}");
+        
+        return null;
+    }
+
     private function processMainSheet($sheet, $categoryId, $lawyerId, $clerkId)
     {
         if (!$sheet) return;
@@ -120,8 +235,17 @@ class ImportController extends Controller
         array_shift($rows); // Remove header
         
         $currentCase = null;
+        $rowCount = 0;
+        $totalRows = count($rows);
+        
+        \Log::info("Processing {$totalRows} rows...");
         
         foreach ($rows as $row) {
+            $rowCount++;
+            if ($rowCount % 1000 === 0) {
+                \Log::info("Processed {$rowCount}/{$totalRows} rows...");
+            }
+            
             if (empty(array_filter($row))) continue;
             
             $no = $row[0] ?? null;
@@ -132,7 +256,7 @@ class ImportController extends Controller
             $crimDesc = $row[5] ?? '';
             $checklist = $row[6] ?? '';
             $date = $row[7] ?? null;
-            $courtOffice = $row[8] ?? null; // Court/Office column if exists
+            $courtOffice = $row[8] ?? null;
             
             // Collect unique courts/offices
             if (!empty($courtOffice)) {
@@ -142,47 +266,50 @@ class ImportController extends Controller
                 }
             }
             
-            // Collect unique document types from checklist
+            // Collect UNIQUE document types
             if (!empty($checklist)) {
                 $docName = trim(str_replace(['<br>', '<br/>', "\n"], ' ', $checklist));
-                if (!in_array($docName, $this->uniqueDocuments)) {
+                $docName = $this->extractKeyword($docName);
+                
+                if (!empty($docName) && !in_array($docName, $this->uniqueDocuments)) {
                     $this->uniqueDocuments[] = $docName;
                 }
             }
             
             // New case if we have a new number
             if (!empty($no) && is_numeric($no)) {
-                // Check if case with this number already exists
-                $existingCase = Cases::where('case_no', (string)$no)->first();
+                // Check if case exists using cached data
+                $caseId = $this->existingCases[(string)$no] ?? null;
                 
-                if ($existingCase) {
-                    // Case exists, use it for checklist items
-                    $currentCase = $existingCase;
+                if ($caseId) {
+                    // Case exists, get it for checklist items
+                    $currentCase = Cases::find($caseId);
                     $this->skippedCount++;
                 } else {
-                    // Create new client
-                    $client = Client::firstOrCreate(
-                        ['full_name' => trim($name)],
-                        [
+                    // Create new client (check cache first)
+                    $clientId = $this->existingClients[trim($name)] ?? null;
+                    
+                    if (!$clientId) {
+                        $client = Client::create([
+                            'full_name' => trim($name),
                             'contact_no' => $contact ?: null,
                             'address' => $address ?: null,
-                        ]
-                    );
-                    
-                    if ($client->wasRecentlyCreated) {
+                        ]);
+                        $clientId = $client->id;
+                        $this->existingClients[trim($name)] = $clientId;
                         $this->clientCount++;
                     }
                     
                     // Generate case code
                     $caseCode = $this->generateCaseCode();
                     
-                    // Create new case with category, lawyer, and clerk
+                    // Create new case
                     $currentCase = Cases::create([
                         'case_no' => (string)$no,
                         'case_code' => $caseCode,
                         'title' => $crimDesc ?: 'Criminal Case',
                         'category_id' => $categoryId,
-                        'client_id' => $client->id,
+                        'client_id' => $clientId,
                         'assigned_lawyer_id' => $lawyerId,
                         'assigned_clerk_id' => $clerkId ?: null,
                         'priority' => 'normal',
@@ -192,6 +319,9 @@ class ImportController extends Controller
                         'summary' => $crimDesc,
                         'created_by' => auth()->id(),
                     ]);
+                    
+                    // Add to cache
+                    $this->existingCases[(string)$no] = $currentCase->id;
                     
                     $this->caseCount++;
                 }
@@ -199,263 +329,257 @@ class ImportController extends Controller
             
             // Add checklist items for current case
             if ($currentCase && !empty($checklist)) {
-                $this->addChecklistItem($currentCase, $checklist, $date);
+                $this->addChecklistItemBatched($currentCase, $checklist, $date);
             }
         }
+        
+        \Log::info("Finished processing {$totalRows} rows");
     }
 
-    private function processSheet2($sheet, $categoryId, $lawyerId, $clerkId)
+    /**
+     * Add checklist item in batches for faster inserts
+     */
+    private function addChecklistItemBatched($case, $checklistName, $date)
     {
-        if (!$sheet) return;
+        $keyword = $this->extractKeyword($checklistName);
         
-        $rows = $sheet->toArray();
-        array_shift($rows);
+        // Convert date to MySQL format
+        $mysqlDate = $this->convertToMySQLDate($date);
         
-        $currentCase = null;
+        // Find document ID from cache
+        $documentId = null;
         
-        foreach ($rows as $row) {
-            if (empty(array_filter($row))) continue;
-            
-            $no = $row[0] ?? null;
-            $name = $row[1] ?? '';
-            $contact = $row[2] ?? '';
-            $address = $row[3] ?? '';
-            $crimCaseNo = $row[4] ?? '';
-            $crimDesc = $row[5] ?? '';
-            $checklist = $row[6] ?? '';
-            $date = $row[7] ?? null;
-            $courtOffice = $row[8] ?? null; // Court/Office column if exists
-            
-            // Collect unique courts/offices
-            if (!empty($courtOffice)) {
-                $courtName = trim($courtOffice);
-                if (!in_array($courtName, $this->uniqueCourts)) {
-                    $this->uniqueCourts[] = $courtName;
+        // Check exact match
+        if (isset($this->existingDocs[$keyword])) {
+            $documentId = $this->existingDocs[$keyword];
+        } else {
+            // Try to find similar
+            foreach ($this->existingDocs as $type => $id) {
+                if (stripos($type, $keyword) !== false || stripos($keyword, $type) !== false) {
+                    $documentId = $id;
+                    break;
                 }
             }
-            
-            // Collect unique document types from checklist
-            if (!empty($checklist)) {
-                $docName = trim(str_replace(['<br>', '<br/>', "\n"], ' ', $checklist));
-                if (!in_array($docName, $this->uniqueDocuments)) {
-                    $this->uniqueDocuments[] = $docName;
-                }
-            }
-            
-            if (!empty($no) && is_numeric($no)) {
-                // Check if case with this number already exists
-                $existingCase = Cases::where('case_no', (string)$no)->first();
-                
-                if ($existingCase) {
-                    $currentCase = $existingCase;
-                    $this->skippedCount++;
-                } else {
-                    // Parse multiple names
-                    $names = explode(',', $name);
-                    $mainName = trim($names[0]);
-                    
-                    $client = Client::firstOrCreate(
-                        ['full_name' => $mainName],
-                        [
-                            'contact_no' => $contact ?: null,
-                            'address' => $address ?: null,
-                        ]
-                    );
-                    
-                    if ($client->wasRecentlyCreated) {
-                        $this->clientCount++;
-                    }
-                    
-                    $caseCode = $this->generateCaseCode();
-                    
-                    $currentCase = Cases::create([
-                        'case_no' => (string)$no,
-                        'case_code' => $caseCode,
-                        'title' => $crimDesc ?: 'Criminal Case',
-                        'category_id' => $categoryId,
-                        'client_id' => $client->id,
-                        'assigned_lawyer_id' => $lawyerId,
-                        'assigned_clerk_id' => $clerkId ?: null,
-                        'priority' => 'normal',
-                        'case_status' => 'active',
-                        'court_or_office' => $courtOffice ?: 'Regional Trial Court',
-                        'docket_no' => $crimCaseNo,
-                        'summary' => $crimDesc,
-                        'created_by' => auth()->id(),
-                    ]);
-                    
-                    $this->caseCount++;
-                }
-            }
-            
-            if ($currentCase && !empty($checklist)) {
-                $this->addChecklistItem($currentCase, $checklist, $date);
-            }
+        }
+        
+        if (!$documentId) {
+            // Document will be created later
+            return;
+        }
+        
+        // Add to batch
+        $this->checklistBatch[] = [
+            'case_id' => $case->id,
+            'created_by' => auth()->id(),
+            'document_type_id' => $documentId,
+            'status' => 'done',
+            'due_date' => $mysqlDate,
+            'completed_at' => $mysqlDate, // Same as due_date for imported items
+            'notes' => 'Imported from Excel',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+        
+        $this->checklistCount++;
+        
+        // Flush batch if it reaches batch size
+        if (count($this->checklistBatch) >= $this->batchSize) {
+            $this->flushChecklistBatch();
         }
     }
 
     /**
-     * Import unique courts to Court Master (2nd to last position)
+     * Insert batch of checklist items
+     */
+    private function flushChecklistBatch()
+    {
+        if (empty($this->checklistBatch)) {
+            return;
+        }
+        
+        CaseChecklist::insert($this->checklistBatch);
+        $this->checklistBatch = [];
+    }
+
+    /**
+     * Import unique courts (OPTIMIZED)
      */
     private function importCourts()
     {
-        // Get all existing courts ordered by sort_order
-        $existingCourts = Court::orderBy('sort_order')->get();
+        $existingCourts = Court::pluck('id', 'name')->toArray();
+        $maxSort = Court::where('sort_order', '<', 9000)->max('sort_order') ?? -1;
+        $nextSort = $maxSort + 1;
+        $courtsToCreate = [];
         
-        // If no existing courts, just add at position 0
-        if ($existingCourts->isEmpty()) {
-            $sortOrder = 0;
-            foreach ($this->uniqueCourts as $courtName) {
-                $existingCourt = Court::where('name', $courtName)->first();
-                if (!$existingCourt) {
-                    Court::create([
-                        'name' => $courtName,
-                        'type' => $this->determineCourtType($courtName),
-                        'address' => null,
-                        'contact_info' => null,
-                        'is_active' => true,
-                        'sort_order' => $sortOrder++,
-                    ]);
-                    $this->courtCount++;
-                }
+        foreach ($this->uniqueCourts as $courtName) {
+            if (strtoupper($courtName) === 'OTHERS') {
+                continue;
             }
-            return;
-        }
-        
-        // Calculate the target position (second to last)
-        $totalCourts = $existingCourts->count();
-        $targetPosition = max(0, $totalCourts - 1); // Second to last means before the last item
-        
-        // Get the sort order at the target position
-        if ($targetPosition < $totalCourts) {
-            $targetCourt = $existingCourts[$targetPosition];
-            $targetSort = $targetCourt->sort_order;
             
-            // Shift all courts with sort_order > $targetSort up by the number of new courts
-            $newCourtsCount = count($this->uniqueCourts);
-            Court::where('sort_order', '>', $targetSort)
-                ->increment('sort_order', $newCourtsCount);
-            
-            // Insert new courts starting at targetSort + 1
-            $currentSort = $targetSort + 1;
-            foreach ($this->uniqueCourts as $courtName) {
-                $existingCourt = Court::where('name', $courtName)->first();
-                if (!$existingCourt) {
-                    Court::create([
-                        'name' => $courtName,
-                        'type' => $this->determineCourtType($courtName),
-                        'address' => null,
-                        'contact_info' => null,
-                        'is_active' => true,
-                        'sort_order' => $currentSort++,
-                    ]);
-                    $this->courtCount++;
-                }
-            }
-        } else {
-            // If something went wrong, add at the end
-            $maxSort = Court::max('sort_order') ?? 0;
-            $currentSort = $maxSort + 1;
-            
-            foreach ($this->uniqueCourts as $courtName) {
-                $existingCourt = Court::where('name', $courtName)->first();
-                if (!$existingCourt) {
-                    Court::create([
-                        'name' => $courtName,
-                        'type' => $this->determineCourtType($courtName),
-                        'address' => null,
-                        'contact_info' => null,
-                        'is_active' => true,
-                        'sort_order' => $currentSort++,
-                    ]);
-                    $this->courtCount++;
-                }
+            if (!isset($existingCourts[$courtName])) {
+                $courtsToCreate[] = [
+                    'name' => $courtName,
+                    'type' => $this->determineCourtType($courtName),
+                    'address' => null,
+                    'contact_info' => null,
+                    'is_active' => true,
+                    'sort_order' => $nextSort++,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
         }
+        
+        if (!empty($courtsToCreate)) {
+            Court::insert($courtsToCreate);
+            $this->courtCount = count($courtsToCreate);
+        }
+        
+        $this->renumberCourtSortOrders();
     }
 
     /**
-     * Import unique document types to Document Master (2nd to last position)
+     * Import unique documents (OPTIMIZED)
      */
     private function importDocuments()
     {
-        // Get all existing documents ordered by sort_order
-        $existingDocs = Document::orderBy('sort_order')->get();
+        $maxSort = Document::where('sort_order', '<', 9000)->max('sort_order') ?? -1;
+        $nextSort = $maxSort + 1;
+        $docsToCreate = [];
         
-        // If no existing documents, just add at position 0
-        if ($existingDocs->isEmpty()) {
-            $sortOrder = 0;
-            foreach ($this->uniqueDocuments as $docName) {
-                $existingDoc = Document::where('type', $docName)->first();
-                if (!$existingDoc) {
-                    Document::create([
-                        'type' => $docName,
-                        'category' => $this->categorizeChecklist($docName),
-                        'color' => $this->getColorForChecklist($docName),
-                        'requires_approval' => false,
-                        'is_active' => true,
-                        'sort_order' => $sortOrder++,
-                    ]);
-                    $this->documentCount++;
+        foreach ($this->uniqueDocuments as $docName) {
+            if (strtoupper($docName) === 'OTHER' || strtoupper($docName) === 'OTHERS') {
+                continue;
+            }
+            
+            // Check if exists (case-insensitive)
+            $exists = false;
+            foreach ($this->existingDocs as $type => $id) {
+                if (strtolower($type) === strtolower($docName)) {
+                    $exists = true;
+                    break;
                 }
             }
-            return;
+            
+            if (!$exists) {
+                $docsToCreate[] = [
+                    'type' => $docName,
+                    'category' => $this->categorizeChecklist($docName),
+                    'color' => $this->getColorForChecklist($docName),
+                    'requires_approval' => false,
+                    'is_active' => true,
+                    'sort_order' => $nextSort++,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
         }
         
-        // Calculate the target position (second to last)
-        $totalDocs = $existingDocs->count();
-        $targetPosition = max(0, $totalDocs - 1); // Second to last means before the last item
+        if (!empty($docsToCreate)) {
+            Document::insert($docsToCreate);
+            $this->documentCount = count($docsToCreate);
+        }
         
-        // Get the sort order at the target position
-        if ($targetPosition < $totalDocs) {
-            $targetDoc = $existingDocs[$targetPosition];
-            $targetSort = $targetDoc->sort_order;
-            
-            // Shift all documents with sort_order > $targetSort up by the number of new documents
-            $newDocsCount = count($this->uniqueDocuments);
-            Document::where('sort_order', '>', $targetSort)
-                ->increment('sort_order', $newDocsCount);
-            
-            // Insert new documents starting at targetSort + 1
-            $currentSort = $targetSort + 1;
-            foreach ($this->uniqueDocuments as $docName) {
-                $existingDoc = Document::where('type', $docName)->first();
-                if (!$existingDoc) {
-                    Document::create([
-                        'type' => $docName,
-                        'category' => $this->categorizeChecklist($docName),
-                        'color' => $this->getColorForChecklist($docName),
-                        'requires_approval' => false,
-                        'is_active' => true,
-                        'sort_order' => $currentSort++,
-                    ]);
-                    $this->documentCount++;
-                }
+        $this->renumberDocumentSortOrders();
+    }
+
+    /**
+     * Extract keyword from checklist string
+     */
+    private function extractKeyword($checklistString)
+    {
+        $upper = strtoupper($checklistString);
+        
+        $keywords = [
+            'DEED OF SALE', 'DEED OF ABSOLUTE SALE', 'DEED OF ASSIGNMENT',
+            'ORDER', 'DECISION', 'INFORMATION', 'AFFIDAVIT', 'MOTION', 
+            'PETITION', 'BAIL', 'TRANSCRIPT', 'SUBPOENA', 'INVENTORY',
+            'CHAIN OF CUSTODY', 'CHEMISTRY', 'JUDICIAL AFFIDAVIT',
+            'CUSTODIAL INVESTIGATION', 'MEMORANDUM', 'CERTIFICATE',
+            'COORDINATION', 'PRE-OPERATION', 'REFERRAL', 'CONSOLIDATION',
+            'OMNIBUS', 'AMENDED', 'RESOLUTION', 'COMPLAINT', 'ANSWER',
+            'REPLY', 'COMMENT', 'OPPOSITION', 'MANIFESTATION',
+            'NOTICE', 'SUMMONS', 'WRIT', 'EXECUTION', 'SATISFACTION',
+            'FORMAL OFFER OF DOCUMENTARY EVIDENCE', 'FORMAL OFFER',
+            'RECONSIDERATION', 'MOTION FOR RECONSIDERATION',
+            'CERTIORARI', 'MANDAMUS', 'PROHIBITION', 'QUO WARRANTO',
+            'HABEAS CORPUS', 'AMICUS CURIAE', 'INTERVENTION'
+        ];
+        
+        usort($keywords, function($a, $b) {
+            return strlen($b) - strlen($a);
+        });
+        
+        foreach ($keywords as $keyword) {
+            if (strpos($upper, $keyword) !== false) {
+                return ucwords(strtolower($keyword));
             }
-        } else {
-            // If something went wrong, add at the end
-            $maxSort = Document::max('sort_order') ?? 0;
-            $currentSort = $maxSort + 1;
-            
-            foreach ($this->uniqueDocuments as $docName) {
-                $existingDoc = Document::where('type', $docName)->first();
-                if (!$existingDoc) {
-                    Document::create([
-                        'type' => $docName,
-                        'category' => $this->categorizeChecklist($docName),
-                        'color' => $this->getColorForChecklist($docName),
-                        'requires_approval' => false,
-                        'is_active' => true,
-                        'sort_order' => $currentSort++,
-                    ]);
-                    $this->documentCount++;
-                }
+        }
+        
+        // Clean up the string
+        $cleaned = preg_replace('/\d{4}-\d{2}-\d{2}/', '', $checklistString);
+        $cleaned = preg_replace('/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b/i', '', $cleaned);
+        $cleaned = preg_replace('/[A-Z]+-\d+-\d+/', '', $cleaned);
+        $cleaned = preg_replace('/\b\d{4}\b/', '', $cleaned);
+        $cleaned = preg_replace('/\s+/', ' ', $cleaned);
+        $cleaned = trim($cleaned);
+        
+        if (strlen($cleaned) > 50) {
+            $cleaned = substr($cleaned, 0, 50) . '...';
+        }
+        
+        return !empty($cleaned) ? $cleaned : 'Other';
+    }
+
+    /**
+     * Renumber court sort orders
+     */
+    private function renumberCourtSortOrders()
+    {
+        $courts = Court::orderBy('sort_order')->get();
+        $counter = 0;
+        
+        foreach ($courts as $court) {
+            if ($court->name === 'Others') {
+                $court->sort_order = 9999;
+            } else {
+                $court->sort_order = $counter;
+                $counter++;
             }
+            $court->save();
         }
     }
 
     /**
-     * Determine court type based on name
+     * Renumber document sort orders
+     */
+    private function renumberDocumentSortOrders()
+    {
+        $normalDocs = Document::where('sort_order', '<', 9000)
+            ->orderBy('sort_order')
+            ->get();
+        
+        $counter = 0;
+        
+        foreach ($normalDocs as $doc) {
+            $doc->sort_order = $counter;
+            $doc->save();
+            $counter++;
+        }
+        
+        $other = Document::where('category', 'Other')
+            ->orWhere('type', 'LIKE', '%Other%')
+            ->orWhere('type', 'LIKE', '%Others%')
+            ->first();
+        
+        if ($other) {
+            $other->sort_order = 9999;
+            $other->save();
+        }
+    }
+
+    /**
+     * Determine court type
      */
     private function determineCourtType($name)
     {
@@ -473,19 +597,17 @@ class ImportController extends Controller
     }
 
     /**
-     * Generate case code in same format as CaseMaster (YEAR-0001)
+     * Generate case code
      */
     private function generateCaseCode()
     {
         $year = date('Y');
         
-        // Get the last case created this year
         $lastCase = Cases::whereYear('created_at', $year)
             ->orderBy('id', 'desc')
             ->first();
         
         if ($lastCase) {
-            // Extract the sequence number from the last case code
             $lastCode = $lastCase->case_code;
             $parts = explode('-', $lastCode);
             $lastNumber = isset($parts[1]) ? intval($parts[1]) : 0;
@@ -495,47 +617,6 @@ class ImportController extends Controller
         }
         
         return $year . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-    }
-
-    private function addChecklistItem($case, $checklistName, $date)
-    {
-        $checklistName = trim(str_replace(['<br>', '<br/>', "\n"], ' ', $checklistName));
-        
-        // Find or create document
-        $document = Document::where('type', $checklistName)->first();
-        
-        if (!$document) {
-            // This shouldn't happen because we import documents first
-            // But just in case, create it
-            $document = Document::create([
-                'type' => $checklistName,
-                'category' => $this->categorizeChecklist($checklistName),
-                'color' => $this->getColorForChecklist($checklistName),
-                'requires_approval' => false,
-                'is_active' => true,
-                'sort_order' => 0,
-            ]);
-        }
-        
-        // Check if this checklist item already exists for this case
-        $existingItem = CaseChecklist::where('case_id', $case->id)
-            ->where('document_type_id', $document->id)
-            ->whereDate('due_date', $date ? date('Y-m-d', strtotime($date)) : null)
-            ->first();
-        
-        if (!$existingItem) {
-            CaseChecklist::create([
-                'case_id' => $case->id,
-                'created_by' => auth()->id(),
-                'document_type_id' => $document->id,
-                'status' => 'done',
-                'due_date' => $date ? date('Y-m-d', strtotime($date)) : null,
-                'completed_at' => $date,
-                'notes' => 'Imported from Excel',
-            ]);
-            
-            $this->checklistCount++;
-        }
     }
 
     private function categorizeChecklist($name)
@@ -554,6 +635,9 @@ class ImportController extends Controller
         if (strpos($name, 'INVENTORY') !== false) return 'Evidence';
         if (strpos($name, 'CHAIN OF CUSTODY') !== false) return 'Evidence';
         if (strpos($name, 'CHEMISTRY') !== false) return 'Evidence';
+        if (strpos($name, 'DEED') !== false) return 'Other';
+        if (strpos($name, 'FORMAL OFFER') !== false) return 'Pleading';
+        if (strpos($name, 'RECONSIDERATION') !== false) return 'Pleading';
         
         return 'Other';
     }
@@ -573,6 +657,8 @@ class ImportController extends Controller
             'INVENTORY' => '#f97316',
             'CHAIN' => '#8b5cf6',
             'CHEMISTRY' => '#06b6d4',
+            'DEED' => '#0f766e',
+            'FORMAL OFFER' => '#b45309',
         ];
         
         foreach ($colors as $key => $color) {

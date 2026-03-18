@@ -15,6 +15,7 @@ class DocumentController extends Controller
 {
     /**
      * Get all documents with optional filters
+     * OPTIMIZED for large datasets
      */
     public function index(Request $request)
     {
@@ -22,9 +23,9 @@ class DocumentController extends Controller
             $query = Document::query();
 
             // Search
-            if ($request->filled('search')) {
+            if ($request->filled('search') && strlen($request->search) >= 2) {
                 $search = $request->search;
-                $query->where('type', 'like', "%{$search}%");
+                $query->where('type', 'like', '%' . $search . '%');
             }
 
             // Filter by category
@@ -56,14 +57,17 @@ class DocumentController extends Controller
                 $query->orderByRaw('CASE WHEN sort_order >= 9000 THEN 1 ELSE 0 END')
                       ->orderBy('sort_order', $sortDirection);
             } else {
-                $allowedSorts = ['type', 'category', 'requires_approval', 'is_active', 'created_at'];
+                $allowedSorts = ['type', 'category', 'requires_approval', 'is_active', 'created_at', 'approval_status'];
                 $sortField = in_array($sortField, $allowedSorts) ? $sortField : 'sort_order';
                 $query->orderBy($sortField, $sortDirection);
             }
 
-            // Pagination
-            $perPage = $request->get('per_page', 15);
+            // Pagination - use database pagination, not in-memory
+            $perPage = $request->get('per_page', 100); // Get up to 100 for cache
             $documents = $query->paginate($perPage);
+
+            // Load relationships for the current page only
+            $documents->load('approver:id,full_name');
 
             return response()->json([
                 'data' => $documents->items(),
@@ -78,6 +82,8 @@ class DocumentController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Document index error: ' . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to fetch documents',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -290,7 +296,7 @@ class DocumentController extends Controller
                 'case_id' => null,
                 'user_id' => $user->id,
                 'action' => 'created_document_type',
-                'details' => [
+                'details' => json_encode([
                     'message' => $message,
                     'document_id' => $document->id,
                     'document_type' => $document->type,
@@ -300,18 +306,23 @@ class DocumentController extends Controller
                     'approval_status' => $document->approval_status,
                     'sort_order' => $document->sort_order,
                     'is_active' => $document->is_active,
-                ],
+                ]),
             ]);
 
             DB::commit();
 
+            // Load relationships for response
+            $document->load('approver:id,full_name');
+
             return response()->json([
                 'message' => $message,
-                'data' => $document->load('approver')
+                'data' => $document
             ], 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Document store error: ' . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to create document',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -413,23 +424,28 @@ class DocumentController extends Controller
                 'case_id' => null,
                 'user_id' => $user->id,
                 'action' => 'updated_document_type',
-                'details' => [
+                'details' => json_encode([
                     'message' => "Updated document type: {$document->type}",
                     'document_id' => $document->id,
                     'document_type' => $document->type,
                     'changes' => $changes,
-                ],
+                ]),
             ]);
 
             DB::commit();
 
+            // Load relationships for response
+            $document->load('approver:id,full_name');
+
             return response()->json([
                 'message' => 'Document updated successfully',
-                'data' => $document->fresh(['approver'])
+                'data' => $document
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Document update error: ' . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to update document',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -491,24 +507,29 @@ class DocumentController extends Controller
                 'case_id' => null,
                 'user_id' => $user->id,
                 'action' => 'approved_document_type',
-                'details' => [
+                'details' => json_encode([
                     'message' => "Approved document type: {$document->type}",
                     'document_id' => $document->id,
                     'document_type' => $document->type,
                     'previous_status' => 'pending',
                     'new_status' => 'approved',
-                ],
+                ]),
             ]);
 
             DB::commit();
 
+            // Load relationships for response
+            $document->load('approver:id,full_name');
+
             return response()->json([
                 'message' => 'Document approved successfully',
-                'data' => $document->fresh(['approver'])
+                'data' => $document
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Document approve error: ' . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to approve document',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -572,25 +593,30 @@ class DocumentController extends Controller
                 'case_id' => null,
                 'user_id' => $user->id,
                 'action' => 'rejected_document_type',
-                'details' => [
+                'details' => json_encode([
                     'message' => "Rejected document type: {$document->type}",
                     'document_id' => $document->id,
                     'document_type' => $document->type,
                     'previous_status' => 'pending',
                     'new_status' => 'rejected',
                     'rejection_reason' => $request->rejection_reason,
-                ],
+                ]),
             ]);
 
             DB::commit();
 
+            // Load relationships for response
+            $document->load('approver:id,full_name');
+
             return response()->json([
                 'message' => 'Document rejected',
-                'data' => $document->fresh(['approver'])
+                'data' => $document
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Document reject error: ' . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to reject document',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -651,14 +677,14 @@ class DocumentController extends Controller
                     'case_id' => null,
                     'user_id' => $user->id,
                     'action' => 'approved_document_type',
-                    'details' => [
+                    'details' => json_encode([
                         'message' => "Approved document type: {$document->type} (bulk approval)",
                         'document_id' => $document->id,
                         'document_type' => $document->type,
                         'previous_status' => 'pending',
                         'new_status' => 'approved',
                         'bulk_operation' => true,
-                    ],
+                    ]),
                 ]);
             }
 
@@ -674,6 +700,8 @@ class DocumentController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Bulk approve error: ' . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to bulk approve documents',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -697,14 +725,17 @@ class DocumentController extends Controller
                 'case_id' => null,
                 'user_id' => auth()->id(),
                 'action' => $document->is_active ? 'activated_document_type' : 'deactivated_document_type',
-                'details' => [
+                'details' => json_encode([
                     'message' => ($document->is_active ? 'Activated' : 'Deactivated') . " document type: {$document->type}",
                     'document_id' => $document->id,
                     'document_type' => $document->type,
                     'old_status' => $oldStatus,
                     'new_status' => $document->is_active,
-                ],
+                ]),
             ]);
+
+            // Load relationships for response
+            $document->load('approver:id,full_name');
 
             return response()->json([
                 'message' => $document->is_active ? 'Document activated' : 'Document deactivated',
@@ -712,6 +743,8 @@ class DocumentController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Toggle active error: ' . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to toggle document status',
                 'errors' => ['server' => [$e->getMessage()]]
@@ -748,7 +781,7 @@ class DocumentController extends Controller
                 'case_id' => null,
                 'user_id' => auth()->id(),
                 'action' => 'deleted_document_type',
-                'details' => [
+                'details' => json_encode([
                     'message' => "Deleted document type: {$document->type}",
                     'document_id' => $document->id,
                     'document_type' => $document->type,
@@ -758,7 +791,7 @@ class DocumentController extends Controller
                     'approval_status' => $document->approval_status,
                     'sort_order' => $document->sort_order,
                     'was_active' => $document->is_active,
-                ],
+                ]),
             ]);
 
             // Delete approval history
@@ -774,6 +807,8 @@ class DocumentController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Document delete error: ' . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to delete document',
                 'errors' => ['server' => [$e->getMessage()]]

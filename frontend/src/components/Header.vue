@@ -317,6 +317,7 @@ const handleMarkAllRead = async () => {
 };
 
 // ==================== USER MENU METHODS ====================
+// ==================== USER MENU METHODS ====================
 const askLogout = () => {
   isUserMenuOpen.value = false;
   
@@ -340,22 +341,39 @@ const askLogout = () => {
   }).then(async (result) => {
     if (result.isConfirmed) {
       try {
+        // Show loading state
+        Swal.fire({
+          title: 'Signing out...',
+          text: 'Please wait',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+        
         await authService.logout();
+        
+        // Clear all data from appUtils
         clearData();
+        
+        // Clear session storage
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        
+        // Redirect to login
         router.replace('/');
         
-        Swal.fire({
-          icon: 'success',
-          title: 'Signed out',
-          text: 'You have been successfully logged out.',
-          timer: 1500,
-          showConfirmButton: false,
-          position: 'top-end',
-          toast: true
-        });
+        // Close any open Swal
+        Swal.close();
+        
       } catch (error) {
         console.error('Logout error:', error);
+        
+        // Even if API fails, clear local data and redirect
         clearData();
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        
         router.replace('/');
       }
     }

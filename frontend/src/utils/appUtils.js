@@ -1148,7 +1148,28 @@ export const getEventIcon = (type) => {
   };
   return icons[type] || '📅';
 };
+// ==================== TIME FORMATTING HELPERS ====================
+export const formatTime = (date) => {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return date;
+  
+  return d.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 
+export const formatShortDate = (date) => {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return date;
+  
+  return d.toLocaleDateString('en-US', {
+    month: 'numeric',
+    day: 'numeric'
+  });
+};
 // ==================== UPDATE HEARING STATS HELPER ====================
 const updateHearingStats = () => {
   if (!Array.isArray(dataStore.hearings)) return;
@@ -1271,6 +1292,8 @@ export default {
   isPastDate, isToday, isFutureDate, getEventColor, getEventIcon,
     isPast, // <-- MAKE SURE THIS IS HERE
   isToday,
+    formatTime,
+  formatShortDate,
   // Constants
   CONSTANTS
 };

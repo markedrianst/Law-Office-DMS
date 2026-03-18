@@ -166,23 +166,41 @@ class AuthenticatedSessionController extends Controller
 
     // ─── LOGOUT ─────────────────────────────────────────────────────────────
 
-    public function logout(Request $request)
-    {
+   /**
+ * Logout user - FIXED
+ */
+public function logout(Request $request)
+{
+    try {
         $user = $request->user();
 
         if ($user) {
             // Log the logout
             $this->writeLoginLog($request, $user->id, $user->email, 'success', 'Logout successful');
             
-            // ✅ FIXED: Only delete current token, not all tokens
-            // This way other devices stay logged in
-            $request->user()->currentAccessToken()->delete();
+            // ✅ FIXED: Check if there's a current token before deleting
+            if ($request->user() && method_exists($request->user(), 'currentAccessToken') && $request->user()->currentAccessToken()) {
+                $request->user()->currentAccessToken()->delete();
+            } else {
+                // Fallback: delete all tokens for this user
+                $user->tokens()->delete();
+            }
         }
 
         return response()->json([
+            'success' => true,
             'message' => 'Logged out successfully'
         ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Logout error: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Logout failed'
+        ], 500);
     }
+}
 
     // ─── GET USER DATA (for session restore) ────────────────────────────────
 
