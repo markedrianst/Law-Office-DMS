@@ -51,11 +51,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/hearings/{id}/reschedule', [HearingController::class, 'reschedule']);
     Route::post('/hearings/{id}/cancel', [HearingController::class, 'cancel']);
     Route::delete('/hearings/{id}', [HearingController::class, 'destroy']);
+    
+    // Export routes
+
     // ========== ADMIN ROUTES ==========
     Route::prefix('admin')->group(function () {
-        
-        // ========== MASTER DATA ==========
-        
+   // Export routes
+Route::prefix('export')->group(function () {
+    Route::get('/cases', [App\Http\Controllers\Admin\ExportController::class, 'exportCases']);
+    Route::get('/all', [App\Http\Controllers\Admin\ExportController::class, 'exportAll']);
+});
         // Case Categories
         Route::get('/case-categories', [CaseCategoryController::class, 'index']);
         Route::get('/case-categories/active', [CaseCategoryController::class, 'getActive']);

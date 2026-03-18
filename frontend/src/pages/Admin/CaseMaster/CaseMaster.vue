@@ -84,14 +84,14 @@
             Import Excel
           </button>
 
-          <button @click="handleExport" 
-            class="text-white px-4 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center bg-gradient-to-r from-violet-600 to-violet-700 shadow-md hover:shadow-lg transition-all"
-          >
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            Export
-          </button>
+        <button @click="openExportModal" 
+          class="text-white px-4 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center bg-gradient-to-r from-violet-600 to-violet-700 shadow-md hover:shadow-lg transition-all"
+        >
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Export
+        </button>
         </div>
       </div>
     </div>
@@ -525,7 +525,13 @@
       @close="closeImportModal"
       @imported="handleImportComplete"
     />
-
+<!-- Export Modal -->
+<ExportModal
+  :show="showExportModal"
+  :current-filters="filters"
+  @close="closeExportModal"
+  @exported="handleExportComplete"
+/>
     <CaseFormModal
       ref="formModalRef"
       :show="showFormModal"
@@ -568,6 +574,8 @@ import caseService from '@/services/caseService';
 import CaseFormModal from '@/components/Modals/Admin/CaseMasterModal/CaseFormModal.vue';
 import CaseViewModal from '@/components/Modals/Admin/CaseMasterModal/CaseViewModal.vue';
 import ImportModal from '@/components/Modals/Admin/CaseMasterModal/ImportModal.vue';
+import ExportModal from '@/components/Modals/Admin/CaseMasterModal/ExportModal.vue';
+
 import Swal from 'sweetalert2';
 
 // Import from appUtils
@@ -926,27 +934,20 @@ const goToPage = (page) => {
 };
 
 // ========== EXPORT ==========
-const handleExport = async () => {
-  // Show info that this is for future implementation
-  Swal.fire({
-    icon: 'info',
-    title: 'Export Cases',
-    html: `
-      <p class="text-sm text-slate-600 mb-3">Export functionality coming soon!</p>
-      <p class="text-xs text-slate-500">This will allow you to export cases to Excel, CSV, or PDF format.</p>
-    `,
-    confirmButtonText: 'Got it',
-    confirmButtonColor: '#1a4972'
-  });
-  
-  // TODO: Implement export functionality
-  // Example implementation:
-  // try {
-  //   const response = await caseService.exportCases(filters);
-  //   // Download file logic
-  // } catch (error) {
-  //   console.error('Export failed:', error);
-  // }
+const showExportModal = ref(false);
+
+// Add methods
+const openExportModal = () => {
+  showExportModal.value = true;
+};
+
+const closeExportModal = () => {
+  showExportModal.value = false;
+};
+
+const handleExportComplete = () => {
+  // Optional: do something after export
+  console.log('Export completed');
 };
 
 // ========== MANUAL REFRESH ==========
