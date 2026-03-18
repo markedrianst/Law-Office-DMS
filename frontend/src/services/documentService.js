@@ -11,7 +11,7 @@ const documentService = {
   async getDocuments(params = {}) {
     const { data } = await api.get("/admin/documents", { params });
     
-    // Store in appUtils
+    // Store in appUtils - this triggers instant updates
     if (data.data) {
       setDocuments(data.data);
     }

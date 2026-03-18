@@ -16,7 +16,7 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ApprovalsController; 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Admin\HearingController;
-
+use App\Http\Controllers\Admin\ImportController;
 // ========== PUBLIC ROUTES ==========
 Route::get('/sanctum/csrf-cookie', function () {
     return response()->json(['message' => 'CSRF cookie set']);
@@ -51,11 +51,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/hearings/{id}/reschedule', [HearingController::class, 'reschedule']);
     Route::post('/hearings/{id}/cancel', [HearingController::class, 'cancel']);
     Route::delete('/hearings/{id}', [HearingController::class, 'destroy']);
+    
+    // Export routes
+
     // ========== ADMIN ROUTES ==========
     Route::prefix('admin')->group(function () {
-        
-        // ========== MASTER DATA ==========
-        
+   // Export routes
+Route::prefix('export')->group(function () {
+    Route::get('/cases', [App\Http\Controllers\Admin\ExportController::class, 'exportCases']);
+    Route::get('/all', [App\Http\Controllers\Admin\ExportController::class, 'exportAll']);
+});
         // Case Categories
         Route::get('/case-categories', [CaseCategoryController::class, 'index']);
         Route::get('/case-categories/active', [CaseCategoryController::class, 'getActive']);
@@ -103,7 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Case Lookups
         Route::get('/case-lookups', [CaseController::class, 'getLookups']);
-        
+        Route::post('/case/import', [ImportController::class, 'import']);
         // Cases CRUD
         Route::get('/cases', [CaseController::class, 'index']);
         Route::post('/cases', [CaseController::class, 'store']);

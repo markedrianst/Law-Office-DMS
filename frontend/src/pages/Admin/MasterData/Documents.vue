@@ -30,6 +30,14 @@
       </div>
     </div>
 
+    <!-- Last updated indicator (non-blocking) -->
+    <div class="text-xs text-slate-400 mb-2 ml-4 flex items-center gap-2">
+      <span>📄 Documents loaded from cache</span>
+      <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+      <span>{{ lastUpdated }}</span>
+      <span v-if="isRefreshing" class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+    </div>
+
     <!-- Search and Add Bar -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-4">
       <div class="flex flex-col sm:flex-row gap-3">
@@ -39,48 +47,49 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
-          <input v-model="searchQuery" @input="debouncedSearch" type="text"
+          <input 
+            v-model="filters.search" 
+            @input="debouncedSearch" 
+            type="text"
             placeholder="Search documents..."
-            class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] focus:bg-white transition-all" />
+            class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] focus:bg-white transition-all" 
+          />
         </div>
 
-        <select v-model="categoryFilter" @change="handleFilterChange"
-          class="px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer hover:bg-slate-100">
+        <select 
+          v-model="filters.category" 
+          @change="handleFilterChange"
+          class="px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer hover:bg-slate-100"
+        >
           <option value="">All Categories</option>
           <option v-for="cat in documentCategories" :key="cat" :value="cat">{{ cat }}</option>
         </select>
 
-        <select v-model="approvalFilter" @change="handleFilterChange"
-          class="px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer hover:bg-slate-100">
+        <select 
+          v-model="filters.approval_status" 
+          @change="handleFilterChange"
+          class="px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer hover:bg-slate-100"
+        >
           <option value="">All Approval Status</option>
           <option value="pending">Pending Approval</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </select>
 
-        <select v-model="statusFilter" @change="handleFilterChange"
-          class="px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer hover:bg-slate-100">
+        <select 
+          v-model="filters.is_active" 
+          @change="handleFilterChange"
+          class="px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer hover:bg-slate-100"
+        >
           <option value="">All Status</option>
           <option value="true">Active Only</option>
           <option value="false">Inactive Only</option>
         </select>
 
-        <!-- Manual Refresh Button -->
-        <button @click="manualRefresh" :disabled="isRefreshing"
-          class="px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5">
-          <svg v-if="isRefreshing" class="animate-spin w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-          </svg>
-          <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-          {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
-        </button>
-
         <!-- Add Document Button -->
         <button @click="openCreateModal" :disabled="isAdding"
-          class="text-white px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] shadow-md shadow-[#1a4972]/30">
+          class="text-white px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center transition-all whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] shadow-md shadow-[#1a4972]/30"
+        >
           <svg v-if="!isAdding" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
           </svg>
@@ -93,27 +102,37 @@
       </div>
     </div>
 
-    <!-- Loading State - Only shown on first visit -->
-    <div v-if="isLoading" class="bg-white rounded-2xl shadow-sm border border-slate-100 py-16 flex flex-col items-center">
-      <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-[#1a4972] animate-spin mb-4"></div>
-      <p class="text-sm text-slate-500">Loading documents...</p>
-    </div>
-
-    <!-- Documents Table -->
-    <div v-else class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <!-- Documents Table - Always shows instantly from cache -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-slate-100 bg-[#1a4972]/5">
-            <th v-for="col in columns" :key="col.field" scope="col"
+            <th 
+              v-for="col in columns" 
+              :key="col.field" 
+              scope="col"
               class="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
               :class="col.sortable ? 'cursor-pointer hover:text-[#1a4972] select-none group' : ''"
-              @click="col.sortable ? sortBy(col.field) : null">
+              @click="col.sortable ? sortBy(col.field) : null"
+            >
               <div class="flex items-center gap-1.5">
                 {{ col.label }}
-                <svg v-if="col.sortable && sortField === col.field" class="w-3.5 h-3.5 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path :d="sortDirection === 'desc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'" stroke-width="2.5"/>
+                <svg 
+                  v-if="col.sortable && filters.sort_by === col.field" 
+                  class="w-3.5 h-3.5 text-[#1a4972]" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path :d="filters.sort_direction === 'desc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'" stroke-width="2.5"/>
                 </svg>
-                <svg v-else-if="col.sortable" class="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg 
+                  v-else-if="col.sortable" 
+                  class="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
                 </svg>
               </div>
@@ -122,10 +141,12 @@
         </thead>
 
         <tbody class="divide-y divide-slate-50">
-          <tr v-for="(item, index) in paginatedDocuments" :key="item.id" 
+          <tr 
+            v-for="(item, index) in documents" 
+            :key="item.id" 
             class="transition-all duration-300 hover:bg-blue-50/30 group"
-            :style="{ animation: `fadeIn 0.3s ease-out ${index * 0.03}s both` }">
-            
+            :style="{ animation: `fadeIn 0.3s ease-out ${index * 0.03}s both` }"
+          >
             <!-- Color + Type -->
             <td class="px-5 py-4">
               <div class="flex items-center gap-3">
@@ -249,7 +270,7 @@
           </tr>
 
           <!-- Empty state -->
-          <tr v-if="documents.length === 0">
+          <tr v-if="documents.length === 0 && !isRefreshing">
             <td :colspan="columns.length" class="px-6 py-16 text-center">
               <div class="flex flex-col items-center">
                 <div class="w-14 h-14 rounded-2xl bg-[#1a4972]/10 flex items-center justify-center mb-3">
@@ -273,26 +294,37 @@
           <span class="font-semibold text-slate-700">{{ pagination.total }}</span> documents
         </p>
         <div class="flex items-center gap-1">
-          <button @click="previousPage" :disabled="pagination.current_page === 1"
+          <button 
+            @click="previousPage" 
+            :disabled="pagination.current_page === 1"
             class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            :class="pagination.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+            :class="pagination.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'"
+          >
             ← Prev
           </button>
-          <button v-for="page in displayedPages" :key="page" @click="goToPage(page)"
+          <button 
+            v-for="page in displayedPages" 
+            :key="page" 
+            @click="goToPage(page)"
             class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
-            :class="pagination.current_page === page ? 'bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white' : 'text-slate-600 hover:bg-slate-200'">
+            :class="pagination.current_page === page ? 'bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white' : 'text-slate-600 hover:bg-slate-200'"
+          >
             {{ page }}
           </button>
-          <button @click="nextPage" :disabled="pagination.current_page === pagination.last_page"
+          <button 
+            @click="nextPage" 
+            :disabled="pagination.current_page === pagination.last_page"
             class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            :class="pagination.current_page === pagination.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
+            :class="pagination.current_page === pagination.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'"
+          >
             Next →
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Create/Edit Modal -->
+    <!-- Modals (shortened for brevity) -->
+       <!-- Create/Edit Modal -->
     <Transition name="modal">
       <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeModal">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
@@ -351,24 +383,21 @@
               </div>
             </div>
 
-            <!-- Requires Approval - Always true and disabled -->
+            <!-- Requires Approval -->
             <div class="flex items-center gap-2">
               <input type="checkbox" v-model="form.requires_approval" id="requiresApproval" 
-                class="w-4 h-4 rounded border-slate-300 text-[#1a4972] focus:ring-[#1a4972]" checked disabled />
+                class="w-4 h-4 rounded border-slate-300 text-[#1a4972] focus:ring-[#1a4972]" />
               <label for="requiresApproval" class="text-sm font-medium text-slate-700">
-                Requires Lawyer Approval <span class="text-xs text-amber-600">(Always required)</span>
+                Requires Lawyer Approval
               </label>
             </div>
-            <p class="text-xs text-amber-600 mt-1">
-              ⚠ All documents require lawyer approval before they can be used in cases
-            </p>
 
             <!-- Sort Order -->
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-1.5">Sort Order</label>
               <input v-model.number="form.sort_order" type="number" min="0" placeholder="0"
                 class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all" />
-              <p class="text-xs text-slate-400 mt-1">Lower numbers appear first</p>
+              <p class="text-xs text-slate-400 mt-1">Lower numbers appear first (9999 = Others)</p>
             </div>
 
             <!-- Status -->
@@ -508,7 +537,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { debounce } from 'lodash';
-import { documentService } from '@/services/masterData';
+import documentService from '@/services/documentService';
 import { useAuth } from '@/composables/useAuth';
 import ColorPicker from '@/components/ColorPicker.vue';
 import Swal from 'sweetalert2';
@@ -517,11 +546,8 @@ import Swal from 'sweetalert2';
 import { 
   getDocuments,
   setDocuments,
-  addDocument,
-  updateDocumentInStore,
-  removeDocumentFromStore,
   listenForUpdates,
-  formatDate
+  formatDate,
 } from '@/utils/appUtils';
 
 const { userRole } = useAuth();
@@ -541,43 +567,53 @@ const columns = [
 // Get initial data from appUtils (INSTANT!)
 const initialDocuments = getDocuments();
 
+// For server-side pagination, we need to fetch fresh data
+// But we can show cached data immediately
 const documents = ref(initialDocuments || []);
+const allDocuments = ref(initialDocuments || []);
 const documentCategories = ref(['Pleading', 'Letter', 'Evidence', 'Court Issuance', 'Other']);
 const pendingApprovals = ref([]);
-const isLoading = ref(!initialDocuments || initialDocuments.length === 0);
+
+// Last updated
+const lastUpdated = ref(
+  initialDocuments?.length ? new Date().toLocaleTimeString() : 'No data'
+);
+
+// Loading states - only for background refresh
 const isRefreshing = ref(false);
-
-// Pagination state
-const currentPage = ref(1);
-const itemsPerPage = ref(15);
-
-const pagination = ref({
-  current_page: 1,
-  last_page: 1,
-  per_page: 15,
-  total: documents.value.length,
-  from: 1,
-  to: Math.min(15, documents.value.length)
-});
-
-const searchQuery = ref('');
-const categoryFilter = ref('');
-const approvalFilter = ref('');
-const statusFilter = ref('');
-const sortField = ref('sort_order');
-const sortDirection = ref('asc');
-
-// Loading states
+const formLoading = ref(false);
 const isAdding = ref(false);
+const isLoading = ref(false); // Not used for initial load
+
+// Action loading states
 const editingId = ref(null);
 const togglingId = ref(null);
 const deletingId = ref(null);
 const approvingId = ref(null);
 const rejectingId = ref(null);
-const formLoading = ref(false);
 const rejectLoading = ref(false);
 
-// Modal
+// Pagination - SERVER SIDE
+const pagination = ref({
+  current_page: 1,
+  last_page: 1,
+  per_page: 15,
+  total: initialDocuments?.length || 0,
+  from: 1,
+  to: Math.min(15, initialDocuments?.length || 0)
+});
+
+// Filters - sent to server
+const filters = reactive({
+  search: '',
+  category: '',
+  approval_status: '',
+  is_active: '',
+  sort_by: 'sort_order',
+  sort_direction: 'asc'
+});
+
+// Modals
 const showModal = ref(false);
 const showPendingModal = ref(false);
 const showRejectDocModal = ref(false);
@@ -591,7 +627,7 @@ const form = reactive({
   type: '',
   category: '',
   color: '#94a3b8',
-  requires_approval: true, // Always true
+  requires_approval: true,
   sort_order: null,
   is_active: true
 });
@@ -603,22 +639,6 @@ const errors = reactive({
   sort_order: ''
 });
 
-// ========== HELPER FUNCTION FOR SORT ORDER ==========
-const getNextSortOrder = () => {
-  // Get all sort orders except "Others" (which is 9999)
-  const normalItems = documents.value.filter(d => d.sort_order < 9000);
-  
-  if (normalItems.length === 0) {
-    return 1; // First item
-  }
-  
-  // Find the maximum sort order among normal items
-  const maxSortOrder = Math.max(...normalItems.map(d => d.sort_order));
-  
-  // Return max + 1 (this will be the next number after the largest)
-  return maxSortOrder + 1;
-};
-
 // ========== COMPUTED ==========
 const displayedPages = computed(() => {
   const pages = [];
@@ -629,84 +649,26 @@ const displayedPages = computed(() => {
   if (total <= max) {
     for (let i = 1; i <= total; i++) pages.push(i);
   } else {
-    let s = Math.max(1, current - 2);
-    let e = Math.min(total, s + max - 1);
-    if (e - s + 1 < max) s = Math.max(1, e - max + 1);
-    for (let i = s; i <= e; i++) pages.push(i);
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + max - 1);
+    if (end - start + 1 < max) start = Math.max(1, end - max + 1);
+    
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push('...');
+    }
+    
+    for (let i = start; i <= end; i++) pages.push(i);
+    
+    if (end < total) {
+      if (end < total - 1) pages.push('...');
+      pages.push(total);
+    }
   }
   return pages;
 });
 
-// Filter and sort documents (client-side for instant response)
-const filteredDocuments = computed(() => {
-  let filtered = documents.value;
-  
-  // Apply category filter
-  if (categoryFilter.value) {
-    filtered = filtered.filter(d => d.category === categoryFilter.value);
-  }
-  
-  // Apply approval filter
-  if (approvalFilter.value) {
-    filtered = filtered.filter(d => d.approval_status === approvalFilter.value);
-  }
-  
-  // Apply status filter
-  if (statusFilter.value) {
-    const isActive = statusFilter.value === 'true';
-    filtered = filtered.filter(d => d.is_active === isActive);
-  }
-  
-  // Apply search filter
-  if (searchQuery.value) {
-    const search = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(d => 
-      d.type?.toLowerCase().includes(search) ||
-      d.category?.toLowerCase().includes(search)
-    );
-  }
-  
-  // Apply sorting
-  filtered = [...filtered].sort((a, b) => {
-    let aVal = a[sortField.value];
-    let bVal = b[sortField.value];
-    
-    if (sortField.value === 'created_at') {
-      aVal = aVal ? new Date(aVal) : 0;
-      bVal = bVal ? new Date(bVal) : 0;
-    }
-    
-    if (aVal < bVal) return sortDirection.value === 'asc' ? -1 : 1;
-    if (aVal > bVal) return sortDirection.value === 'asc' ? 1 : -1;
-    return 0;
-  });
-  
-  return filtered;
-});
-
-// Update pagination when filtered documents change
-watch(filteredDocuments, (newVal) => {
-  pagination.value.total = newVal.length;
-  pagination.value.last_page = Math.ceil(newVal.length / itemsPerPage.value);
-  pagination.value.per_page = itemsPerPage.value;
-  pagination.value.current_page = currentPage.value;
-  pagination.value.from = (currentPage.value - 1) * itemsPerPage.value + 1;
-  pagination.value.to = Math.min(currentPage.value * itemsPerPage.value, newVal.length);
-  
-  // Reset to page 1 if current page is out of bounds
-  if (currentPage.value > pagination.value.last_page) {
-    currentPage.value = 1;
-  }
-}, { immediate: true, deep: true });
-
-// Paginated documents
-const paginatedDocuments = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value;
-  const end = start + itemsPerPage.value;
-  return filteredDocuments.value.slice(start, end);
-});
-
-// Helper functions
+// ========== HELPER FUNCTIONS ==========
 const categoryBadgeClass = (category) => {
   const classes = {
     'Pleading': 'bg-blue-50 text-blue-700 border border-blue-200',
@@ -741,37 +703,36 @@ const formatApprovalStatus = (status) => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
-// ========== FETCH DOCUMENTS ==========
-const fetchDocuments = async (showLoading = false) => {
-
+// ========== FETCH DOCUMENTS (Background Refresh) ==========
+const fetchDocuments = async () => {
+  isRefreshing.value = true;
   
   try {
     const params = {
-      search: searchQuery.value || undefined,
-      category: categoryFilter.value || undefined,
-      approval_status: approvalFilter.value || undefined,
-      is_active: statusFilter.value || undefined,
-      sort_by: sortField.value,
-      sort_direction: sortDirection.value,
-      page: 1,
-      per_page: 100
+      search: filters.search || undefined,
+      category: filters.category || undefined,
+      approval_status: filters.approval_status || undefined,
+      is_active: filters.is_active || undefined,
+      sort_by: filters.sort_by,
+      sort_direction: filters.sort_direction,
+      page: pagination.value.current_page,
+      per_page: pagination.value.per_page
     };
 
-    await documentService.getDocuments(params);
+    const response = await documentService.getDocuments(params);
+    
+    if (response.data) {
+      documents.value = response.data;
+      pagination.value = response.meta;
+      lastUpdated.value = new Date().toLocaleTimeString();
+      
+      // Update cache
+      setDocuments(response.data);
+    }
     
   } catch (error) {
     console.error('Failed to load documents:', error);
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: error.message || 'Failed to load documents',
-      timer: 2000,
-      showConfirmButton: false,
-      position: 'top-end',
-      toast: true
-    });
   } finally {
-    if (showLoading) isLoading.value = false;
     isRefreshing.value = false;
   }
 };
@@ -803,15 +764,15 @@ const initialize = async () => {
   // Load document categories first
   await fetchDocumentCategories();
   
-  // If no data in appUtils, show loading and fetch
-  if (documents.value.length === 0) {
-    isLoading.value = true;
-    await fetchDocuments(true);
-  } else {
-    // Data already exists, show instantly and refresh in background
-    isLoading.value = false;
-    fetchDocuments(false);
+  // If we have cached data, show it immediately
+  if (initialDocuments?.length) {
+    documents.value = initialDocuments.slice(0, pagination.value.per_page);
+    pagination.value.total = initialDocuments.length;
+    pagination.value.last_page = Math.ceil(initialDocuments.length / pagination.value.per_page);
   }
+  
+  // Fetch fresh data in background
+  fetchDocuments();
   
   // Load pending approvals for lawyers
   if (userRole.value === 'lawyer') {
@@ -821,57 +782,44 @@ const initialize = async () => {
 
 // ========== FILTER HANDLERS ==========
 const debouncedSearch = debounce(() => {
-  currentPage.value = 1;
+  pagination.value.current_page = 1;
+  fetchDocuments();
 }, 500);
 
 const handleFilterChange = () => {
-  currentPage.value = 1;
+  pagination.value.current_page = 1;
+  fetchDocuments();
 };
 
 const sortBy = (field) => {
-  if (sortField.value === field) {
-    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+  if (filters.sort_by === field) {
+    filters.sort_direction = filters.sort_direction === 'asc' ? 'desc' : 'asc';
   } else {
-    sortField.value = field;
-    sortDirection.value = 'asc';
+    filters.sort_by = field;
+    filters.sort_direction = 'asc';
   }
+  pagination.value.current_page = 1;
+  fetchDocuments();
 };
 
 // ========== PAGINATION ==========
 const previousPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
+  if (pagination.value.current_page > 1) {
+    pagination.value.current_page--;
+    fetchDocuments();
   }
 };
 
 const nextPage = () => {
-  if (currentPage.value < pagination.value.last_page) {
-    currentPage.value++;
+  if (pagination.value.current_page < pagination.value.last_page) {
+    pagination.value.current_page++;
+    fetchDocuments();
   }
 };
 
 const goToPage = (page) => {
-  currentPage.value = page;
-};
-
-// ========== MANUAL REFRESH ==========
-const manualRefresh = async () => {
-  isRefreshing.value = true;
-  await fetchDocuments(true);
-  if (userRole.value === 'lawyer') {
-    await fetchPendingApprovals();
-  }
-  isRefreshing.value = false;
-  
-  Swal.fire({
-    icon: 'success',
-    title: 'Refreshed!',
-    text: 'Documents list refreshed',
-    timer: 1500,
-    showConfirmButton: false,
-    position: 'top-end',
-    toast: true
-  });
+  pagination.value.current_page = page;
+  fetchDocuments();
 };
 
 // ========== MODAL FUNCTIONS ==========
@@ -895,14 +843,10 @@ const clearErrors = () => {
   errors.sort_order = '';
 };
 
-const openCreateModal = async () => {
+const openCreateModal = () => {
   resetForm();
   isEditing.value = false;
   editingItemId.value = null;
-  
-  // Get the next available sort order
-  form.sort_order = getNextSortOrder();
-  
   showModal.value = true;
 };
 
@@ -913,7 +857,7 @@ const editItem = (item) => {
   form.type = item.type;
   form.category = item.category;
   form.color = item.color;
-  form.requires_approval = true; // Always true
+  form.requires_approval = item.requires_approval;
   form.sort_order = item.sort_order;
   form.is_active = item.is_active;
   showModal.value = true;
@@ -934,27 +878,19 @@ const submitForm = async () => {
       type: form.type,
       category: form.category,
       color: form.color,
-      requires_approval: true, // Always true
+      requires_approval: form.requires_approval,
       sort_order: form.sort_order,
       is_active: form.is_active
     };
 
     if (isEditing.value) {
       editingId.value = editingItemId.value;
-      
-      // Call API - it will update the store
       await documentService.updateDocument(editingItemId.value, payload);
-        await fetchDocuments(true);
 
-      let message = 'Document updated successfully';
-      if (userRole.value !== 'lawyer') {
-        message += ' (pending approval)';
-      }
-      
       Swal.fire({
         icon: 'success',
         title: 'Success!',
-        text: message,
+        text: 'Document updated successfully',
         timer: 1500,
         showConfirmButton: false,
         position: 'top-end',
@@ -963,22 +899,12 @@ const submitForm = async () => {
 
     } else {
       isAdding.value = true;
-      
-      // Call API - it will add to store
       await documentService.createDocument(payload);
-        await fetchDocuments(true);
-
-      let message = '';
-      if (userRole.value === 'lawyer') {
-        message = 'Document created successfully (auto-approved)';
-      } else {
-        message = 'Document created and pending lawyer approval';
-      }
 
       Swal.fire({
         icon: 'success',
         title: 'Success!',
-        text: message,
+        text: 'Document created successfully',
         timer: 2000,
         showConfirmButton: false,
         position: 'top-end',
@@ -987,8 +913,8 @@ const submitForm = async () => {
     }
 
     closeModal();
+    await fetchDocuments();
     
-    // Refresh pending approvals for lawyers
     if (userRole.value === 'lawyer') {
       await fetchPendingApprovals();
     }
@@ -1023,12 +949,13 @@ const approveDocument = async (item) => {
   approvingId.value = item.id;
 
   try {
-    // Call API - it will update the store
     await documentService.approveDocument(item.id);
-  await fetchDocuments(true);
-
+    
     // Remove from pending approvals
     pendingApprovals.value = pendingApprovals.value.filter(p => p.id !== item.id);
+    
+    // Refresh current page
+    await fetchDocuments();
 
     Swal.fire({
       icon: 'success',
@@ -1076,6 +1003,9 @@ const submitRejection = async () => {
 
     // Remove from pending approvals
     pendingApprovals.value = pendingApprovals.value.filter(p => p.id !== documentToReject.value.id);
+    
+    // Refresh current page
+    await fetchDocuments();
 
     showRejectDocModal.value = false;
 
@@ -1112,9 +1042,10 @@ const toggleStatus = async (item) => {
   togglingId.value = item.id;
 
   try {
-    // Call API - it will update the store
     await documentService.toggleDocument(item.id);
-      await fetchDocuments(true);
+    
+    // Refresh current page
+    await fetchDocuments();
 
     Swal.fire({
       icon: 'success',
@@ -1159,13 +1090,14 @@ const confirmDelete = async (item) => {
     deletingId.value = item.id;
 
     try {
-      // Call API - it will remove from store
       await documentService.deleteDocument(item.id);
-        await fetchDocuments(true);
 
       // Remove from pending approvals if present
       pendingApprovals.value = pendingApprovals.value.filter(p => p.id !== item.id);
       
+      // Refresh current page
+      await fetchDocuments();
+
       Swal.fire({
         icon: 'success',
         title: 'Deleted!',
@@ -1193,11 +1125,29 @@ const confirmDelete = async (item) => {
   }
 };
 
+// ========== WATCH FILTERS ==========
+watch(() => filters.search, () => {
+  debouncedSearch();
+});
+
+watch(() => filters.category, () => {
+  handleFilterChange();
+});
+
+watch(() => filters.approval_status, () => {
+  handleFilterChange();
+});
+
+watch(() => filters.is_active, () => {
+  handleFilterChange();
+});
+
 // ========== LISTEN FOR UPDATES ==========
 const handleDocumentsUpdated = (event) => {
-  documents.value = event.detail;
-  if (documents.value.length > 0) {
-    isLoading.value = false;
+  allDocuments.value = event.detail;
+  // Update current page if we're on page 1
+  if (pagination.value.current_page === 1) {
+    documents.value = event.detail.slice(0, pagination.value.per_page);
   }
 };
 
@@ -1219,22 +1169,4 @@ onUnmounted(() => {
 const formatDateHelper = (date) => {
   return formatDate(date);
 };
-
-// Watch for page changes
-watch(currentPage, () => {
-  // Update pagination display when page changes
-  pagination.value.current_page = currentPage.value;
-  pagination.value.from = (currentPage.value - 1) * itemsPerPage.value + 1;
-  pagination.value.to = Math.min(currentPage.value * itemsPerPage.value, filteredDocuments.value.length);
-});
 </script>
-
-<style scoped>
-.modal-enter-active, .modal-leave-active { transition: all 0.25s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; transform: scale(0.95); }
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-</style>

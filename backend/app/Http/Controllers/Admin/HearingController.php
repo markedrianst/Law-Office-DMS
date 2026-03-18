@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/Admin/HearingController.php
 
 namespace App\Http\Controllers\Admin;
 
@@ -27,7 +26,8 @@ class HearingController extends Controller
             $role = strtolower($user->role?->name ?? $user->role ?? '');
             
             $query = Hearing::with([
-                'case:id,case_code,title,assigned_lawyer_id,assigned_clerk_id',
+                'case:id,case_code,title,assigned_lawyer_id,assigned_clerk_id,client_id',
+                'case.client:id,full_name',
                 'creator:id,full_name',
                 'assignedTo:id,full_name',
                 'court:id,name'
@@ -82,9 +82,51 @@ class HearingController extends Controller
             
             $hearings = $query->get();
 
+            // Format dates to YYYY-MM-DD to avoid timezone issues
+            $formattedHearings = $hearings->map(function($hearing) {
+                return [
+                    'id' => $hearing->id,
+                    'case_id' => $hearing->case_id,
+                    'title' => $hearing->title,
+                    'description' => $hearing->description,
+                    'hearing_date' => $hearing->hearing_date->format('Y-m-d'), // Force YYYY-MM-DD
+                    'start_time' => $hearing->start_time ? $hearing->start_time->format('H:i') : null,
+                    'location' => $hearing->location,
+                    'court_id' => $hearing->court_id,
+                    'type' => $hearing->type,
+                    'status' => $hearing->status,
+                    'created_by' => $hearing->created_by,
+                    'assigned_to' => $hearing->assigned_to,
+                    'reminder_sent' => $hearing->reminder_sent,
+                    'case' => $hearing->case ? [
+                        'id' => $hearing->case->id,
+                        'case_code' => $hearing->case->case_code,
+                        'title' => $hearing->case->title,
+                        'assigned_lawyer_id' => $hearing->case->assigned_lawyer_id,
+                        'assigned_clerk_id' => $hearing->case->assigned_clerk_id,
+                        'client' => $hearing->case->client ? [
+                            'id' => $hearing->case->client->id,
+                            'full_name' => $hearing->case->client->full_name
+                        ] : null
+                    ] : null,
+                    'creator' => $hearing->creator ? [
+                        'id' => $hearing->creator->id,
+                        'full_name' => $hearing->creator->full_name
+                    ] : null,
+                    'assignedTo' => $hearing->assignedTo ? [
+                        'id' => $hearing->assignedTo->id,
+                        'full_name' => $hearing->assignedTo->full_name
+                    ] : null,
+                    'court' => $hearing->court ? [
+                        'id' => $hearing->court->id,
+                        'name' => $hearing->court->name
+                    ] : null
+                ];
+            });
+
             return response()->json([
                 'success' => true,
-                'data' => $hearings
+                'data' => $formattedHearings
             ]);
 
         } catch (\Exception $e) {
@@ -184,7 +226,7 @@ class HearingController extends Controller
                             'data' => [
                                 'hearing_id' => $hearing->id,
                                 'hearing_title' => $hearing->title,
-                                'hearing_date' => $hearing->hearing_date,
+                                'hearing_date' => $hearing->hearing_date->format('Y-m-d'),
                                 'hearing_type' => $hearing->type,
                                 'case_code' => $case->case_code,
                                 'case_id' => $case->id
@@ -209,7 +251,7 @@ class HearingController extends Controller
                         'data' => [
                             'hearing_id' => $hearing->id,
                             'hearing_title' => $hearing->title,
-                            'hearing_date' => $hearing->hearing_date,
+                            'hearing_date' => $hearing->hearing_date->format('Y-m-d'),
                             'hearing_type' => $hearing->type
                         ],
                         'action_url' => '/calendar'
@@ -226,7 +268,7 @@ class HearingController extends Controller
                     'details' => json_encode([
                         'message' => "Scheduled {$hearing->type}: {$hearing->title}",
                         'hearing_id' => $hearing->id,
-                        'hearing_date' => $hearing->hearing_date
+                        'hearing_date' => $hearing->hearing_date->format('Y-m-d')
                     ])
                 ]);
             }
@@ -310,7 +352,7 @@ class HearingController extends Controller
                         'data' => [
                             'hearing_id' => $hearing->id,
                             'hearing_title' => $hearing->title,
-                            'hearing_date' => $hearing->hearing_date
+                            'hearing_date' => $hearing->hearing_date->format('Y-m-d')
                         ],
                         'action_url' => '/calendar'
                     ]);
@@ -337,9 +379,6 @@ class HearingController extends Controller
         }
     }
 
-    /**
-     * NEW METHOD: Update hearing status only
-     */
     public function updateStatus(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
@@ -361,7 +400,6 @@ class HearingController extends Controller
             $hearing->update(['status' => $request->status]);
             $hearing->load(['case', 'assignedTo', 'court', 'creator']);
 
-            // Notify relevant users about status change
             if ($request->status === 'completed') {
                 $this->notifyUsers($hearing, 'completed', 'Hearing Completed', 
                     "Hearing '{$hearing->title}' has been marked as completed");
@@ -429,7 +467,7 @@ class HearingController extends Controller
             $newHearing->load(['case', 'assignedTo', 'court', 'creator']);
 
             $this->notifyUsers($newHearing, 'rescheduled', 'Hearing Rescheduled', 
-                "Hearing has been rescheduled to {$newHearing->hearing_date}");
+                "Hearing has been rescheduled to {$newHearing->hearing_date->format('Y-m-d')}");
 
             if ($hearing->case_id) {
                 CaseActivityLog::create([
@@ -437,7 +475,7 @@ class HearingController extends Controller
                     'user_id' => $user->id,
                     'action' => 'rescheduled_hearing',
                     'details' => json_encode([
-                        'message' => "Rescheduled hearing from {$hearing->hearing_date} to {$newHearing->hearing_date}",
+                        'message' => "Rescheduled hearing from {$hearing->hearing_date->format('Y-m-d')} to {$newHearing->hearing_date->format('Y-m-d')}",
                         'old_hearing_id' => $hearing->id,
                         'new_hearing_id' => $newHearing->id,
                         'reason' => $request->reason
@@ -665,7 +703,7 @@ class HearingController extends Controller
                     'data' => [
                         'hearing_id' => $hearing->id,
                         'hearing_title' => $hearing->title,
-                        'hearing_date' => $hearing->hearing_date,
+                        'hearing_date' => $hearing->hearing_date->format('Y-m-d'),
                         'hearing_type' => $hearing->type,
                         'case_code' => $hearing->case?->case_code,
                         'case_id' => $hearing->case_id
