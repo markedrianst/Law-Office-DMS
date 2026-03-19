@@ -26,7 +26,6 @@ class AuditLogService {
       // Return cached data from appUtils if available
       const cachedLogs = getAuditLogs();
       if (cachedLogs.length > 0) {
-        console.log('📋 Returning cached logs from appUtils');
         return { 
           data: cachedLogs, 
           meta: { total: cachedLogs.length } 
@@ -127,7 +126,6 @@ class AuditLogService {
 
   // Clear appUtils cache
   clearCache() {
-    console.log('🗑️ Clearing audit logs cache');
     import('@/utils/appUtils').then(({ clearAuditCache }) => {
       clearAuditCache();
     });

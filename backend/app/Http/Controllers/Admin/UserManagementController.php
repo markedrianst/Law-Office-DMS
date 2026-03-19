@@ -52,8 +52,6 @@ class UserManagementController extends Controller
             $role = $request->get('role');
             $sortField = $request->get('sort_by', 'created_at');
             $sortDirection = $request->get('sort_direction', 'desc');
-
-            // Map sort fields to database columns
             $fieldMap = [
                 'name' => 'u.full_name',
                 'email' => 'u.email',
@@ -63,8 +61,6 @@ class UserManagementController extends Controller
                 'created_at' => 'u.created_at',
             ];
             $orderBy = $fieldMap[$sortField] ?? 'u.created_at';
-
-            // Build the query with proper joins and pagination - REMOVED address and contact_number
             $users = DB::table('users as u')
                 ->join('roles as r', 'r.id', '=', 'u.role_id')
                 ->whereIn('r.name', ['lawyer', 'clerk'])
@@ -88,8 +84,6 @@ class UserManagementController extends Controller
                 )
                 ->orderBy($orderBy, $sortDirection)
                 ->paginate($perPage);
-
-            // Transform the data - removed address and contact_number
             $transformedUsers = collect($users->items())->map(function ($user) {
                 return [
                     'id' => $user->id,

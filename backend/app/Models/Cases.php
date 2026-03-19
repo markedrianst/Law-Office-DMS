@@ -164,6 +164,11 @@ class Cases extends Model
         return $query;
     }
 
+    public function clients()
+    {
+        return $this->belongsTo(Client::class, 'client_id');
+    }
+
     /**
      * Scope a query to search by case code, title, or client name.
      */

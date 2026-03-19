@@ -27,7 +27,6 @@ export function useAuth() {
   
   // ==================== UPDATE FUNCTION ====================
   const updateUserData = () => {
-    console.log('🔄 Updating user data from appUtils');
     user.value = getUser();
     userName.value = getUserName();
     userRole.value = getUserRole();
@@ -55,22 +54,14 @@ export function useAuth() {
   let cleanup = null;
   
   onMounted(() => {
-    console.log('📌 useAuth mounted');
-    
-    // Listen for user updates from appUtils
     cleanup = listenForUpdates('user-updated', updateUserData);
-    
-    // Also listen for storage events (for multi-tab support)
     const handleStorageChange = (e) => {
       if (e.key === 'user') {
-        console.log('📦 User data changed in another tab');
         updateUserData();
       }
     };
     
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Cleanup on unmount
+    window.addEventListener('storage', handleStorageChange)
     onUnmounted(() => {
       if (cleanup) cleanup();
       window.removeEventListener('storage', handleStorageChange);

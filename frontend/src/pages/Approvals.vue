@@ -680,7 +680,6 @@ const clearFilters = () => {
 
 // ========== MODAL METHODS ==========
 const openApproveModal = (item) => {
-  console.log('Opening approve modal for:', item);
   modal.show = true;
   modal.item = item;
   modal.action = 'APPROVED';
@@ -689,7 +688,6 @@ const openApproveModal = (item) => {
 };
 
 const openRejectModal = (item) => {
-  console.log('Opening reject modal for:', item);
   modal.show = true;
   modal.item = item;
   modal.action = 'REJECTED';
@@ -718,12 +716,6 @@ const closeActionView = () => {
 
 // ========== SUBMIT DECISION ==========
 const submitDecision = async () => {
-  console.log('Submitting decision:', {
-    source: modal.item.source,
-    id: modal.item.id,
-    action: modal.action,
-    notes: modal.notes
-  });
   
   if (modal.action === 'REJECTED' && !modal.notes) {
     showToast('Please provide a reason for rejection', 'error');
@@ -739,9 +731,7 @@ const submitDecision = async () => {
       modal.action,
       modal.notes
     );
-    
-    console.log('Review response:', response);
-    
+   
     showToast(
       `Movement ${modal.action === 'APPROVED' ? 'approved' : 'rejected'} successfully`,
       'success'

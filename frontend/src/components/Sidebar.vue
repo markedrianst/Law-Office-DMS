@@ -230,7 +230,6 @@ const navItems = computed(() => {
 
 // ==================== UPDATE FUNCTIONS ====================
 const updateUserData = () => {
-  console.log('🔄 Sidebar updating user data')
   userName.value = getUserName() || 'User'
   userRole.value = getUserRole() || 'user'
   userRoleLabel.value = getRoleLabel(userRole.value) || 'User'
@@ -296,19 +295,13 @@ let cleanupUser = null
 let cleanupNotifications = null
 
 onMounted(() => {
-  console.log('📌 Sidebar mounted')
-  
-  // Initial updates
   updateUserData()
   updateNotifications()
   fetchBadges()
   handleResize()
-  
-  // Listen for updates from appUtils
   cleanupUser = listenForUpdates('user-updated', updateUserData)
   cleanupNotifications = listenForUpdates('notifications-updated', updateNotifications)
-  
-  // Storage events for multi-tab
+
   const handleStorageChange = (e) => {
     if (e.key === 'user') {
       updateUserData()
@@ -320,13 +313,11 @@ onMounted(() => {
   // Event listeners
   window.addEventListener('resize', handleResize)
   window.addEventListener('storage', handleStorageChange)
-  
-  // Auto-refresh badges every 30 seconds
+ 
   const interval = setInterval(fetchBadges, 30000)
   
   // Cleanup on unmount
   onUnmounted(() => {
-    console.log('📌 Sidebar unmounting')
     if (cleanupUser) cleanupUser()
     if (cleanupNotifications) cleanupNotifications()
     window.removeEventListener('resize', handleResize)

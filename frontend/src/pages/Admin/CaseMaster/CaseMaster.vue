@@ -851,22 +851,11 @@ const fetchLookups = async () => {
 
 // ========== INITIALIZE ==========
 const initialize = async () => {
-  console.log('🚀 Initializing Case Master...');
-  console.log('📊 Cases in cache:', allCases.value.length);
-  
-  // Update pagination based on cached data
   updatePagination();
-  
-  // Fetch lookups once
   await fetchLookups();
-  
-  // If no cached data, fetch in background
   if (!allCases.value || allCases.value.length === 0) {
-    console.log('📡 No cached data, fetching...');
     await fetchCases();
   } else {
-    // Fetch fresh data in background
-    console.log('📡 Fetching fresh data in background...');
     fetchCases();
   }
 };
@@ -946,8 +935,6 @@ const closeExportModal = () => {
 };
 
 const handleExportComplete = () => {
-  // Optional: do something after export
-  console.log('Export completed');
 };
 
 // ========== MANUAL REFRESH ==========

@@ -30,7 +30,6 @@ const approvalService = {
       const cachedStats = getApprovalStats();
       
       if (cachedApprovals.length > 0) {
-        console.log('📋 Returning cached approvals from appUtils');
         return { 
           success: true, 
           data: cachedApprovals, 

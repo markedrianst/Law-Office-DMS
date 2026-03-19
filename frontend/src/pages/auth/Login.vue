@@ -499,7 +499,6 @@ const loadDashboardOnly = async () => {
     const response = await api.get('/dashboard');
     if (response.data) {
       setDashboard(response.data);
-      console.log('✅ Dashboard loaded');
       return true;
     }
   } catch (error) {
@@ -672,7 +671,6 @@ const closeResetModal = () => {
 
 // ==================== OPTIONAL FORGOT PASSWORD ====================
 const handleForgotPassword = () => {
-  console.log("Forgot password clicked");
 };
 </script>
 <style scoped>
