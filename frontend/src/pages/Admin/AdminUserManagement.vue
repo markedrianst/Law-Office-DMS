@@ -455,15 +455,27 @@ const editingUserId = ref(null);
 const resetPassword = ref(false);
 
 const form = reactive({
-  firstName: '', middleName: '', lastName: '',
-  address: '', contact: '',
-  email: '', role: '', password: '', status: 'Active',
+  firstName: '', 
+  middleName: '', 
+  lastName: '',
+  address: '', 
+  contact: '',
+  email: '', 
+  role: '', 
+  password: '', 
+  status: 'Active',
 });
 
 const errors = reactive({
-  firstName: '', middleName: '', lastName: '',
-  address: '', contact: '',
-  email: '', role: '', password: '', status: ''
+  firstName: '', 
+  middleName: '', 
+  lastName: '',
+  address: '', 
+  contact: '',
+  email: '', 
+  role: '', 
+  password: '', 
+  status: ''
 });
 
 // ==================== COMPUTED ====================
@@ -580,9 +592,10 @@ const loadUsers = async () => {
 // ==================== INITIALIZE ====================
 const initialize = async () => {
   await fetchRoles();
-  
+
   if (users.value.length === 0 && !initialLoadDone.value) {
     await loadUsers();
+      manualRefresh();
   } else {
     isLoading.value = false;
   }
@@ -602,7 +615,7 @@ const handleUsersUpdated = (event) => {
 let cleanup = null;
 
 onMounted(async () => {
- initialize();
+  await initialize();
   cleanup = listenForUpdates('users-updated', handleUsersUpdated);
 });
 
@@ -667,9 +680,15 @@ const formatLastLogin = (d) => d
 // ==================== MODAL ====================
 const resetForm = () => {
   Object.assign(form, { 
-    firstName: '', middleName: '', lastName: '', 
-    address: '', contact: '', email: '', 
-    role: '', password: '', status: 'Active' 
+    firstName: '', 
+    middleName: '', 
+    lastName: '', 
+    address: '', 
+    contact: '', 
+    email: '', 
+    role: '', 
+    password: '', 
+    status: 'Active' 
   });
   Object.keys(errors).forEach(k => errors[k] = '');
   editingUserId.value = null; 
@@ -700,21 +719,33 @@ const closeModal = () => {
   resetForm();
 };
 
-// ==================== EDIT USER ====================
+// ==================== FIXED: EDIT USER ====================
 const editUser = (user) => {
+  console.log('Editing user:', user); // Debug log
+  
   resetForm();
   isEditing.value = true;
   editingUserId.value = user.id;
   
+  // Parse name
   const nameParts = user.name?.split(' ') || [];
   form.firstName = nameParts[0] || '';
-  form.lastName = nameParts.slice(1).join(' ') || '';
   
+  if (nameParts.length > 2) {
+    form.middleName = nameParts.slice(1, -1).join(' ') || '';
+    form.lastName = nameParts[nameParts.length - 1] || '';
+  } else {
+    form.middleName = '';
+    form.lastName = nameParts.slice(1).join(' ') || '';
+  }
+  
+  // FIX: Map fields correctly
   form.email = user.email || '';
   form.role = user.role || '';
   form.status = user.status || 'Active';
   form.address = user.address || '';
-  form.contact = user.contact_number || '';
+  // Try multiple possible field names for contact
+  form.contact = user.contact_no || user.contact || user.contact_number || '';
   form.password = '';
   
   showModal.value = true;
@@ -726,11 +757,12 @@ const toggleResetPassword = () => {
   if (!resetPassword.value) errors.password = '';
 };
 
-// ==================== SUBMIT FORM WITH BETTER ERROR HANDLING ====================
+// ==================== FIXED: SUBMIT FORM ====================
 const submitForm = async () => {
   formLoading.value = true;
   clearErrors();
   
+  // Build payload
   const payload = {
     firstName: form.firstName,
     middleName: form.middleName || null,
@@ -738,13 +770,14 @@ const submitForm = async () => {
     email: form.email,
     role: form.role,
     status: form.status,
-    password: form.password,
     address: form.address || null,
-    contact: form.contact?.replace(/\D/g, '') || null,
+    // FIX: Use contact_no as field name (matches backend)
+    contact_no: form.contact?.replace(/\D/g, '') || null,
   };
   
-  if (isEditing.value && !resetPassword.value) {
-    delete payload.password;
+  // Only include password if provided
+  if (form.password) {
+    payload.password = form.password;
   }
   
   try {
@@ -778,6 +811,8 @@ const submitForm = async () => {
     closeModal();
     
   } catch (error) {
+    console.error('Form submission error:', error);
+    
     // Handle validation errors
     if (error.errors) {
       // Map backend field names to frontend field names
@@ -789,8 +824,8 @@ const submitForm = async () => {
         'role': 'role',
         'password': 'password',
         'address': 'address',
+        'contact_no': 'contact',  // FIX: Map contact_no to contact
         'contact': 'contact',
-        'contact_number': 'contact',
         'status': 'status'
       };
       
@@ -831,7 +866,7 @@ const submitForm = async () => {
   }
 };
 
-// ==================== DELETE USER WITH BETTER ERROR HANDLING ====================
+// ==================== DELETE USER ====================
 const confirmDeleteUser = async (user) => {
   const result = await Swal.fire({
     title: 'Delete User?',
@@ -908,4 +943,4 @@ const confirmDeleteUser = async (user) => {
     transform: translateY(0);
   }
 }
-</style>  
+</style>

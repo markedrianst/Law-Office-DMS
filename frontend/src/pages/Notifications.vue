@@ -267,7 +267,3 @@ const goToNotification = async (item) => {
   }
 }
 </script>
-  markAsRead,
-  markAllAsRead,
-  refresh  // Add this
-}

@@ -503,11 +503,7 @@ const syncTask = () => {
   }
 
   if (props.task) {
-    console.log('Syncing task:', props.task);
-    
-    // Map the task data to local form - NO 'task' field
     Object.assign(localTask, {
-      // Use document_type as the task description
       task: props.task.document_type || 'Untitled Task',
       document_type_id: props.task.document_type_id || null,
       document_type: props.task.document_type || '',

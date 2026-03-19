@@ -424,16 +424,9 @@ const updateUserData = () => {
 
 // ==================== LIFECYCLE ====================
 onMounted(() => {
-  console.log('📌 Header mounted');
-  
-  // Initial user data
   updateUserData();
-  
-  // Event listeners
   document.addEventListener('mousedown', handleOutside);
   window.addEventListener('resize', handleResize);
-  
-  // Listen for storage events (for multi-tab support)
   const handleStorageChange = (e) => {
     if (e.key === 'user') {
       updateUserData();

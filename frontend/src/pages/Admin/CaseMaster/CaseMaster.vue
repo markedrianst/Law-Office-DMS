@@ -115,7 +115,12 @@
 
     <!-- Desktop Table View (hidden on mobile) -->
     <div class="hidden lg:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="overflow-x-auto">
+          <!-- Loading State - Only shown on first visit -->
+    <div v-if="isLoading" class="bg-white rounded-2xl shadow-sm border border-slate-100 py-16 flex flex-col items-center">
+      <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-[#1a4972] animate-spin mb-4"></div>
+      <p class="text-sm text-slate-500">Loading cases...</p>
+    </div>
+      <div v-else class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-slate-100 bg-[#1a4972]/5">
@@ -641,6 +646,7 @@ const filters = reactive({
 const mobileSortOption = ref('created_at-desc');
 
 // Loading states - only for background refresh
+const isLoading = ref(false);
 const isRefreshing = ref(false);
 const formLoading = ref(false);
 const lastUpdated = ref(
@@ -850,27 +856,23 @@ const fetchLookups = async () => {
 };
 
 // ========== INITIALIZE ==========
+
 const initialize = async () => {
-  console.log('🚀 Initializing Case Master...');
-  console.log('📊 Cases in cache:', allCases.value.length);
+  if (!allCases.value || allCases.value.length === 0) {
+    isLoading.value = true;
+  }
   
-  // Update pagination based on cached data
   updatePagination();
-  
-  // Fetch lookups once
   await fetchLookups();
   
-  // If no cached data, fetch in background
   if (!allCases.value || allCases.value.length === 0) {
-    console.log('📡 No cached data, fetching...');
     await fetchCases();
+    isLoading.value = false;
   } else {
-    // Fetch fresh data in background
-    console.log('📡 Fetching fresh data in background...');
-    fetchCases();
+    isLoading.value = false;
+    fetchCases(); // Don't await - let it run in background
   }
 };
-
 // ========== FILTER METHODS ==========
 const debouncedSearch = debounce(() => {
   pagination.value.current_page = 1;
@@ -946,8 +948,6 @@ const closeExportModal = () => {
 };
 
 const handleExportComplete = () => {
-  // Optional: do something after export
-  console.log('Export completed');
 };
 
 // ========== MANUAL REFRESH ==========

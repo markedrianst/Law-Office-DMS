@@ -15,6 +15,8 @@ use App\Models\Document;
 use App\Models\LoginLog;
 use App\Models\CaseActivityLog;
 use App\Models\CaseChecklist;
+use App\Models\Hearing;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -38,10 +40,10 @@ class DashboardController extends Controller
         
         // Cache miss - fetch fresh data using models
         $data = match($role) {
-            'admin' => $this->getAdminDashboard(),
+            'admin' => $this->getAdminDashboard($userId),
             'lawyer' => $this->getLawyerDashboard($userId),
             'clerk' => $this->getClerkDashboard($userId),
-            default => $this->getAdminDashboard()
+            default => $this->getAdminDashboard($userId)
         };
         
         // Cache for 30 seconds
@@ -50,10 +52,132 @@ class DashboardController extends Controller
         return response()->json($data);
     }
 
+
+    
+    /**
+     * Get upcoming hearings for a user based on role
+     */
+    private function getUpcomingHearings($userId, $role)
+    {
+        $query = Hearing::with([
+            
+            'case:id,case_code,title,client_id',
+            'case.client:id,full_name',
+            'court:id,name',
+            'assignedTo:id,full_name'
+        ]);
+
+        // Filter by role
+        if ($role === 'lawyer') {
+            $query->where(function($q) use ($userId) {
+                $q->where('created_by', $userId)
+                  ->orWhere('assigned_to', $userId)
+                  ->orWhereHas('case', function($caseQuery) use ($userId) {
+                      $caseQuery->where('assigned_lawyer_id', $userId);
+                  });
+            });
+        } elseif ($role === 'clerk') {
+            $query->where(function($q) use ($userId) {
+                $q->where('created_by', $userId)
+                  ->orWhere('assigned_to', $userId)
+                  ->orWhereHas('case', function($caseQuery) use ($userId) {
+                      $caseQuery->where('assigned_clerk_id', $userId);
+                  });
+            });
+        }
+        // Admin sees all hearings (no filter needed)
+
+        $today = Carbon::today();
+        
+        // Get upcoming hearings (today and future)
+        $hearings = $query->where('hearing_date', '>=', $today)
+                         ->where('status', '!=', 'cancelled')
+                         ->orderBy('hearing_date')
+                         ->orderBy('start_time')
+                         ->take(10)
+                         ->get()
+                         ->map(function($hearing) use ($today) {
+                             $hearingDate = Carbon::parse($hearing->hearing_date);
+                             $daysUntil = $today->diffInDays($hearingDate, false);
+                             
+                             // Color coding logic
+                             $urgency = 'future'; // green
+                             if ($daysUntil === 0) {
+                                 $urgency = 'today'; // red
+                             } elseif ($daysUntil <= 3) {
+                                 $urgency = 'soon'; // yellow/amber
+                             }
+                             
+                             return [
+                                 'id' => $hearing->id,
+                                 'title' => $hearing->title,
+                                 'description' => $hearing->description,
+                                 'hearing_date' => $hearing->hearing_date->format('Y-m-d'),
+                                 'start_time' => $hearing->start_time ? $hearing->start_time->format('H:i') : null,
+                                 'location' => $hearing->location,
+                                 'type' => $hearing->type,
+                                 'status' => $hearing->status,
+                                 'urgency' => $urgency,
+                                 'days_until' => $daysUntil,
+                                 'case_code' => $hearing->case?->case_code,
+                                 'case_title' => $hearing->case?->title,
+                                 'client_name' => $hearing->case?->client?->full_name,
+                                 'court_name' => $hearing->court?->name,
+                                 'assigned_to_name' => $hearing->assignedTo?->full_name
+                             ];
+                         });
+
+        // Group by urgency for easy access
+        return [
+            'all' => $hearings,
+            'today' => $hearings->where('urgency', 'today')->values(),
+            'soon' => $hearings->where('urgency', 'soon')->values(),
+            'future' => $hearings->where('urgency', 'future')->values()
+        ];
+    }
+
+    /**
+     * Get hearing stats for calendar
+     */
+    private function getHearingStats($userId, $role)
+    {
+        $query = Hearing::query();
+
+        // Filter by role
+        if ($role === 'lawyer') {
+            $query->where(function($q) use ($userId) {
+                $q->where('created_by', $userId)
+                  ->orWhere('assigned_to', $userId)
+                  ->orWhereHas('case', function($caseQuery) use ($userId) {
+                      $caseQuery->where('assigned_lawyer_id', $userId);
+                  });
+            });
+        } elseif ($role === 'clerk') {
+            $query->where(function($q) use ($userId) {
+                $q->where('created_by', $userId)
+                  ->orWhere('assigned_to', $userId)
+                  ->orWhereHas('case', function($caseQuery) use ($userId) {
+                      $caseQuery->where('assigned_clerk_id', $userId);
+                  });
+            });
+        }
+
+        $today = Carbon::today();
+        $tomorrow = Carbon::tomorrow();
+        $weekEnd = Carbon::today()->endOfWeek();
+
+        return [
+            'today' => (clone $query)->whereDate('hearing_date', $today)->where('status', '!=', 'cancelled')->count(),
+            'tomorrow' => (clone $query)->whereDate('hearing_date', $tomorrow)->where('status', '!=', 'cancelled')->count(),
+            'this_week' => (clone $query)->whereBetween('hearing_date', [$today, $weekEnd])->where('status', '!=', 'cancelled')->count(),
+            'upcoming' => (clone $query)->where('hearing_date', '>=', $today)->where('status', '!=', 'cancelled')->count()
+        ];
+    }
+
     /**
      * Admin Dashboard - Using Eloquent Models with counts
      */
-    private function getAdminDashboard()
+    private function getAdminDashboard($userId)
     {
         // Get role IDs once
         $lawyerRoleId = Role::where('name', 'lawyer')->value('id');
@@ -107,6 +231,10 @@ class DashboardController extends Controller
             ->values()
             ->toArray();
 
+        // Get hearings data
+        $hearings = $this->getUpcomingHearings($userId, 'admin');
+        $hearingStats = $this->getHearingStats($userId, 'admin');
+
         return [
             'stats' => [
                 'total_cases' => $stats['total_cases'],
@@ -122,7 +250,9 @@ class DashboardController extends Controller
                 'pending_movements' => $stats['pending_checklists'] + $stats['pending_folders'],
                 'pending_total' => $stats['pending_documents'] + $stats['pending_checklists'] + $stats['pending_folders']
             ],
-            'recentActivities' => $recentActivities
+            'recentActivities' => $recentActivities,
+            'upcomingHearings' => $hearings['all'],
+            'hearingStats' => $hearingStats
         ];
     }
 
@@ -161,6 +291,10 @@ class DashboardController extends Controller
 
         $pendingTotal = $pendingDocuments + $pendingChecklists + $pendingFolders;
 
+        // Get hearings data
+        $hearings = $this->getUpcomingHearings($userId, 'lawyer');
+        $hearingStats = $this->getHearingStats($userId, 'lawyer');
+
         return [
             'lawyerStats' => [
                 'assigned_cases' => $totalCases,
@@ -172,7 +306,9 @@ class DashboardController extends Controller
                 'documents' => $pendingDocuments,
                 'movements' => $pendingChecklists + $pendingFolders,
                 'total' => $pendingTotal
-            ]
+            ],
+            'upcomingHearings' => $hearings['all'],
+            'hearingStats' => $hearingStats
         ];
     }
 
@@ -215,6 +351,10 @@ class DashboardController extends Controller
                 'case_title' => $task->case?->title
             ]);
 
+        // Get hearings data
+        $hearings = $this->getUpcomingHearings($userId, 'clerk');
+        $hearingStats = $this->getHearingStats($userId, 'clerk');
+
         return [
             'clerkStats' => [
                 'assigned_cases' => $assignedCases,
@@ -222,7 +362,9 @@ class DashboardController extends Controller
                 'pending_tasks' => $pendingTasks,
                 'completed_tasks' => $completedTasks
             ],
-            'myTasks' => $recentTasks
+            'myTasks' => $recentTasks,
+            'upcomingHearings' => $hearings['all'],
+            'hearingStats' => $hearingStats
         ];
     }
 

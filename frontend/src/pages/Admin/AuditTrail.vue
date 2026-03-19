@@ -435,7 +435,6 @@ const fetchStats = async () => {
 
 // ==================== LISTEN FOR UPDATES ====================
 const handleLogsUpdated = (event) => {
-  console.log('🔄 Audit logs updated event received');
   logs.value = event.detail;
   if (logs.value.length > 0) {
     isLoading.value = false;
@@ -443,7 +442,6 @@ const handleLogsUpdated = (event) => {
 };
 
 const handleStatsUpdated = (event) => {
-  console.log('🔄 Audit stats updated event received');
   stats.value = event.detail;
 };
 

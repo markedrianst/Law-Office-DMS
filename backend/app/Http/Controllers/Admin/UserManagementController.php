@@ -42,7 +42,7 @@ class UserManagementController extends Controller
     }
 
     /**
-     * Display a listing of users - Fixed: Removed address and contact_number
+     * Display a listing of users - Fixed: Added contact_no and address
      */
     public function index(Request $request)
     {
@@ -52,19 +52,17 @@ class UserManagementController extends Controller
             $role = $request->get('role');
             $sortField = $request->get('sort_by', 'created_at');
             $sortDirection = $request->get('sort_direction', 'desc');
-
-            // Map sort fields to database columns
             $fieldMap = [
                 'name' => 'u.full_name',
                 'email' => 'u.email',
+                'contact_no' => 'u.contact_no',
+                'address' => 'u.address',
                 'role' => 'r.name',
                 'status' => 'u.status',
                 'last_login' => 'u.last_login',
                 'created_at' => 'u.created_at',
             ];
             $orderBy = $fieldMap[$sortField] ?? 'u.created_at';
-
-            // Build the query with proper joins and pagination - REMOVED address and contact_number
             $users = DB::table('users as u')
                 ->join('roles as r', 'r.id', '=', 'u.role_id')
                 ->whereIn('r.name', ['lawyer', 'clerk'])
@@ -81,6 +79,8 @@ class UserManagementController extends Controller
                     'u.id',
                     'u.full_name as name',
                     'u.email',
+                    'u.contact_no',   // FIX: Added
+                    'u.address',      // FIX: Added
                     'u.status',
                     'u.created_at',
                     'u.last_login',
@@ -88,13 +88,13 @@ class UserManagementController extends Controller
                 )
                 ->orderBy($orderBy, $sortDirection)
                 ->paginate($perPage);
-
-            // Transform the data - removed address and contact_number
             $transformedUsers = collect($users->items())->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'contact_no' => $user->contact_no,   // FIX: Added
+                    'address' => $user->address,          // FIX: Added
                     'role' => ucfirst($user->role),
                     'status' => ucfirst($user->status),
                     'created_at' => $user->created_at,
@@ -123,7 +123,7 @@ class UserManagementController extends Controller
     }
 
     /**
-     * Store a newly created user - Fixed: Removed address and contact_number
+     * Store a newly created user
      */
     public function store(Request $request)
     {
@@ -132,6 +132,8 @@ class UserManagementController extends Controller
             'middleName' => 'nullable|string|max:50',
             'lastName' => 'required|string|max:50',
             'email' => 'required|string|email|max:255|unique:users,email',
+            'contact_no' => 'nullable|string|max:15',   // FIX: was contact_no already, kept consistent
+            'address' => 'nullable|string|max:255',
             'role' => 'required|in:Lawyer,Clerk',
             'password' => ['required', 'string', Password::min(6)],
             'status' => 'required|in:Active,Inactive',
@@ -163,17 +165,24 @@ class UserManagementController extends Controller
                 'role_id' => $roleId,
                 'full_name' => $fullName,
                 'email' => $request->email,
+                'contact_no' => $request->contact_no,
+                'address' => $request->address,
                 'password_hash' => Hash::make($request->password),
                 'status' => strtolower($request->status),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
-            // Get the created user - removed address and contact_number
+            // FIX: Added contact_no and address to SELECT
             $user = DB::table('users as u')
                 ->join('roles as r', 'r.id', '=', 'u.role_id')
                 ->where('u.id', $userId)
-                ->select('u.id', 'u.full_name as name', 'u.email', 'u.status', 'u.created_at', 'u.last_login', 'r.name as role')
+                ->select(
+                    'u.id', 'u.full_name as name', 'u.email',
+                    'u.contact_no', 'u.address',
+                    'u.status', 'u.created_at', 'u.last_login',
+                    'r.name as role'
+                )
                 ->first();
 
             DB::commit();
@@ -191,6 +200,8 @@ class UserManagementController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'contact_no' => $user->contact_no,   // FIX: from DB, not request
+                    'address' => $user->address,          // FIX: from DB, not request
                     'role' => ucfirst($user->role),
                     'status' => ucfirst($user->status),
                     'created_at' => $user->created_at,
@@ -213,7 +224,7 @@ class UserManagementController extends Controller
     }
 
     /**
-     * Update the specified user - Fixed: Removed address and contact_number
+     * Update the specified user - Fixed: Added contact_no and address
      */
     public function update(Request $request, $id)
     {
@@ -232,6 +243,8 @@ class UserManagementController extends Controller
                 'middleName' => 'nullable|string|max:50',
                 'lastName' => 'sometimes|required|string|max:50',
                 'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
+                'contact_no' => 'nullable|string|max:15',  // FIX: Added
+                'address' => 'nullable|string|max:255',    // FIX: Added
                 'role' => 'sometimes|required|in:Lawyer,Clerk',
                 'password' => ['nullable', 'string', Password::min(6)],
                 'status' => 'sometimes|required|in:Active,Inactive',
@@ -270,6 +283,18 @@ class UserManagementController extends Controller
                 $changes[] = 'email';
             }
 
+            // FIX: Update contact_no
+            if ($request->has('contact_no')) {
+                $updateData['contact_no'] = $request->contact_no;
+                $changes[] = 'contact_no';
+            }
+
+            // FIX: Update address
+            if ($request->has('address')) {
+                $updateData['address'] = $request->address;
+                $changes[] = 'address';
+            }
+
             // Update role
             if ($request->has('role')) {
                 $roleId = DB::table('roles')->where('name', strtolower($request->role))->value('id');
@@ -303,11 +328,16 @@ class UserManagementController extends Controller
                 DB::table('users')->where('id', $id)->update($updateData);
             }
 
-            // Get updated user - removed address and contact_number
+            // FIX: Added contact_no and address to SELECT
             $updatedUser = DB::table('users as u')
                 ->join('roles as r', 'r.id', '=', 'u.role_id')
                 ->where('u.id', $id)
-                ->select('u.id', 'u.full_name as name', 'u.email', 'u.status', 'u.created_at', 'u.last_login', 'r.name as role')
+                ->select(
+                    'u.id', 'u.full_name as name', 'u.email',
+                    'u.contact_no', 'u.address',
+                    'u.status', 'u.created_at', 'u.last_login',
+                    'r.name as role'
+                )
                 ->first();
 
             DB::commit();
@@ -324,6 +354,8 @@ class UserManagementController extends Controller
                     'id' => $updatedUser->id,
                     'name' => $updatedUser->name,
                     'email' => $updatedUser->email,
+                    'contact_no' => $updatedUser->contact_no,   // FIX: Added
+                    'address' => $updatedUser->address,          // FIX: Added
                     'role' => ucfirst($updatedUser->role),
                     'status' => ucfirst($updatedUser->status),
                     'created_at' => $updatedUser->created_at,
