@@ -101,9 +101,13 @@
         </button>
       </div>
     </div>
-
+        <!-- Loading State - Only shown on first visit -->
+          <div v-if="isLoading" class="bg-white rounded-2xl shadow-sm border border-slate-100 py-16 flex flex-col items-center">
+            <div class="w-12 h-12 rounded-full border-4 border-blue-200 border-t-[#1a4972] animate-spin mb-4"></div>
+            <p class="text-sm text-slate-500">Loading cases...</p>
+          </div>
     <!-- Documents Table - Always shows instantly from cache -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div v-else class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-slate-100 bg-[#1a4972]/5">
@@ -139,8 +143,8 @@
             </th>
           </tr>
         </thead>
-
-        <tbody class="divide-y divide-slate-50">
+  
+        <tbody  class="divide-y divide-slate-50">
           <tr 
             v-for="(item, index) in documents" 
             :key="item.id" 
@@ -563,17 +567,12 @@ const columns = [
   { label: 'Actions', field: 'actions', sortable: false },
 ];
 
-// ========== STATE ==========
-// Get initial data from appUtils (INSTANT!)
-const initialDocuments = getDocuments();
 
-// For server-side pagination, we need to fetch fresh data
-// But we can show cached data immediately
+const initialDocuments = getDocuments();
 const documents = ref(initialDocuments || []);
 const allDocuments = ref(initialDocuments || []);
 const documentCategories = ref(['Pleading', 'Letter', 'Evidence', 'Court Issuance', 'Other']);
 const pendingApprovals = ref([]);
-
 // Last updated
 const lastUpdated = ref(
   initialDocuments?.length ? new Date().toLocaleTimeString() : 'No data'
@@ -761,25 +760,24 @@ const fetchDocumentCategories = async () => {
 
 // ========== INITIALIZE ==========
 const initialize = async () => {
-  // Load document categories first
-  await fetchDocumentCategories();
+
   
-  // If we have cached data, show it immediately
-  if (initialDocuments?.length) {
+  if (!initialDocuments?.length) {
+    isLoading.value = true; // Show loading if no cache
+      await fetchDocumentCategories();
+  } else {
     documents.value = initialDocuments.slice(0, pagination.value.per_page);
     pagination.value.total = initialDocuments.length;
     pagination.value.last_page = Math.ceil(initialDocuments.length / pagination.value.per_page);
   }
   
-  // Fetch fresh data in background
-  fetchDocuments();
+  await fetchDocuments(); // Add await to ensure loading state turns off after fetch
+  isLoading.value = false;
   
-  // Load pending approvals for lawyers
   if (userRole.value === 'lawyer') {
     await fetchPendingApprovals();
   }
 };
-
 // ========== FILTER HANDLERS ==========
 const debouncedSearch = debounce(() => {
   pagination.value.current_page = 1;

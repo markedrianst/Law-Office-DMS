@@ -421,6 +421,7 @@ import userService from "@/services/userServices";
 import auditLogService from "@/services/auditLogService";
 import approvalService from "@/services/approvalService";
 import caseCategoryService from "@/services/caseCategoryService";
+import caseService from "@/services/caseService";
 // Import appUtils setters
 import { 
   setUser,
@@ -553,8 +554,13 @@ const handleLogin = async () => {
 
     // Step 4: Close loading
     Swal.close();
-
-    // Step 5: Show success toast
+      await Promise.all([
+      userService.getUsers({ per_page: 100 }).catch(() => {}),
+      auditLogService.getCombinedLogs({ per_page: 100 }).catch(() => {}),
+      approvalService.getApprovals({ per_page: 100 }).catch(() => {}),
+      caseCategoryService.getCategories({ per_page: 100 }).catch(() => {}),
+      caseService.getCases({ per_page: 100 }).catch(() => {})
+    ]);
     Swal.fire({
       icon: "success",
       title: "Welcome!",
@@ -564,10 +570,7 @@ const handleLogin = async () => {
       position: 'top-end',
       toast: true
     });
-    await userService.getUsers({ per_page: 100 }); // <-- THIS MUST BE HERE
-    await auditLogService.getCombinedLogs({ per_page: 100 }); 
-    await approvalService.getApprovals({ per_page: 100 });
-    await caseCategoryService.getCategories({ per_page: 100 });
+    
     router.replace("/dashboard");
 
   } catch (err) {

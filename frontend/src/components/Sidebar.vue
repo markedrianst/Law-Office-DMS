@@ -6,7 +6,19 @@
     
     <!-- Logo -->
     <div class="flex items-center gap-3 px-4 py-5 border-b border-white/8 min-h-[68px]">
-      <div class="w-9 h-9 rounded-[10px] bg-white/12 border border-white/18 flex items-center justify-center text-white shrink-0" v-html="getIcon('dashboard')"></div>
+        <div class="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0
+                    bg-white/10 backdrop-blur-md border border-white/20
+                    shadow-lg shadow-black/20 relative overflow-hidden">
+
+          <!-- Glass shine effect -->
+          <div class="absolute inset-0 bg-gradient-to-br from-white/60 to-transparent opacity-100"></div>
+
+          <img 
+            src="@/assets/images/lawofficelogo.png" 
+            alt="Logo"
+            class="w-6 h-6 object-contain relative z-10"
+          />
+        </div>
       <Transition
         enter-active-class="transition-all duration-200 delay-50"
         leave-active-class="transition-all duration-150"
@@ -18,8 +30,6 @@
         </div>
       </Transition>
     </div>
-
-    <!-- Sync indicator -->
     <div v-if="collapsed && isRefreshing" class="absolute top-20 left-1/2 -translate-x-1/2">
       <div class="w-1 h-1 bg-blue-400 rounded-full animate-ping"></div>
     </div>
@@ -285,7 +295,6 @@ const fetchBadges = async () => {
   }
 }
 
-// ==================== UI HELPERS ====================
 const handleResize = () => { 
   isMobile.value = window.innerWidth < 768 
 }
