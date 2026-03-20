@@ -588,7 +588,6 @@ const loadUsers = async () => {
     initialLoadDone.value = true;
   }
 };
-
 // ==================== INITIALIZE ====================
 const initialize = async () => {
   await fetchRoles();
@@ -783,7 +782,7 @@ const submitForm = async () => {
   try {
     if (isEditing.value) {
       await userService.updateUser(editingUserId.value, payload);
-      
+      await loadUsers();
       Swal.fire({
         icon: 'success',
         title: 'Success!',
@@ -796,7 +795,7 @@ const submitForm = async () => {
       
     } else {
       await userService.createUser(payload);
-      
+      await loadUsers();
       Swal.fire({
         icon: 'success',
         title: 'Success!',
@@ -884,7 +883,6 @@ const confirmDeleteUser = async (user) => {
     
     try {
       await userService.deleteUser(user.id);
-      
       Swal.fire({
         icon: 'success',
         title: 'Deleted!',
@@ -894,6 +892,11 @@ const confirmDeleteUser = async (user) => {
         position: 'top-end',
         toast: true
       });
+    const response = await userService.getUsers({ per_page: 100 });
+    
+    if (response.data && response.data.data) {
+      users.value = response.data.data;
+    }
       
     } catch (error) {
       let errorMessage = 'Failed to delete user';
