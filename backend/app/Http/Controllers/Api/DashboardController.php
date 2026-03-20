@@ -328,8 +328,18 @@ class DashboardController extends Controller
                                       ->where('status', 'done')
                                       ->count();
 
+        $dueTasks = CaseChecklist::where('assigned_clerk_id', $userId)
+                                    ->where('status', '!=', 'done')
+                                    ->whereDate('due_date', '<', now())
+                                    ->count();
+        $pendingFolders = FolderMovement::where('recorded_by', $userId)
+                                    ->where('approval_status', 'PENDING')
+                                    ->count();
+
+
+
         // Recent tasks with eager loading
-        $recentTasks = CaseChecklist::with('case')
+        $recentTasks = CaseChecklist::with('case', 'document')
             ->where('assigned_clerk_id', $userId)
             ->orderByRaw("
                 CASE 
@@ -343,10 +353,10 @@ class DashboardController extends Controller
             ->get()
             ->map(fn($task) => [
                 'id' => $task->id,
-                'task' => $task->task,
+                'task' => $task->document?->type,
                 'status' => $task->status,
                 'due_date' => $task->due_date,
-                'document_type' => $task->document_type,
+                'document_type' => $task->document?->category,
                 'case_code' => $task->case?->case_code,
                 'case_title' => $task->case?->title
             ]);
@@ -359,7 +369,9 @@ class DashboardController extends Controller
             'clerkStats' => [
                 'assigned_cases' => $assignedCases,
                 'total_tasks' => $totalTasks,
+                'pending_folders' => $pendingFolders,
                 'pending_tasks' => $pendingTasks,
+                'due_tasks' => $dueTasks,
                 'completed_tasks' => $completedTasks
             ],
             'myTasks' => $recentTasks,
