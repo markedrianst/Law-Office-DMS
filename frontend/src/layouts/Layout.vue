@@ -18,15 +18,15 @@
     >
       <div
         v-if="mobileSidebarOpen"
-        class="fixed inset-0 bg-black/50 z-40 md:hidden"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden"
         @click="mobileSidebarOpen = false"
       />
     </Transition>
 
     <!-- Mobile Sidebar -->
     <Transition
-      enter-active-class="transition-transform duration-250 ease-out"
-      leave-active-class="transition-transform duration-200 ease-in"
+      enter-active-class="transition-transform duration-300 ease-out"
+      leave-active-class="transition-transform duration-250 ease-in"
       enter-from-class="-translate-x-full"
       leave-to-class="-translate-x-full"
     >
@@ -49,8 +49,8 @@
         @toggle-sidebar="toggleMobileSidebar"
       />
 
-      <!-- Page Content -->
-      <main class="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-6">
+      <!-- Page Content with improved spacing -->
+      <main class="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-5 md:p-6 lg:p-8">
         <div class="w-full max-w-[1920px] mx-auto">
           <router-view />
         </div>
