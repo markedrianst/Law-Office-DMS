@@ -334,7 +334,7 @@ import { ref, reactive, onMounted, computed } from 'vue';
 import { useAuth } from '@/composables/useAuth';
 import accountService from '@/services/accountService';
 import Swal from 'sweetalert2';
-
+import { setUser } from '@/utils/appUtils';
 const { user, refreshUser, userRole, userInitials } = useAuth();
 
 // ========== PROFILE FORM ==========
@@ -594,7 +594,13 @@ const updateProfile = async () => {
     };
     
     await accountService.updateProfile(payload);
-    
+    setUser({
+      ...user.value,
+      full_name: `${profileForm.first_name} ${profileForm.last_name}`,
+      email: profileForm.email,
+      address: profileForm.address || null,
+      contact_number: profileForm.contact_no || null
+    });
     // Refresh user data
     await refreshUser();
     
