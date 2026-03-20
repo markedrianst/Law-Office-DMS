@@ -48,9 +48,11 @@ const loadUserFromSession = () => {
 loadUserFromSession();
 
 const authService = {
-  async getCsrfCookie() {
-    await api.get("/sanctum/csrf-cookie");
-  },
+ async getCsrfCookie() {
+    await api.get("/sanctum/csrf-cookie", {
+        baseURL: "https://pinedalawoffice.emberwebsolutions.com"
+    });
+},
 
   async login(payload) {
     await this.getCsrfCookie();
