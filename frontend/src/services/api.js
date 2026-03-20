@@ -1,7 +1,9 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://pinedalawoffice.emberwebsolutions.com/api",
+  // baseURL: "https://pinedalawoffice.emberwebsolutions.com/api",
+  baseURL: "http://localhost:8000/api",
+
   withCredentials: true,
   withXSRFToken: true,
 

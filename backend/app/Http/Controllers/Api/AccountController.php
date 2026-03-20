@@ -40,7 +40,7 @@ class AccountController extends Controller
                 ] : null,
                 'status' => $user->status,
                 'address' => $user->address,
-                'contact_number' => $user->contact_number,
+                'contact_number' => $user->contact_no,
                 'created_at' => $user->created_at,
                 'last_login' => $user->last_login
             ]
@@ -63,10 +63,11 @@ class AccountController extends Controller
 
         $validator = Validator::make($request->all(), [
             'firstName' => 'required|string|max:50',
+            'middleName' => 'nullable|string|max:50',
             'lastName' => 'required|string|max:50',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
             'address' => 'nullable|string|max:500',
-            'contact' => 'nullable|string|max:20'
+            'contact_no' => 'nullable|string|max:20'
         ]);
 
         if ($validator->fails()) {
@@ -84,7 +85,7 @@ class AccountController extends Controller
             'full_name' => $fullName,
             'email' => $request->email,
             'address' => $request->address,
-            'contact_number' => $request->contact ? preg_replace('/\D/', '', $request->contact) : null
+            'contact_no' => $request->contact_no ? preg_replace('/\D/', '', $request->contact_no) : null
         ]);
 
         return response()->json([
@@ -95,7 +96,7 @@ class AccountController extends Controller
                 'full_name' => $user->full_name,
                 'email' => $user->email,
                 'address' => $user->address,
-                'contact_number' => $user->contact_number
+                'contact_number' => $user->contact_no
             ]
         ]);
     }
