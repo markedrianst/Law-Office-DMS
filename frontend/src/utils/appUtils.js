@@ -1,16 +1,6 @@
-// =====================================================================
-// MASTER UTILITY FILE - Complete with CRUD operations and real-time events
-// Zero dependencies, pure vanilla JS, instant updates across components
-// =====================================================================
-
 const dataStore = {
-  // User data
   user: null,
-  
-  // Dashboard data
   dashboard: null,
-  
-  // Master data
   categories: null,
   stages: null,
   courts: null,
@@ -32,23 +22,15 @@ const dataStore = {
     past: 0,
     by_type: {}
   },
-  
-  // Notifications
   notifications: null,
   unreadCount: 0,
-  
-  // Timestamp
   timestamp: null,
 };
-
-// ==================== EVENT DISPATCHER ====================
 const dispatchEvent = (eventName, detail) => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(eventName, { detail }));
   }
 };
-
-// ==================== USER METHODS ====================
 export const setUser = (user) => {
   dataStore.user = user;
   dataStore.timestamp = Date.now();
@@ -57,16 +39,12 @@ export const setUser = (user) => {
   }
   dispatchEvent('user-updated', user);
 };
-
 export const getUser = () => dataStore.user;
-
 export const getUserName = () => dataStore.user?.full_name || 'User';
-
 export const getUserRole = () => {
   const role = dataStore.user?.role?.name || dataStore.user?.role;
   return role?.toLowerCase() || 'user';
 };
-
 export const getUserInitials = () => {
   const name = getUserName();
   if (!name || name === 'User') return 'U';
@@ -74,7 +52,6 @@ export const getUserInitials = () => {
   if (parts.length === 1) return parts[0][0].toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
-
 export const isAuthenticated = () => !!sessionStorage.getItem('token');
 
 // ==================== DASHBOARD METHODS ====================
@@ -705,66 +682,6 @@ export const isAdmin = (role) => role?.toLowerCase() === 'admin';
 export const isLawyer = (role) => role?.toLowerCase() === 'lawyer';
 export const isClerk = (role) => role?.toLowerCase() === 'clerk';
 
-// ==================== SIDEBAR METHODS ====================
-export const getSidebarItems = (role) => {
-  const items = {
-    admin: [
-      { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-      { path: '/usermanagement', label: 'Users', icon: 'users' },
-      { path: '/casemaster', label: 'Case Master', icon: 'cases' },
-      { path: '/approvals', label: 'Approvals', icon: 'approvals' },
-      { path: '/audit-trail', label: 'Activity Logs', icon: 'logs' },
-      { path: '/calendar', label: 'Calendar', icon: 'calendar' },
-      { label: 'Master Data', icon: 'tasks', isDropdown: true,
-        children: [
-          { path: '/casecategories', label: 'Case Categories', icon: 'tasks' },
-          { path: '/courts', label: 'Courts', icon: 'tasks' },
-          { path: '/documents', label: 'Documents', icon: 'tasks' },
-        ]
-      }
-    ],
-    lawyer: [
-      { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-      { path: '/casemaster', label: 'My Cases', icon: 'cases' },
-      { path: '/approvals', label: 'Approvals', icon: 'approvals' },
-      { path: '/calendar', label: 'Calendar', icon: 'calendar' },
-      { label: 'Master Data', icon: 'tasks', isDropdown: true,
-        children: [
-          { path: '/casecategories', label: 'Case Categories', icon: 'tasks' },
-          { path: '/courts', label: 'Courts', icon: 'tasks' },
-          { path: '/documents', label: 'Documents', icon: 'tasks' },
-        ]
-      }
-    ],
-    clerk: [
-      { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-      { path: '/casemaster', label: 'Case Master', icon: 'cases' },
-      { path: '/calendar', label: 'Calendar', icon: 'calendar' },
-      { label: 'Master Data', icon: 'tasks', isDropdown: true,
-        children: [
-          { path: '/casecategories', label: 'Case Categories', icon: 'tasks' },
-          { path: '/courts', label: 'Courts', icon: 'tasks' },
-          { path: '/documents', label: 'Documents', icon: 'tasks' },
-        ]
-      }
-    ]
-  };
-  return items[role] || items.admin;
-};
-
-export const getIcon = (name) => {
-  const icons = {
-    dashboard: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
-    users: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
-    logs: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
-    cases: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
-    tasks: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
-    approvals: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
-    calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-  };
-  return icons[name] || '';
-};
-
 // ==================== CONSTANTS ====================
 const CONSTANTS = {
   CASE_STATUSES: [
@@ -1116,8 +1033,9 @@ export const isPastDate = (date) => {
   today.setHours(0, 0, 0, 0);
   return hearingDate < today;
 };
-// Add this alias for backward compatibility
+
 export const isPast = isPastDate;
+
 export const isToday = (date) => {
   if (!date) return false;
   const hearingDate = new Date(date);
@@ -1148,28 +1066,22 @@ export const getEventIcon = (type) => {
   };
   return icons[type] || '📅';
 };
+
 // ==================== TIME FORMATTING HELPERS ====================
 export const formatTime = (date) => {
   if (!date) return '—';
   const d = new Date(date);
   if (isNaN(d.getTime())) return date;
-  
-  return d.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 };
 
 export const formatShortDate = (date) => {
   if (!date) return '—';
   const d = new Date(date);
   if (isNaN(d.getTime())) return date;
-  
-  return d.toLocaleDateString('en-US', {
-    month: 'numeric',
-    day: 'numeric'
-  });
+  return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
 };
+
 // ==================== UPDATE HEARING STATS HELPER ====================
 const updateHearingStats = () => {
   if (!Array.isArray(dataStore.hearings)) return;
@@ -1257,9 +1169,6 @@ export default {
   // Role helpers
   getRoleLabel, isAdmin, isLawyer, isClerk,
   
-  // Sidebar
-  getSidebarItems, getIcon,
-  
   // Status helpers
   getStatusInfo, getStatusClass, getPriorityInfo, getPriorityClass, getPriorityDot,
   getTaskStatusInfo, getTaskStatusClass, getTaskStatusDot, getTaskStatusLabel,
@@ -1283,17 +1192,13 @@ export default {
   setApprovals, getApprovals, setApprovalStats, getApprovalStats,
   updateApprovalInStore, removeApprovalFromStore, clearApprovalsCache,
 
-  // Hearings - COMPLETE
+  // Hearings
   setHearings, getHearings, addHearing, updateHearingInStore, removeHearingFromStore,
   getHearingById, getHearingsByDate, getHearingsByCase, getUpcomingHearings, getTodaysHearings,
   setHearingStats, getHearingStats, clearHearingsCache,
   
   // Date Helpers
-  isPastDate, isToday, isFutureDate, getEventColor, getEventIcon,
-    isPast, // <-- MAKE SURE THIS IS HERE
-  isToday,
-    formatTime,
-  formatShortDate,
-  // Constants
+  isPastDate, isPast, isToday, isFutureDate, getEventColor, getEventIcon,
+  formatTime, formatShortDate,
   CONSTANTS
 };

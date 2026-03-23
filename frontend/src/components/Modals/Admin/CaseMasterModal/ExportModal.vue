@@ -62,11 +62,21 @@
                 </div>
               </label>
               
-              <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 transition"
-                :class="{ 'border-violet-500 bg-violet-50': exportType === 'all' }">
-                <input type="radio" v-model="exportType" value="all" class="w-4 h-4 text-violet-600">
+              <!-- Full Backup — admin only -->
+              <label
+                class="flex items-center gap-3 p-3 border rounded-xl transition"
+                :class="[
+                  isAdmin
+                    ? 'cursor-pointer hover:bg-slate-50 ' + (exportType === 'all' ? 'border-violet-500 bg-violet-50' : 'border-slate-200')
+                    : 'cursor-not-allowed opacity-50 bg-slate-50 border-slate-200'
+                ]"
+              >
+                <input type="radio" v-model="exportType" value="all" :disabled="!isAdmin" class="w-4 h-4 text-violet-600">
                 <div>
-                  <p class="text-sm font-semibold text-slate-800">Full Backup</p>
+                  <div class="flex items-center gap-2">
+                    <p class="text-sm font-semibold text-slate-800">Full Backup</p>
+                    <span v-if="!isAdmin" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-200 text-slate-500">Admin Only</span>
+                  </div>
                   <p class="text-xs text-slate-500">Export all data (users, clients, categories, cases)</p>
                 </div>
               </label>
@@ -176,9 +186,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import exportService from '@/services/exportService';
 import caseService from '@/services/caseService';
+import { useAuth } from '@/composables/useAuth';
 import Swal from 'sweetalert2';
 
 const props = defineProps({
@@ -186,6 +197,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'exported']);
+
+// ── ONLY NEW LINE: get the role ──
+const { userRole } = useAuth();
+const isAdmin = computed(() => userRole.value === 'admin');
 
 const format = ref('excel');
 const exportType = ref('cases');
@@ -215,6 +230,11 @@ watch(format, (newFormat) => {
   if (newFormat === 'pdf') {
     groupByCategory.value = false;
   }
+});
+
+// If a non-admin has 'all' selected and role changes, snap back to 'cases'
+watch(isAdmin, (val) => {
+  if (!val) exportType.value = 'cases';
 });
 
 const close = () => {

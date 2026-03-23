@@ -10,6 +10,7 @@ use App\Models\CaseCategory;
 use App\Models\Document;
 use App\Models\CaseChecklist;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -401,10 +402,20 @@ class ExportController extends Controller
     }
     
     /**
-     * Export all data (full backup)
+     * Export all data (full backup) — admin only
      */
     public function exportAll(Request $request)
     {
+        // ── ONLY ADDITION: block non-admins ──────────────────────────────
+        $role = strtolower(Auth::user()?->role?->name ?? Auth::user()?->role ?? '');
+        if ($role !== 'admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Full backup export is restricted to administrators only.',
+            ], 403);
+        }
+        // ─────────────────────────────────────────────────────────────────
+
         $format = $request->get('format', 'excel');
         $groupByCategory = $request->boolean('group_by_category', false);
         

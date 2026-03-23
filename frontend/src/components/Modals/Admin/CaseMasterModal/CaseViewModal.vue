@@ -1,24 +1,24 @@
 <template>
   <Transition name="modal">
-    <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="closeModal">
+    <div v-if="show" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm" @click.self="closeModal">
 
-      <div v-if="viewCase" class="relative bg-white w-full max-w-6xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+      <div v-if="viewCase" class="relative bg-white w-full sm:max-w-6xl max-h-[95dvh] sm:max-h-[92vh] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
 
         <!-- Header -->
-        <div class="flex items-center justify-between px-8 py-5 border-b border-gray-100 bg-white">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
+        <div class="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-white flex-shrink-0">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm shrink-0">
               <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
             </div>
-            <div>
-              <h1 class="text-xl font-bold text-gray-900 leading-tight">Case Profile</h1>
-              <p class="text-xs text-gray-400 font-medium">{{ viewCase.case_code || 'No Code' }} · {{ viewCase.case_no || 'No Number' }}</p>
+            <div class="min-w-0">
+              <h1 class="text-base sm:text-xl font-bold text-gray-900 leading-tight truncate">Case Profile</h1>
+              <p class="text-xs text-gray-400 font-medium truncate">{{ viewCase.case_code || 'No Code' }} \u00b7 {{ viewCase.case_no || 'No Number' }}</p>
             </div>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 shrink-0">
             <button @click="closeModal" class="p-2 hover:bg-gray-100 rounded-xl transition text-gray-400 hover:text-gray-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -28,60 +28,60 @@
         </div>
 
         <!-- Body -->
-        <div class="flex-1 overflow-y-auto px-8 py-6 space-y-5 bg-gray-50">
+        <div class="flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 bg-gray-50">
 
           <!-- Case Information + Folder Status -->
-          <div class="grid grid-cols-3 gap-5">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
 
             <!-- Case Information -->
-            <div class="col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-              <div class="flex items-center gap-2 mb-5">
+            <div class="sm:col-span-2 bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 shadow-sm">
+              <div class="flex items-center gap-2 mb-4 sm:mb-5">
                 <div class="w-1 h-5 bg-blue-600 rounded-full"></div>
                 <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Case Information</h3>
               </div>
-              <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 sm:gap-y-4">
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Case Code</p>
-                  <p class="text-sm font-bold text-gray-900">{{ viewCase.case_code || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">{{ viewCase.case_code || '\u2014' }}</p>
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Case Number</p>
-                  <p class="text-sm font-bold text-gray-900">{{ viewCase.case_no || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">{{ viewCase.case_no || '\u2014' }}</p>
                 </div>
-                <div class="col-span-2">
+                <div class="sm:col-span-2">
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Case Title</p>
-                  <p class="text-sm font-bold text-gray-900">{{ viewCase.title || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">{{ viewCase.title || '\u2014' }}</p>
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Client</p>
-                  <p class="text-sm font-bold text-gray-900">{{ viewCase.client || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">{{ viewCase.client || '\u2014' }}</p>
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Category</p>
-                  <p class="text-sm font-bold text-gray-900">{{ viewCase.category || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">{{ viewCase.category || '\u2014' }}</p>
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Assigned Lawyer</p>
-                  <p class="text-sm font-bold text-gray-900">Atty. {{ viewCase.lawyer || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">Atty. {{ viewCase.lawyer || '\u2014' }}</p>
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Assigned Clerk</p>
-                  <p class="text-sm font-bold text-gray-900">{{ viewCase.clerk || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">{{ viewCase.clerk || '\u2014' }}</p>
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Court / Office</p>
-                  <p class="text-sm font-bold text-gray-900">{{ viewCase.court_or_office || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">{{ viewCase.court_or_office || '\u2014' }}</p>
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Docket Number</p>
-                  <p class="text-sm font-bold text-gray-900">{{ viewCase.docket_no || '—' }}</p>
+                  <p class="text-sm font-bold text-gray-900">{{ viewCase.docket_no || '\u2014' }}</p>
                 </div>
               </div>
             </div>
 
             <!-- Folder Status -->
-            <div class="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col">
-              <div class="flex items-center gap-2 mb-5">
+            <div class="bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col">
+              <div class="flex items-center gap-2 mb-4 sm:mb-5">
                 <div class="w-1 h-5 bg-emerald-500 rounded-full"></div>
                 <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Folder Status</h3>
               </div>
@@ -98,18 +98,18 @@
                   <div>
                     <div class="flex items-center gap-2">
                       <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: viewCase.stage_color || '#64748b' }"></span>
-                      <span class="text-sm font-semibold text-gray-700">{{ viewCase.stage || '—' }}</span>
+                      <span class="text-sm font-semibold text-gray-700">{{ viewCase.stage || '\u2014' }}</span>
                     </div>
                   </div>
                 </div>
                 <div>
                   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Folder Location</p>
                   <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#1a4972] to-[#2a5a8c] flex items-center justify-center text-xs font-bold text-white shadow-sm">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#1a4972] to-[#2a5a8c] flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0">
                       {{ getInitials(lastFolderHandler) }}
                     </div>
-                    <div>
-                      <p class="text-sm font-semibold text-gray-900">{{ lastFolderHandler }}</p>
+                    <div class="min-w-0">
+                      <p class="text-sm font-semibold text-gray-900 truncate">{{ lastFolderHandler }}</p>
                       <p class="text-xs text-gray-400">{{ viewCase.is_out ? 'OUT of office' : 'IN office' }}</p>
                     </div>
                   </div>
@@ -120,7 +120,7 @@
 
           <!-- Case Checklist -->
           <div class="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-white">
               <div class="flex items-center gap-3">
                 <div class="w-1 h-5 bg-violet-500 rounded-full"></div>
                 <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Case Checklist</h3>
@@ -128,15 +128,15 @@
                   {{ checklist.length }}
                 </span>
               </div>
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3 flex-wrap">
                 <div v-if="checklist.length" class="flex items-center gap-2">
-                  <div class="w-32 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="w-24 sm:w-32 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" :style="{ width: `${donePercent}%` }"></div>
                   </div>
                   <span class="text-xs font-bold text-gray-500">{{ donePercent }}%</span>
                 </div>
                 <button @click="openTaskModal(null, 'add')"
-                  class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-sm font-semibold rounded-xl transition shadow-sm">
+                  class="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-sm font-semibold rounded-xl transition shadow-sm whitespace-nowrap">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
                   </svg>
@@ -147,58 +147,58 @@
 
             <!-- Checklist Table -->
             <div class="overflow-x-auto">
-              <table class="w-full">
+              <table class="w-full min-w-[640px]">
                 <thead class="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    <th class="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400 w-10"></th>
-                    <th class="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Task</th>
-                    <th class="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Document Type</th>
-                    <th class="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Status</th>
-                    <th class="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap">Due Date</th>
-                    <th class="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap">Assigned Clerk</th>
-                    <th class="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Actions</th>
+                    <th class="px-4 sm:px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400 w-10"></th>
+                    <th class="px-4 sm:px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Task</th>
+                    <th class="px-4 sm:px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Document Type</th>
+                    <th class="px-4 sm:px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Status</th>
+                    <th class="px-4 sm:px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap">Due Date</th>
+                    <th class="px-4 sm:px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap">Assigned Clerk</th>
+                    <th class="px-4 sm:px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                   <tr v-for="task in paginatedChecklist" :key="task.id" class="hover:bg-blue-50/20 transition-colors group">
-                    <td class="px-5 py-3.5">
+                    <td class="px-4 sm:px-5 py-3.5">
                       <input type="checkbox" :checked="task.status === 'done'" @change="toggleDone(task)"
                         class="w-4.5 h-4.5 rounded border-2 border-gray-300 text-blue-600 cursor-pointer accent-blue-600"/>
                     </td>
-                    <td class="px-5 py-3.5">
+                    <td class="px-4 sm:px-5 py-3.5">
                       <p class="text-sm font-semibold" :class="task.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800'">
                         {{ task.task || task.document_type || '--' }}
                       </p>
                     </td>
-                    <td class="px-5 py-3.5">
+                    <td class="px-4 sm:px-5 py-3.5">
                       <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: task.document_color || '#94a3b8' }"></div>
-                        <span class="text-sm text-gray-600">{{ task.document_category || task.document_type || '—' }}</span>
+                        <div class="w-3 h-3 rounded-full shrink-0" :style="{ backgroundColor: task.document_color || '#94a3b8' }"></div>
+                        <span class="text-sm text-gray-600">{{ task.document_category || task.document_type || '\u2014' }}</span>
                       </div>
                     </td>
-                    <td class="px-5 py-3.5">
+                    <td class="px-4 sm:px-5 py-3.5">
                       <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full whitespace-nowrap" :class="taskStatusClass(task.status)">
                         <span class="w-1.5 h-1.5 rounded-full" :class="taskStatusDot(task.status)"></span>
                         {{ taskStatusLabel(task.status) }}
                       </span>
                     </td>
-                    <td class="px-5 py-3.5">
+                    <td class="px-4 sm:px-5 py-3.5">
                       <div class="flex items-center gap-1.5">
                         <span class="text-sm text-gray-600 whitespace-nowrap">{{ formatDate(task.due_date) }}</span>
                         <span v-if="isOverdue(task.due_date) && task.status !== 'done'"
                           class="px-1.5 py-0.5 text-[9px] font-bold bg-red-100 text-red-600 rounded-full uppercase">Overdue</span>
                       </div>
                     </td>
-                    <td class="px-5 py-3.5">
+                    <td class="px-4 sm:px-5 py-3.5">
                       <div v-if="task.assigned_to" class="flex items-center gap-2">
-                        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-[#1a4972] to-[#2a5a8c] shadow-sm">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-[#1a4972] to-[#2a5a8c] shadow-sm shrink-0">
                           {{ getInitials(task.assigned_to) }}
                         </div>
                         <span class="text-sm text-gray-700 whitespace-nowrap font-medium">{{ task.assigned_to }}</span>
                       </div>
-                      <span v-else class="text-sm text-gray-300 italic">—</span>
+                      <span v-else class="text-sm text-gray-300 italic">\u2014</span>
                     </td>
-                    <td class="px-5 py-3.5">
+                    <td class="px-4 sm:px-5 py-3.5">
                       <button v-if="task.status !== 'done'" @click="openTaskModal(task, 'edit')"
                         class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 transition">
                         Edit
@@ -217,36 +217,31 @@
                 </tbody>
               </table>
             </div>
-            
-            <!-- Checklist Pagination - STYLE 1-5, 6-10, 11-15, etc. -->
-            <div v-if="checklist.length > 0" class="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/50">
-              <p class="text-xs text-gray-400">
-                Showing <span class="font-semibold text-gray-700">{{ pagination.checklist.from }}</span> to 
-                <span class="font-semibold text-gray-700">{{ pagination.checklist.to }}</span> of 
+
+            <!-- Checklist Pagination -->
+            <div v-if="checklist.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+              <p class="text-xs text-gray-400 order-2 sm:order-1">
+                Showing <span class="font-semibold text-gray-700">{{ pagination.checklist.from }}</span> to
+                <span class="font-semibold text-gray-700">{{ pagination.checklist.to }}</span> of
                 <span class="font-semibold text-gray-700">{{ pagination.checklist.total }}</span> tasks
               </p>
-              <div class="flex items-center gap-1">
-                <button @click="goToChecklistPage(pagination.checklist.current_page - 1)" 
+              <div class="flex items-center gap-1 order-1 sm:order-2">
+                <button @click="goToChecklistPage(pagination.checklist.current_page - 1)"
                   :disabled="pagination.checklist.current_page === 1"
                   class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   :class="pagination.checklist.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-                  ← Prev
+                  \u2190 Prev
                 </button>
-                
-                <button 
-                  v-for="page in displayedChecklistPages" 
-                  :key="page" 
-                  @click="goToChecklistPage(page)"
+                <button v-for="page in displayedChecklistPages" :key="page" @click="goToChecklistPage(page)"
                   class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
                   :class="pagination.checklist.current_page === page ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'">
                   {{ page }}
                 </button>
-                
-                <button @click="goToChecklistPage(pagination.checklist.current_page + 1)" 
+                <button @click="goToChecklistPage(pagination.checklist.current_page + 1)"
                   :disabled="pagination.checklist.current_page === pagination.checklist.last_page"
                   class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   :class="pagination.checklist.current_page === pagination.checklist.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-                  Next →
+                  Next \u2192
                 </button>
               </div>
             </div>
@@ -254,32 +249,32 @@
 
           <!-- Tabs -->
           <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <div class="flex border-b border-gray-100 px-2 pt-1">
+            <!-- Tab bar: scrollable on mobile -->
+            <div class="flex border-b border-gray-100 px-2 pt-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button v-for="tab in tabs" :key="tab" @click="activeTab = tab"
-                class="px-5 py-3.5 text-sm font-semibold border-b-2 transition -mb-px"
+                class="px-4 sm:px-5 py-3.5 text-sm font-semibold border-b-2 transition -mb-px whitespace-nowrap shrink-0"
                 :class="activeTab === tab ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700 hover:border-gray-300'">
                 {{ tab }}
               </button>
             </div>
 
             <!-- Folder Tracker -->
-            <div v-if="activeTab === 'Folder Tracker'" class="p-6">
-              <div class="flex justify-between items-center mb-4">
+            <div v-if="activeTab === 'Folder Tracker'" class="p-4 sm:p-6">
+              <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <h4 class="text-sm font-bold text-gray-800">Folder Movement History</h4>
-                <div class="flex gap-2">
-                  <button @click="openFolderModal('OUT')" 
+                <div class="flex flex-wrap gap-2">
+                  <button @click="openFolderModal('OUT')"
                     :disabled="viewCase.is_out || hasPendingFolderOut"
-                    class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
+                    class="px-3 sm:px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2 whitespace-nowrap"
                     :class="(viewCase.is_out || hasPendingFolderOut) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                     </svg>
                     Release (OUT)
                   </button>
-                  
-                  <button @click="openFolderModal('IN')" 
+                  <button @click="openFolderModal('IN')"
                     :disabled="!viewCase.is_out || hasPendingFolderIn"
-                    class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
+                    class="px-3 sm:px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2 whitespace-nowrap"
                     :class="(!viewCase.is_out || hasPendingFolderIn) ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -304,7 +299,7 @@
               </div>
 
               <div class="overflow-x-auto">
-                <table class="w-full">
+                <table class="w-full min-w-[540px]">
                   <thead class="bg-gray-50 border-y border-gray-100">
                     <tr>
                       <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Date</th>
@@ -317,18 +312,18 @@
                   </thead>
                   <tbody class="divide-y divide-gray-50">
                     <tr v-for="record in paginatedFolderMovements" :key="record.id" class="hover:bg-gray-50/60 transition">
-                      <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(record.date) }}</td>
+                      <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(record.date) }}</td>
                       <td class="px-4 py-3">
-                        <span :class="record.type === 'OUT' ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'" 
+                        <span :class="record.type === 'OUT' ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'"
                           class="inline-block px-2.5 py-0.5 text-xs font-bold rounded">
                           {{ record.type }}
                         </span>
                       </td>
-                      <td class="px-4 py-3 text-sm text-gray-700">{{ record.from_to || '—' }}</td>
-                      <td class="px-4 py-3 text-sm text-gray-700">{{ record.purpose || '—' }}</td>
-                      <td class="px-4 py-3 text-sm font-semibold text-gray-800">{{ record.handled_by || '—' }}</td>
+                      <td class="px-4 py-3 text-sm text-gray-700">{{ record.from_to || '\u2014' }}</td>
+                      <td class="px-4 py-3 text-sm text-gray-700">{{ record.purpose || '\u2014' }}</td>
+                      <td class="px-4 py-3 text-sm font-semibold text-gray-800">{{ record.handled_by || '\u2014' }}</td>
                       <td class="px-4 py-3">
-                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"
+                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap"
                           :class="approvalStatusClass(record.approval_status)">
                           <span v-if="record.approval_status === 'PENDING'" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                           {{ record.approval_status }}
@@ -343,59 +338,53 @@
                   </tbody>
                 </table>
               </div>
-              
-              <!-- Folder Tracker Pagination - STYLE 1-5, 6-10, 11-15, etc. -->
-              <div v-if="folderMovements.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50 mt-2 rounded-b-xl">
-                <p class="text-xs text-gray-400">
-                  Showing <span class="font-semibold text-gray-700">{{ pagination.folder.from }}</span> to 
-                  <span class="font-semibold text-gray-700">{{ pagination.folder.to }}</span> of 
+
+              <!-- Folder Tracker Pagination -->
+              <div v-if="folderMovements.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50/50 mt-2 rounded-b-xl">
+                <p class="text-xs text-gray-400 order-2 sm:order-1">
+                  Showing <span class="font-semibold text-gray-700">{{ pagination.folder.from }}</span> to
+                  <span class="font-semibold text-gray-700">{{ pagination.folder.to }}</span> of
                   <span class="font-semibold text-gray-700">{{ pagination.folder.total }}</span> movements
                 </p>
-                <div class="flex items-center gap-1">
-                  <button @click="goToFolderPage(pagination.folder.current_page - 1)" 
+                <div class="flex items-center gap-1 order-1 sm:order-2">
+                  <button @click="goToFolderPage(pagination.folder.current_page - 1)"
                     :disabled="pagination.folder.current_page === 1"
                     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.folder.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-                    ← Prev
+                    \u2190 Prev
                   </button>
-                  
-                  <button 
-                    v-for="page in displayedFolderPages" 
-                    :key="page" 
-                    @click="goToFolderPage(page)"
+                  <button v-for="page in displayedFolderPages" :key="page" @click="goToFolderPage(page)"
                     class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.folder.current_page === page ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'">
                     {{ page }}
                   </button>
-                  
-                  <button @click="goToFolderPage(pagination.folder.current_page + 1)" 
+                  <button @click="goToFolderPage(pagination.folder.current_page + 1)"
                     :disabled="pagination.folder.current_page === pagination.folder.last_page"
                     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.folder.current_page === pagination.folder.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-                    Next →
+                    Next \u2192
                   </button>
                 </div>
               </div>
             </div>
 
             <!-- Checklist Tracker -->
-            <div v-if="activeTab === 'Checklist Tracker'" class="p-6">
-              <div class="flex justify-between items-center mb-4">
+            <div v-if="activeTab === 'Checklist Tracker'" class="p-4 sm:p-6">
+              <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <h4 class="text-sm font-bold text-gray-800">Checklist Movement History</h4>
-                <div class="flex gap-2">
-                  <button @click="openChecklistTrackerModal('OUT')" 
+                <div class="flex flex-wrap gap-2">
+                  <button @click="openChecklistTrackerModal('OUT')"
                     :disabled="viewCase.is_out || hasPendingChecklistOut"
-                    class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
+                    class="px-3 sm:px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2 whitespace-nowrap"
                     :class="(viewCase.is_out || hasPendingChecklistOut) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                     </svg>
                     Release (OUT)
                   </button>
-                  
-                  <button @click="openChecklistTrackerModal('IN')" 
+                  <button @click="openChecklistTrackerModal('IN')"
                     :disabled="!hasOutItems || hasPendingChecklistIn || viewCase.is_out"
-                    class="px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
+                    class="px-3 sm:px-4 py-2 text-white text-sm font-semibold rounded-lg transition shadow-sm flex items-center gap-2 whitespace-nowrap"
                     :class="(!hasOutItems || hasPendingChecklistIn || viewCase.is_out) ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -420,7 +409,7 @@
               </div>
 
               <div class="overflow-x-auto">
-                <table class="w-full">
+                <table class="w-full min-w-[640px]">
                   <thead class="bg-gray-50 border-y border-gray-100">
                     <tr>
                       <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Date</th>
@@ -434,19 +423,19 @@
                   </thead>
                   <tbody class="divide-y divide-gray-50">
                     <tr v-for="record in paginatedChecklistMovements" :key="record.id" class="hover:bg-gray-50/60 transition">
-                      <td class="px-4 py-3 text-sm text-gray-700">{{ formatDate(record.date) }}</td>
+                      <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(record.date) }}</td>
                       <td class="px-4 py-3">
-                        <span :class="record.type === 'OUT' ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'" 
+                        <span :class="record.type === 'OUT' ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'"
                           class="inline-block px-2.5 py-0.5 text-xs font-bold rounded">
                           {{ record.type }}
                         </span>
                       </td>
                       <td class="px-4 py-3 text-sm text-gray-700 font-medium">{{ record.task_name || record.checklist?.task || 'All / General' }}</td>
-                      <td class="px-4 py-3 text-sm text-gray-700">{{ record.from_to || '—' }}</td>
-                      <td class="px-4 py-3 text-sm text-gray-700">{{ record.purpose || '—' }}</td>
-                      <td class="px-4 py-3 text-sm font-semibold text-gray-800">{{ record.handled_by || '—' }}</td>
+                      <td class="px-4 py-3 text-sm text-gray-700">{{ record.from_to || '\u2014' }}</td>
+                      <td class="px-4 py-3 text-sm text-gray-700">{{ record.purpose || '\u2014' }}</td>
+                      <td class="px-4 py-3 text-sm font-semibold text-gray-800">{{ record.handled_by || '\u2014' }}</td>
                       <td class="px-4 py-3">
-                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"
+                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap"
                           :class="approvalStatusClass(record.approval_status)">
                           <span v-if="record.approval_status === 'PENDING'" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                           {{ record.approval_status }}
@@ -461,48 +450,43 @@
                   </tbody>
                 </table>
               </div>
-              
-              <!-- Checklist Tracker Pagination - STYLE 1-5, 6-10, 11-15, etc. -->
-              <div v-if="checklistMovements.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50 mt-2 rounded-b-xl">
-                <p class="text-xs text-gray-400">
-                  Showing <span class="font-semibold text-gray-700">{{ pagination.checklistTracker.from }}</span> to 
-                  <span class="font-semibold text-gray-700">{{ pagination.checklistTracker.to }}</span> of 
+
+              <!-- Checklist Tracker Pagination -->
+              <div v-if="checklistMovements.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50/50 mt-2 rounded-b-xl">
+                <p class="text-xs text-gray-400 order-2 sm:order-1">
+                  Showing <span class="font-semibold text-gray-700">{{ pagination.checklistTracker.from }}</span> to
+                  <span class="font-semibold text-gray-700">{{ pagination.checklistTracker.to }}</span> of
                   <span class="font-semibold text-gray-700">{{ pagination.checklistTracker.total }}</span> movements
                 </p>
-                <div class="flex items-center gap-1">
-                  <button @click="goToChecklistTrackerPage(pagination.checklistTracker.current_page - 1)" 
+                <div class="flex items-center gap-1 order-1 sm:order-2">
+                  <button @click="goToChecklistTrackerPage(pagination.checklistTracker.current_page - 1)"
                     :disabled="pagination.checklistTracker.current_page === 1"
                     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.checklistTracker.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-                    ← Prev
+                    \u2190 Prev
                   </button>
-                  
-                  <button 
-                    v-for="page in displayedChecklistTrackerPages" 
-                    :key="page" 
-                    @click="goToChecklistTrackerPage(page)"
+                  <button v-for="page in displayedChecklistTrackerPages" :key="page" @click="goToChecklistTrackerPage(page)"
                     class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.checklistTracker.current_page === page ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'">
                     {{ page }}
                   </button>
-                  
-                  <button @click="goToChecklistTrackerPage(pagination.checklistTracker.current_page + 1)" 
+                  <button @click="goToChecklistTrackerPage(pagination.checklistTracker.current_page + 1)"
                     :disabled="pagination.checklistTracker.current_page === pagination.checklistTracker.last_page"
                     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.checklistTracker.current_page === pagination.checklistTracker.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-                    Next →
+                    Next \u2192
                   </button>
                 </div>
               </div>
             </div>
 
             <!-- Activity Logs -->
-            <div v-if="activeTab === 'Activity Logs'" class="p-6">
+            <div v-if="activeTab === 'Activity Logs'" class="p-4 sm:p-6">
               <h4 class="text-sm font-bold text-gray-800 mb-4">Activity History</h4>
               <div class="space-y-3">
                 <div v-for="log in paginatedActivityLogs" :key="log.id" class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div class="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
-                  <div class="flex-1">
+                  <div class="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0"></div>
+                  <div class="flex-1 min-w-0">
                     <p class="text-sm text-gray-700">
                       <span class="font-semibold">{{ log.user }}</span>
                       {{ log.action }}
@@ -514,36 +498,31 @@
                   No activity logs available
                 </div>
               </div>
-              
-              <!-- Activity Logs Pagination - STYLE 1-5, 6-10, 11-15, etc. -->
-              <div v-if="activityLogs.length > 0" class="flex items-center justify-between pt-4 mt-2 border-t border-gray-100">
-                <p class="text-xs text-gray-400">
-                  Showing <span class="font-semibold text-gray-700">{{ pagination.activity.from }}</span> to 
-                  <span class="font-semibold text-gray-700">{{ pagination.activity.to }}</span> of 
+
+              <!-- Activity Logs Pagination -->
+              <div v-if="activityLogs.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-4 mt-2 border-t border-gray-100">
+                <p class="text-xs text-gray-400 order-2 sm:order-1">
+                  Showing <span class="font-semibold text-gray-700">{{ pagination.activity.from }}</span> to
+                  <span class="font-semibold text-gray-700">{{ pagination.activity.to }}</span> of
                   <span class="font-semibold text-gray-700">{{ pagination.activity.total }}</span> logs
                 </p>
-                <div class="flex items-center gap-1">
-                  <button @click="goToActivityPage(pagination.activity.current_page - 1)" 
+                <div class="flex items-center gap-1 order-1 sm:order-2">
+                  <button @click="goToActivityPage(pagination.activity.current_page - 1)"
                     :disabled="pagination.activity.current_page === 1"
                     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.activity.current_page === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-                    ← Prev
+                    \u2190 Prev
                   </button>
-                  
-                  <button 
-                    v-for="page in displayedActivityPages" 
-                    :key="page" 
-                    @click="goToActivityPage(page)"
+                  <button v-for="page in displayedActivityPages" :key="page" @click="goToActivityPage(page)"
                     class="w-7 h-7 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.activity.current_page === page ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'">
                     {{ page }}
                   </button>
-                  
-                  <button @click="goToActivityPage(pagination.activity.current_page + 1)" 
+                  <button @click="goToActivityPage(pagination.activity.current_page + 1)"
                     :disabled="pagination.activity.current_page === pagination.activity.last_page"
                     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     :class="pagination.activity.current_page === pagination.activity.last_page ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'">
-                    Next →
+                    Next \u2192
                   </button>
                 </div>
               </div>
@@ -567,11 +546,11 @@
 
   <!-- Folder Movement Modal -->
   <Transition name="modal">
-    <div v-if="folderModal.show" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="folderModal.show = false">
-      <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div v-if="folderModal.show" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm" @click.self="folderModal.show = false">
+      <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col">
+        <div class="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div class="flex items-center gap-3">
-            <div :class="folderModal.type === 'OUT' ? 'bg-orange-500' : 'bg-emerald-600'" class="w-8 h-8 rounded-xl flex items-center justify-center">
+            <div :class="folderModal.type === 'OUT' ? 'bg-orange-500' : 'bg-emerald-600'" class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
               <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path v-if="folderModal.type === 'OUT'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                 <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -588,12 +567,11 @@
             </svg>
           </button>
         </div>
-        <div class="px-6 py-5 space-y-4">
+        <div class="px-5 sm:px-6 py-5 space-y-4 overflow-y-auto">
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Date</label>
             <input :value="folderModal.form.date" type="text" disabled class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
           </div>
-          
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">From / To <span class="text-red-400">*</span></label>
             <div class="relative" ref="fromToDropdownRef">
@@ -609,14 +587,12 @@
                 placeholder="Search for recipient/sender..."
                 class="w-full pl-9 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all"
                 :class="folderModal.form.from_to ? 'border-[#1a4972] font-medium text-slate-800' : 'border-gray-200 text-slate-500'" />
-              
               <button v-if="fromToSearch || folderModal.form.from_to" type="button" @click.prevent="clearFromTo"
                 class="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
               </button>
-
               <Transition name="dropdown">
                 <div v-if="fromToDropdownOpen"
                   class="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
@@ -625,13 +601,13 @@
                       @mousedown.prevent="selectFromTo(user)"
                       class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors"
                       :class="{ 'bg-blue-50/60': folderModal.form.from_to === user.full_name }">
-                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-[#1a4972]">
+                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-[#1a4972] shrink-0">
                         {{ getInitials(user.full_name) }}
                       </div>
                       <span class="text-sm text-slate-700 flex-1">{{ user.full_name }}</span>
                       <span class="text-xs text-slate-400">{{ user.role }}</span>
                       <svg v-if="folderModal.form.from_to === user.full_name"
-                        class="w-3.5 h-3.5 flex-shrink-0 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="w-3.5 h-3.5 shrink-0 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                       </svg>
                     </div>
@@ -643,29 +619,31 @@
               </Transition>
             </div>
           </div>
-          
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Purpose / Remarks</label>
-            <input v-model="folderModal.form.purpose" type="text" placeholder="e.g. For Review, For Submission…" 
+            <input v-model="folderModal.form.purpose" type="text" placeholder="e.g. For Review, For Submission\u2026"
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition"/>
           </div>
-          
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Handled By</label>
             <input v-model="folderModal.form.handled_by" type="text" disabled
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
           </div>
         </div>
-        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+        <div class="flex items-center justify-end gap-3 px-5 sm:px-6 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
           <button @click="folderModal.show = false" class="px-5 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl border border-gray-200 transition">Cancel</button>
-          <button @click="submitFolderMovement" 
-            :disabled="!folderModal.form.from_to"
+          <button @click="submitFolderMovement"
+            :disabled="!folderModal.form.from_to || folderLoading"
             :class="[
               folderModal.type === 'OUT' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-emerald-600 hover:bg-emerald-700',
-              !folderModal.form.from_to ? 'opacity-50 cursor-not-allowed' : ''
-            ]" 
-            class="px-5 py-2 text-sm font-bold text-white rounded-xl transition shadow-sm active:scale-95">
-            Confirm {{ folderModal.type === 'OUT' ? 'Release' : 'Receive' }}
+              (!folderModal.form.from_to || folderLoading) ? 'opacity-50 cursor-not-allowed' : ''
+            ]"
+            class="px-5 py-2 text-sm font-bold text-white rounded-xl transition shadow-sm active:scale-95 flex items-center gap-2">
+            <svg v-if="folderLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            {{ folderLoading ? 'Submitting...' : (folderModal.type === 'OUT' ? 'Confirm Release' : 'Confirm Receive') }}
           </button>
         </div>
       </div>
@@ -674,11 +652,11 @@
 
   <!-- Checklist Tracker Modal -->
   <Transition name="modal">
-    <div v-if="checklistTrackerModal.show" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="checklistTrackerModal.show = false">
-      <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div v-if="checklistTrackerModal.show" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm" @click.self="checklistTrackerModal.show = false">
+      <div class="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col">
+        <div class="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div class="flex items-center gap-3">
-            <div :class="checklistTrackerModal.type === 'OUT' ? 'bg-orange-500' : 'bg-emerald-600'" class="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm">
+            <div :class="checklistTrackerModal.type === 'OUT' ? 'bg-orange-500' : 'bg-emerald-600'" class="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm shrink-0">
               <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path v-if="checklistTrackerModal.type === 'OUT'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                 <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -695,19 +673,18 @@
             </svg>
           </button>
         </div>
-        <div class="px-6 py-5 space-y-4">
+        <div class="px-5 sm:px-6 py-5 space-y-4 overflow-y-auto">
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Date</label>
             <input :value="checklistTrackerModal.form.date" type="text" disabled
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
           </div>
-
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Document / Task</label>
-            <select v-model="checklistTrackerModal.form.checklist_id" 
+            <select v-model="checklistTrackerModal.form.checklist_id"
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-300 bg-white">
               <option value="">All / General</option>
-              <option v-for="task in checklist" :key="task.id" :value="task.id" 
+              <option v-for="task in checklist" :key="task.id" :value="task.id"
                 :disabled="checklistTrackerModal.type === 'OUT' ? task.is_out : !task.is_out">
                 {{ task.task || task.document_type }} ({{ task.is_out ? 'OUT' : 'IN' }})
               </option>
@@ -719,7 +696,6 @@
               Only OUT items can be received
             </p>
           </div>
-
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">From / To <span class="text-red-400">*</span></label>
             <div class="relative" ref="ctFromToDropdownRef">
@@ -735,14 +711,12 @@
                 placeholder="Search for recipient/sender..."
                 class="w-full pl-9 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all"
                 :class="checklistTrackerModal.form.from_to ? 'border-[#1a4972] font-medium text-slate-800' : 'border-gray-200 text-slate-500'" />
-              
               <button v-if="ctFromToSearch || checklistTrackerModal.form.from_to" type="button" @click.prevent="clearCtFromTo"
                 class="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
               </button>
-
               <Transition name="dropdown">
                 <div v-if="ctFromToDropdownOpen"
                   class="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
@@ -751,13 +725,13 @@
                       @mousedown.prevent="selectCtFromTo(user)"
                       class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors"
                       :class="{ 'bg-blue-50/60': checklistTrackerModal.form.from_to === user.full_name }">
-                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-[#1a4972]">
+                      <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-[#1a4972] shrink-0">
                         {{ getInitials(user.full_name) }}
                       </div>
                       <span class="text-sm text-slate-700 flex-1">{{ user.full_name }}</span>
                       <span class="text-xs text-slate-400">{{ user.role }}</span>
                       <svg v-if="checklistTrackerModal.form.from_to === user.full_name"
-                        class="w-3.5 h-3.5 flex-shrink-0 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="w-3.5 h-3.5 shrink-0 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                       </svg>
                     </div>
@@ -769,29 +743,31 @@
               </Transition>
             </div>
           </div>
-
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Purpose / Remarks</label>
-            <input v-model="checklistTrackerModal.form.purpose" type="text" placeholder="e.g. For Review, For Submission…" 
+            <input v-model="checklistTrackerModal.form.purpose" type="text" placeholder="e.g. For Review, For Submission\u2026"
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition"/>
           </div>
-
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Handled By</label>
             <input v-model="checklistTrackerModal.form.handled_by" type="text" disabled
               class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-100 text-gray-700 cursor-not-allowed"/>
           </div>
         </div>
-        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+        <div class="flex items-center justify-end gap-3 px-5 sm:px-6 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
           <button @click="checklistTrackerModal.show = false" class="px-5 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl border border-gray-200 transition">Cancel</button>
-          <button @click="submitChecklistMovement" 
-            :disabled="!checklistTrackerModal.form.from_to"
+          <button @click="submitChecklistMovement"
+            :disabled="!checklistTrackerModal.form.from_to || checklistLoading"
             :class="[
               checklistTrackerModal.type === 'OUT' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-emerald-600 hover:bg-emerald-700',
-              !checklistTrackerModal.form.from_to ? 'opacity-50 cursor-not-allowed' : ''
-            ]" 
-            class="px-5 py-2 text-sm font-bold text-white rounded-xl transition shadow-sm active:scale-95">
-            Confirm {{ checklistTrackerModal.type === 'OUT' ? 'Release' : 'Receive' }}
+              (!checklistTrackerModal.form.from_to || checklistLoading) ? 'opacity-50 cursor-not-allowed' : ''
+            ]"
+            class="px-5 py-2 text-sm font-bold text-white rounded-xl transition shadow-sm active:scale-95 flex items-center gap-2">
+            <svg v-if="checklistLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            {{ checklistLoading ? 'Submitting...' : (checklistTrackerModal.type === 'OUT' ? 'Confirm Release' : 'Confirm Receive') }}
           </button>
         </div>
       </div>
@@ -817,19 +793,15 @@ const props = defineProps({
 const emit = defineEmits(['close', 'refresh']);
 
 const { user } = useAuth();
-
-// ========== STATE ==========
 const viewCase = ref(null);
 const checklist = ref([]);
 const folderMovements = ref([]);
 const checklistMovements = ref([]);
 const activityLogs = ref([]);
 const loading = ref(false);
-
-// Pagination settings
+const folderLoading = ref(false);
+const checklistLoading = ref(false);
 const PAGE_SIZE = 5;
-
-// Pagination state for each section
 const pagination = reactive({
   checklist: {
     current_page: 1,
@@ -890,7 +862,6 @@ const ctFromToSearch = ref('');
 const ctFromToDropdownOpen = ref(false);
 const ctFromToDropdownRef = ref(null);
 
-// ========== SMART POLLING ==========
 let poller = null;
 
 const refreshMovements = async () => {
@@ -913,7 +884,7 @@ const refreshMovements = async () => {
 
 const startPolling = () => {
   stopPolling();
-  poller = setInterval(refreshMovements, 10000);
+  poller = setInterval(refreshMovements, 4000);
 };
 
 const stopPolling = () => {
@@ -929,7 +900,6 @@ const updateChecklistPagination = () => {
   pagination.checklist.total = total;
   pagination.checklist.last_page = Math.ceil(total / PAGE_SIZE) || 1;
   
-  // Ensure current page is valid
   if (pagination.checklist.current_page > pagination.checklist.last_page) {
     pagination.checklist.current_page = pagination.checklist.last_page;
   }
@@ -977,7 +947,6 @@ const updateActivityPagination = () => {
   pagination.activity.to = total > 0 ? Math.min(pagination.activity.current_page * PAGE_SIZE, total) : 0;
 };
 
-// ========== PAGINATION PAGE METHODS ==========
 const goToChecklistPage = (page) => {
   if (page < 1 || page > pagination.checklist.last_page) return;
   pagination.checklist.current_page = page;
@@ -1002,7 +971,6 @@ const goToActivityPage = (page) => {
   updateActivityPagination();
 };
 
-// ========== DISPLAYED PAGES COMPUTED ==========
 const displayedChecklistPages = computed(() => {
   const pages = [];
   const max = 5;
@@ -1190,7 +1158,7 @@ const filteredUsers = computed(() => {
     }));
   }
   
-  if (viewCase.value?.lawyer && viewCase.value.lawyer !== '—') {
+  if (viewCase.value?.lawyer && viewCase.value.lawyer !== '\u2014') {
     const exists = users.some(u => u.full_name === viewCase.value.lawyer);
     if (!exists) {
       users.push({
@@ -1318,7 +1286,7 @@ const closeModal = () => {
 
 // ========== HELPERS ==========
 const getInitials = (name) => {
-  if (!name || name === '—') return '?';
+  if (!name || name === '\u2014') return '?';
   const parts = name.split(' ').filter(Boolean);
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
@@ -1326,7 +1294,7 @@ const getInitials = (name) => {
 };
 
 const formatDate = (date) => {
-  if (!date) return '—';
+  if (!date) return '\u2014';
   try {
     return new Date(date).toLocaleDateString('en-US', {
       month: 'short',
@@ -1334,12 +1302,12 @@ const formatDate = (date) => {
       year: 'numeric'
     });
   } catch {
-    return '—';
+    return '\u2014';
   }
 };
 
 const formatDateTime = (date) => {
-  if (!date) return '—';
+  if (!date) return '\u2014';
   try {
     return new Date(date).toLocaleString('en-US', {
       month: 'short',
@@ -1349,7 +1317,7 @@ const formatDateTime = (date) => {
       minute: '2-digit'
     });
   } catch {
-    return '—';
+    return '\u2014';
   }
 };
 
@@ -1553,6 +1521,7 @@ const openFolderModal = (type) => {
 };
 
 const submitFolderMovement = async () => {
+  folderLoading.value = true;
   try {
     const payload = {
       type: folderModal.type,
@@ -1563,8 +1532,6 @@ const submitFolderMovement = async () => {
     };
     
     await caseService.createFolderTrackerEntry(viewCase.value.id, payload);
-    
-    folderModal.show = false;
     await refreshMovements();
     
     const caseRes = await caseService.getCase(viewCase.value.id);
@@ -1581,6 +1548,7 @@ const submitFolderMovement = async () => {
     });
     
     emit('refresh');
+    folderModal.show = false;
     
   } catch (error) {
     Swal.fire({
@@ -1589,6 +1557,8 @@ const submitFolderMovement = async () => {
       text: error.message || 'Failed to record folder movement',
       confirmButtonColor: '#dc2626'
     });
+  } finally {
+    folderLoading.value = false;
   }
 };
 
@@ -1648,6 +1618,7 @@ const openChecklistTrackerModal = (type) => {
 };
 
 const submitChecklistMovement = async () => {
+  checklistLoading.value = true;
   try {
     const payload = {
       type: checklistTrackerModal.type,
@@ -1660,7 +1631,7 @@ const submitChecklistMovement = async () => {
     
     await caseService.createChecklistTrackerEntry(viewCase.value.id, payload);
     
-    checklistTrackerModal.show = false;
+
     await refreshMovements();
     
     const checklistRes = await caseService.getChecklist(viewCase.value.id);
@@ -1678,6 +1649,8 @@ const submitChecklistMovement = async () => {
       position: 'top-end',
       toast: true
     });
+
+        checklistTrackerModal.show = false;
     
   } catch (error) {
     Swal.fire({
@@ -1686,6 +1659,8 @@ const submitChecklistMovement = async () => {
       text: error.message || 'Failed to record checklist movement',
       confirmButtonColor: '#dc2626'
     });
+  } finally {
+    checklistLoading.value = false;
   }
 };
 </script>

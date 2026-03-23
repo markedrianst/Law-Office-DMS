@@ -14,7 +14,7 @@ const AuditTrail = () => import("@/pages/Admin/AuditTrail.vue");
 const Approvals = () => import("@/pages/Approvals.vue");
 const AccountSetting = () => import("@/pages/AccountSetting.vue");
 const Notifications = () => import("@/pages/Notifications.vue");
-const CalendarView = () => import("@/components/Calendar/CalendarView.vue");
+const CalendarView = () => import("@/pages/CalendarView.vue");
 
 const routes = [
   {
