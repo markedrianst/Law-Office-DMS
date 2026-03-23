@@ -206,7 +206,7 @@ const pagination = computed(() => {
   }
 })
 
-// Methods
+
 const getIcon = (item) => {
   if (item.type?.includes('approved'))  return '✅'
   if (item.type?.includes('rejected'))  return '❌'

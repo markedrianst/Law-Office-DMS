@@ -1,11 +1,8 @@
-// src/services/auth.js
-
 import api from "@/services/api";
 import { setUser } from "@/utils/appUtils";
 
 let interceptorId = null;
 
-// Initialize interceptor safely
 const initAuthInterceptor = () => {
   if (interceptorId !== null) {
     try {
@@ -29,10 +26,7 @@ const initAuthInterceptor = () => {
   
 };
 
-// Initialize immediately
 initAuthInterceptor();
-
-// ✅ FIX: Load user from session on page refresh
 const loadUserFromSession = () => {
   try {
     const userData = sessionStorage.getItem('user');
@@ -44,13 +38,13 @@ const loadUserFromSession = () => {
   }
 };
 
-// Load user immediately
 loadUserFromSession();
 
 const authService = {
  async getCsrfCookie() {
     await api.get("/sanctum/csrf-cookie", {
-        baseURL: "https://pinedalawoffice.emberwebsolutions.com"
+        // baseURL: "https://pinedalawoffice.emberwebsolutions.com"
+        baseURL: "http://localhost:8000"
     });
 },
 
@@ -68,14 +62,10 @@ const authService = {
       }
 
       if (data.token) {
-        // Store token and user
+
         sessionStorage.setItem('token', data.token);
         sessionStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Store in appUtils
         setUser(data.user);
-        
-        // Re-initialize interceptor
         initAuthInterceptor();
       }
 
@@ -95,8 +85,6 @@ const authService = {
     } finally {
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
-      
-      // Re-initialize interceptor
       initAuthInterceptor();
       
       window.location.href = '/';

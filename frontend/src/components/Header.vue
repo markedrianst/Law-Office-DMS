@@ -1,16 +1,33 @@
 <template>
-  <header class="flex items-center justify-between px-4 md:px-6 h-16 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] border-b border-white/10 font-sans relative z-40 flex-shrink-0 gap-3">
-    <h1 class="text-sm md:text-base font-semibold text-white/90 tracking-wide flex-1 text-left truncate">
+  <header class="flex items-center justify-between px-4 md:px-6 h-16 bg-[#1a4972] border-b border-white/10 font-sans relative z-40 flex-shrink-0 gap-3">
+    <!-- Mobile: Show Logo/Title -->
+    <div class="flex items-center gap-2 md:hidden">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-white/10 border border-white/20">
+        <img 
+          src="@/assets/images/lawofficelogo.png" 
+          alt="Logo"
+          class="w-5 h-5 object-contain"
+        />
+      </div>
+      <div class="flex flex-col">
+        <span class="text-[10px] font-bold text-white tracking-wider leading-tight">NICOLAS PINEDA</span>
+        <span class="text-[8px] font-medium text-white/50 tracking-widest leading-tight">LAW OFFICE</span>
+      </div>
+    </div>
+
+    <!-- Desktop: Show Page Title -->
+    <h1 class="hidden md:block text-sm md:text-base font-semibold text-white/90 tracking-wide flex-1 text-left truncate">
       {{ pageTitle }}
     </h1>
 
     <div class="flex items-center gap-2 flex-shrink-0">
-      <!-- NOTIFICATION BELL -->
+      <!-- Notification Bell -->
       <div class="relative" ref="notificationDropdownRef">
         <button
-          class="relative w-9 h-9 rounded-lg border border-white/20 bg-white/10 text-white/80 hover:bg-white/20 flex items-center justify-center transition-all"
+          class="relative w-9 h-9 rounded-lg border border-white/20 bg-white/10 text-white/80 hover:bg-white/20 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-white/30"
           :class="{ 'bg-white/20': isNotificationOpen }"
-          @click="toggleNotification"
+          @click="handleNotificationClick"
+          aria-label="Notifications"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -18,19 +35,20 @@
           </svg>
           <span
             v-if="unreadCount > 0"
-            class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0f2f4a]"
+            class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#1a4972]"
           >
             {{ unreadCount > 9 ? '9+' : unreadCount }}
           </span>
         </button>
 
-        <!-- Notifications Dropdown - ONLY UNREAD -->
+        <!-- Desktop Dropdown Only -->
         <Transition name="dropdown">
           <div
-            v-if="isNotificationOpen"
-            class="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl overflow-hidden z-[9999] max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:w-auto border border-slate-100"
+            v-if="!isMobile && isNotificationOpen"
+            class="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl overflow-hidden z-[9999] border border-slate-100"
+            role="dialog"
+            aria-label="Notifications panel"
           >
-            <!-- Header -->
             <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div class="flex items-center gap-2">
                 <h3 class="text-sm font-bold text-slate-900">Notifications</h3>
@@ -47,9 +65,7 @@
               </button>
             </div>
 
-            <!-- List - UNREAD ONLY (no duplicates) -->
             <div class="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
-              <!-- Loading state -->
               <div v-if="loadingNotifications" class="p-8 flex justify-center">
                 <svg class="animate-spin w-6 h-6 text-[#1a4972]" viewBox="0 0 24 24" fill="none">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -57,7 +73,6 @@
                 </svg>
               </div>
 
-              <!-- Empty state - No unread notifications -->
               <div v-else-if="unreadNotifications.length === 0" class="p-12 flex flex-col items-center gap-3 text-center">
                 <div class="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
                   <svg class="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,29 +85,26 @@
                 </div>
               </div>
 
-              <!-- Notification Items - UNREAD ONLY -->
               <div
                 v-else
                 v-for="item in unreadNotifications"
                 :key="item.id"
-                class="flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-all duration-150 relative bg-blue-50/70 hover:bg-blue-50 border-l-[3px] border-[#1a4972]"
+                class="flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-all duration-150 bg-blue-50/70 hover:bg-blue-50 border-l-[3px] border-[#1a4972]"
                 @click="goToNotification(item)"
               >
-                <!-- Icon badge -->
                 <div
-                  class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm z-10"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm"
                   :class="getIconClass(item)"
                 >
                   {{ getIcon(item) }}
                 </div>
 
-                <!-- Content -->
-                <div class="flex-1 min-w-0 z-10">
+                <div class="flex-1 min-w-0">
                   <div class="flex items-start justify-between gap-2">
                     <p class="text-xs font-bold leading-snug text-slate-900">
                       {{ item.title }}
                     </p>
-                    <span class="w-2 h-2 rounded-full bg-[#1a4972] flex-shrink-0 mt-1 animate-pulse"></span>
+                    <span class="w-2 h-2 rounded-full bg-[#1a4972] flex-shrink-0 mt-1"></span>
                   </div>
 
                   <p class="text-xs mt-0.5 line-clamp-2 text-slate-600">
@@ -110,7 +122,6 @@
               </div>
             </div>
 
-            <!-- Footer - Link to view all -->
             <div class="px-4 py-3 border-t border-slate-100 bg-slate-50 text-center">
               <button @click="viewAll" class="text-xs font-semibold text-[#1a4972] hover:underline transition-all">
                 View all notifications →
@@ -120,14 +131,15 @@
         </Transition>
       </div>
 
-      <!-- USER MENU -->
-      <div class="relative" ref="dropdownRef">
+      <!-- User Menu - Desktop Only -->
+      <div class="relative hidden md:block" ref="dropdownRef">
         <button
-          class="flex items-center gap-2 sm:gap-2.5 pl-1 sm:pl-1.5 pr-2 sm:pr-3 py-1 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 transition-colors whitespace-nowrap"
+          class="flex items-center gap-2 sm:gap-2.5 pl-1 sm:pl-1.5 pr-2 sm:pr-3 py-1 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-white/30"
           :class="{ 'bg-white/20': isUserMenuOpen }"
-          @click="isUserMenuOpen = !isUserMenuOpen"
+          @click="toggleUserMenu"
+          aria-label="User menu"
         >
-          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-white/30 to-white/10 border-2 border-white/30 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+          <div class="w-8 h-8 rounded-full bg-white/20 border-2 border-white/30 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
             {{ userInitials }}
           </div>
           <div class="hidden sm:flex flex-col text-left max-w-[100px]">
@@ -143,14 +155,15 @@
           </svg>
         </button>
 
-        <!-- User Dropdown -->
         <Transition name="dropdown">
           <div
             v-if="isUserMenuOpen"
-            class="absolute right-0 top-full mt-2 w-56 bg-[#071626] backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl overflow-hidden z-[9999] max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:w-auto"
+            class="absolute right-0 top-full mt-2 w-56 bg-[#071626] backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl overflow-hidden z-[9999]"
+            role="menu"
+            aria-label="User menu options"
           >
             <div class="p-4 border-b border-white/10 flex items-center gap-3">
-              <div class="w-9 h-9 rounded-full bg-gradient-to-r from-[#1a4972] to-[#2d6db5] text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+              <div class="w-9 h-9 rounded-full bg-[#1a4972] text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
                 {{ userInitials }}
               </div>
               <div class="min-w-0">
@@ -162,7 +175,7 @@
             <div class="p-1.5">
               <router-link
                 to="/account-setting"
-                @click="isUserMenuOpen = false"
+                @click="closeUserMenu"
                 class="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 transition-colors"
               >
                 <span class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
@@ -194,15 +207,15 @@
         </Transition>
       </div>
 
-      <!-- HAMBURGER (mobile) -->
+      <!-- Mobile Menu Button (Hamburger) -->
       <button
-        v-if="showHamburger"
-        class="flex flex-col gap-1 w-9 h-9 items-center justify-center bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors md:hidden"
+        class="flex flex-col gap-1 w-9 h-9 items-center justify-center bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/30 md:hidden"
         :class="{ 'bg-white/20': sidebarOpen }"
-        @click="$emit('toggle-sidebar')"
+        @click="toggleSidebar"
+        aria-label="Toggle sidebar"
       >
         <span class="w-5 h-0.5 bg-white/80 rounded-full transition-transform duration-300" :class="{ 'rotate-45 translate-y-1.5': sidebarOpen }"></span>
-        <span class="w-5 h-0.5 bg-white/80 rounded-full transition-opacity duration-300"  :class="{ 'opacity-0': sidebarOpen }"></span>
+        <span class="w-5 h-0.5 bg-white/80 rounded-full transition-opacity duration-300" :class="{ 'opacity-0': sidebarOpen }"></span>
         <span class="w-5 h-0.5 bg-white/80 rounded-full transition-transform duration-300" :class="{ '-rotate-45 -translate-y-1.5': sidebarOpen }"></span>
       </button>
     </div>
@@ -213,28 +226,15 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import Swal from 'sweetalert2';
-
-// Import from useNotifications composable
 import { useNotifications } from '@/composables/useNotifications';
-
-// Import appUtils
-import { 
-  getUserName,
-  getUserRole,
-  getUserInitials,
-  getRoleLabel,
-  formatTimeAgo,
-  clearData
-} from '@/utils/appUtils';
-
+import { getUserName, getUserRole, getUserInitials, getRoleLabel, formatTimeAgo, clearData } from '@/utils/appUtils';
 import authService from '@/services/auth';
 
 const router = useRouter();
 const route = useRoute();
 
-// ==================== USE NOTIFICATIONS COMPOSABLE ====================
 const { 
-  unreadNotifications,  // Only unread for dropdown
+  unreadNotifications,
   unreadCount, 
   markAsRead, 
   markAllAsRead,
@@ -242,28 +242,22 @@ const {
   isLoading: loadingNotifications
 } = useNotifications();
 
-// ==================== STATE ====================
 const userName = ref(getUserName() || 'User');
 const userRole = ref(getUserRole() || 'user');
 const userRoleLabel = ref(getRoleLabel(userRole.value) || 'User');
 const userInitials = ref(getUserInitials() || 'U');
 
-// UI State
 const isUserMenuOpen = ref(false);
 const dropdownRef = ref(null);
 const isNotificationOpen = ref(false);
 const notificationDropdownRef = ref(null);
-const showLogoutModal = ref(false);
-const isLoggingOut = ref(false);
-const showHamburger = ref(false);
+const isMobile = ref(false);
 
-// Props
 const props = defineProps({
   sidebarOpen: { type: Boolean, default: false }
 });
 const emit = defineEmits(['toggle-sidebar']);
 
-// ==================== COMPUTED ====================
 const pageTitle = computed(() => {
   const titles = {
     '/dashboard': 'Dashboard',
@@ -280,14 +274,33 @@ const pageTitle = computed(() => {
   return titles[route.path] || 'Dashboard';
 });
 
-// ==================== NOTIFICATION METHODS ====================
-const toggleNotification = () => {
-  isNotificationOpen.value = !isNotificationOpen.value;
-  if (isNotificationOpen.value) {
-    isUserMenuOpen.value = false;
-    // Refresh notifications when opening
-    refreshNotifications();
+const toggleSidebar = () => {
+  emit('toggle-sidebar');
+};
+
+const handleNotificationClick = () => {
+  if (isMobile.value) {
+    // On mobile: redirect to notifications page
+    router.push('/notifications');
+  } else {
+    // On desktop: toggle dropdown
+    isNotificationOpen.value = !isNotificationOpen.value;
+    if (isNotificationOpen.value) {
+      isUserMenuOpen.value = false;
+      refreshNotifications();
+    }
   }
+};
+
+const toggleUserMenu = () => {
+  isUserMenuOpen.value = !isUserMenuOpen.value;
+  if (isUserMenuOpen.value) {
+    isNotificationOpen.value = false;
+  }
+};
+
+const closeUserMenu = () => {
+  isUserMenuOpen.value = false;
 };
 
 const goToNotification = async (item) => {
@@ -299,7 +312,7 @@ const goToNotification = async (item) => {
   if (item.action_url) {
     router.push(item.action_url);
   } else if (item.data?.case_id) {
-    router.push(`/casemaster`);
+    router.push('/casemaster');
   } else if (item.type?.includes('approval')) {
     router.push('/approvals');
   } else {
@@ -316,10 +329,8 @@ const handleMarkAllRead = async () => {
   await markAllAsRead();
 };
 
-// ==================== USER MENU METHODS ====================
-// ==================== USER MENU METHODS ====================
 const askLogout = () => {
-  isUserMenuOpen.value = false;
+  closeUserMenu();
   
   Swal.fire({
     title: 'Sign out?',
@@ -329,92 +340,64 @@ const askLogout = () => {
     confirmButtonColor: '#dc2626',
     cancelButtonColor: '#64748b',
     confirmButtonText: 'Yes, sign out',
-    cancelButtonText: 'Cancel',
-    background: '#fff',
-    backdrop: 'rgba(0,0,0,0.5)',
-    customClass: {
-      title: 'text-lg font-bold text-slate-900',
-      htmlContainer: 'text-sm text-slate-500',
-      confirmButton: 'px-4 py-2 text-sm font-semibold rounded-lg',
-      cancelButton: 'px-4 py-2 text-sm font-semibold rounded-lg'
-    }
+    cancelButtonText: 'Cancel'
   }).then(async (result) => {
     if (result.isConfirmed) {
       try {
-        // Show loading state
         Swal.fire({
           title: 'Signing out...',
-          text: 'Please wait',
           allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
+          didOpen: () => Swal.showLoading()
         });
         
         await authService.logout();
-        
-        // Clear all data from appUtils
         clearData();
-        
-        // Clear session storage
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
-        
-        // Redirect to login
         router.replace('/');
-        
-        // Close any open Swal
         Swal.close();
-        
       } catch (error) {
-        console.error('Logout error:', error);
-        
-        // Even if API fails, clear local data and redirect
         clearData();
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
-        
         router.replace('/');
       }
     }
   });
 };
 
-// ==================== ICON HELPERS ====================
 const getIcon = (item) => {
-  if (item.type?.includes('approved'))  return '✅';
-  if (item.type?.includes('rejected'))  return '❌';
-  if (item.type?.includes('pending'))   return '⏳';
-  if (item.type?.includes('folder'))    return '📂';
+  if (item.type?.includes('approved')) return '✅';
+  if (item.type?.includes('rejected')) return '❌';
+  if (item.type?.includes('pending')) return '⏳';
+  if (item.type?.includes('folder')) return '📂';
   if (item.type?.includes('checklist')) return '📋';
-  if (item.type?.includes('task'))      return '📝';
-  if (item.type?.includes('case'))      return '📁';
+  if (item.type?.includes('task')) return '📝';
+  if (item.type?.includes('case')) return '📁';
   return '🔔';
 };
 
 const getIconClass = (item) => {
-  if (item.type?.includes('approved'))  return 'bg-emerald-100';
-  if (item.type?.includes('rejected'))  return 'bg-red-100';
-  if (item.type?.includes('pending'))   return 'bg-amber-100';
-  if (item.type?.includes('task'))      return 'bg-blue-100';
+  if (item.type?.includes('approved')) return 'bg-emerald-100';
+  if (item.type?.includes('rejected')) return 'bg-red-100';
+  if (item.type?.includes('pending')) return 'bg-amber-100';
+  if (item.type?.includes('task')) return 'bg-blue-100';
   return 'bg-slate-100';
 };
 
-// ==================== UI HELPERS ====================
-const handleOutside = (e) => {
-  if (dropdownRef.value && !dropdownRef.value.contains(e.target)) {
+const handleClickOutside = (event) => {
+  if (dropdownRef.value && !dropdownRef.value.contains(event.target)) {
     isUserMenuOpen.value = false;
   }
-  if (notificationDropdownRef.value && !notificationDropdownRef.value.contains(e.target)) {
+  if (notificationDropdownRef.value && !notificationDropdownRef.value.contains(event.target)) {
     isNotificationOpen.value = false;
   }
 };
 
-const handleResize = () => { 
-  showHamburger.value = window.innerWidth < 768; 
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768;
 };
 
-// ==================== UPDATE USER DATA ====================
 const updateUserData = () => {
   userName.value = getUserName() || 'User';
   userRole.value = getUserRole() || 'user';
@@ -422,36 +405,25 @@ const updateUserData = () => {
   userInitials.value = getUserInitials() || 'U';
 };
 
-// ==================== LIFECYCLE ====================
 onMounted(() => {
   updateUserData();
-  document.addEventListener('mousedown', handleOutside);
-  window.addEventListener('resize', handleResize);
-  const handleStorageChange = (e) => {
-    if (e.key === 'user') {
-      updateUserData();
-    }
-  };
-  window.addEventListener('storage', handleStorageChange);
-  
-  handleResize();
+  document.addEventListener('click', handleClickOutside);
+  window.addEventListener('resize', checkMobile);
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'user') updateUserData();
+  });
+  checkMobile();
 });
 
 onUnmounted(() => {
-  document.removeEventListener('mousedown', handleOutside);
-  window.removeEventListener('resize', handleResize);
-  window.removeEventListener('storage', handleStorageChange);
+  document.removeEventListener('click', handleClickOutside);
+  window.removeEventListener('resize', checkMobile);
 });
 </script>
 
 <style scoped>
 .dropdown-enter-active { transition: all 0.15s ease; }
-.dropdown-enter-from   { opacity: 0; transform: translateY(-6px) scale(0.98); }
+.dropdown-enter-from { opacity: 0; transform: translateY(-6px) scale(0.98); }
 .dropdown-leave-active { transition: all 0.1s ease; }
-.dropdown-leave-to     { opacity: 0; transform: translateY(-4px) scale(0.98); }
-
-.modal-enter-active { transition: all 0.2s ease; }
-.modal-enter-from   { opacity: 0; }
-.modal-leave-active { transition: all 0.15s ease; }
-.modal-leave-to     { opacity: 0; }
+.dropdown-leave-to { opacity: 0; transform: translateY(-4px) scale(0.98); }
 </style>

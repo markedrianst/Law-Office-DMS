@@ -1,162 +1,191 @@
 <template>
-  <div class="min-h-screen p-6 bg-slate-50">
+  <div class="min-h-screen p-4 sm:p-6 bg-slate-50">
     <!-- Header -->
-    <div class="mb-7">
-      <div class="flex items-center gap-3 mb-1">
-        <div class="w-1 h-8 rounded-full bg-gradient-to-b from-[#1a4972] to-[#2d6db5]"></div>
-        <h1 class="text-2xl font-bold tracking-tight text-[#1a4972]">Account Settings</h1>
+    <div class="mb-6 sm:mb-8">
+      <div class="flex items-center gap-2 sm:gap-3 mb-1">
+        <div class="w-1 h-6 sm:h-8 rounded-full bg-[#1a4972]"></div>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[#1a4972]">Account Settings</h1>
       </div>
-      <p class="text-sm ml-4 pl-3 text-slate-500">Manage your profile and security settings</p>
+      <p class="text-xs sm:text-sm ml-3 sm:ml-4 pl-2 sm:pl-3 text-slate-500">Manage your profile and security settings</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
       <!-- Left Column - Profile Card -->
-      <div class="lg:col-span-1">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden sticky top-6">
-          <!-- Profile Header -->
-          <div class="bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] px-6 py-8 text-center">
-            <div class="relative inline-block">
-              <div class="w-24 h-24 rounded-full bg-white/20 border-4 border-white/50 mx-auto flex items-center justify-center">
-                <span class="text-3xl font-bold text-white">{{ userInitials }}</span>
+          <!-- Left Column - Profile Card (Sticky on desktop, normal on mobile) -->
+        <div class="lg:col-span-1">
+          <div class="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden lg:sticky lg:top-6">
+            <!-- Profile Header (No upload button) -->
+            <div class="bg-[#1a4972] px-4 sm:px-6 py-6 sm:py-8 text-center">
+              <div class="inline-block">
+                <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 border-4 border-white/60 mx-auto flex items-center justify-center">
+                  <span class="text-2xl sm:text-3xl font-bold text-white">{{ userInitials }}</span>
+                </div>
               </div>
-              <button class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-              </button>
-            </div>
-            <h2 class="text-xl font-bold text-white mt-4">{{ user?.full_name || 'User' }}</h2>
-            <p class="text-white/80 text-sm mt-1 capitalize">{{ userRole }}</p>
-          </div>
-
-          <!-- Profile Info -->
-          <div class="p-6 space-y-4">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                </svg>
-              </div>
-              <div class="flex-1">
-                <p class="text-xs text-slate-400">Email</p>
-                <p class="text-sm font-medium text-slate-700">{{ user?.email || '—' }}</p>
-              </div>
+              <h2 class="text-lg sm:text-xl font-bold text-white mt-3 sm:mt-4">{{ user?.full_name || 'User' }}</h2>
+              <p class="text-white/80 text-xs sm:text-sm mt-1 capitalize">{{ userRole }}</p>
             </div>
 
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                </svg>
+            <!-- Profile Info -->
+            <div class="p-4 sm:p-6 space-y-3 sm:space-y-4">
+              <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs text-slate-400">Email</p>
+                  <p class="text-sm font-medium text-slate-700 truncate">{{ user?.email || '—' }}</p>
+                </div>
               </div>
-              <div class="flex-1">
-                <p class="text-xs text-slate-400">Role</p>
-                <p class="text-sm font-medium text-slate-700 capitalize">{{ userRole }}</p>
-              </div>
-            </div>
 
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
+              <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs text-slate-400">Role</p>
+                  <p class="text-sm font-medium text-slate-700 capitalize">{{ userRole }}</p>
+                </div>
               </div>
-              <div class="flex-1">
-                <p class="text-xs text-slate-400">Member Since</p>
-                <p class="text-sm font-medium text-slate-700">{{ formatDate(user?.created_at) }}</p>
-              </div>
-            </div>
 
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+              <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs text-slate-400">Member Since</p>
+                  <p class="text-sm font-medium text-slate-700">{{ formatDate(user?.created_at) }}</p>
+                </div>
               </div>
-              <div class="flex-1">
-                <p class="text-xs text-slate-400">Last Login</p>
-                <p class="text-sm font-medium text-slate-700">{{ formatDateTime(user?.last_login) }}</p>
-              </div>
-            </div>
 
-            <div class="pt-4 border-t border-slate-100">
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-slate-600">Account Status</span>
-                <span class="px-2.5 py-1 text-xs font-semibold rounded-full" :class="user?.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">
-                  {{ user?.status === 'active' ? 'Active' : 'Inactive' }}
-                </span>
+              <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs text-slate-400">Last Login</p>
+                  <p class="text-sm font-medium text-slate-700">{{ formatDateTime(user?.last_login) }}</p>
+                </div>
+              </div>
+
+              <div class="pt-3 sm:pt-4 border-t border-slate-200">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-slate-600">Account Status</span>
+                  <span class="px-2.5 py-1 text-xs font-semibold rounded-full" :class="user?.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'">
+                    {{ user?.status === 'active' ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+
 
       <!-- Right Column - Forms -->
-      <div class="lg:col-span-2 space-y-6">
+      <div class="lg:col-span-2 space-y-4 sm:space-y-6">
         <!-- Profile Information Form -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-            <h3 class="text-sm font-bold text-slate-700">Profile Information</h3>
+        <div class="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-slate-50">
+            <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              Profile Information
+            </h3>
           </div>
           
-          <div class="p-6">
+          <div class="p-4 sm:p-6">
             <form @submit.prevent="updateProfile" class="space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">First Name</label>
+                  <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">First Name <span class="text-red-500">*</span></label>
                   <input 
                     v-model="profileForm.first_name" 
                     type="text" 
                     placeholder="Enter first name"
-                    class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all"
-                    :class="{ 'border-red-400': profileErrors.first_name }"
+                    @input="validateField('first_name')"
+                    class="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a4972]/20 focus:border-[#1a4972] transition-all duration-200"
+                    :class="{ 'border-red-400 focus:ring-red-200': profileErrors.first_name }"
                   />
-                  <p v-if="profileErrors.first_name" class="text-xs text-red-500 mt-1">{{ profileErrors.first_name }}</p>
+                  <p v-if="profileErrors.first_name" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {{ profileErrors.first_name }}
+                  </p>
                 </div>
 
                 <div>
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">Last Name</label>
+                  <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Last Name <span class="text-red-500">*</span></label>
                   <input 
                     v-model="profileForm.last_name" 
                     type="text" 
                     placeholder="Enter last name"
-                    class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all"
-                    :class="{ 'border-red-400': profileErrors.last_name }"
+                    @input="validateField('last_name')"
+                    class="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a4972]/20 focus:border-[#1a4972] transition-all duration-200"
+                    :class="{ 'border-red-400 focus:ring-red-200': profileErrors.last_name }"
                   />
-                  <p v-if="profileErrors.last_name" class="text-xs text-red-500 mt-1">{{ profileErrors.last_name }}</p>
+                  <p v-if="profileErrors.last_name" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {{ profileErrors.last_name }}
+                  </p>
                 </div>
 
-                <div class="md:col-span-2">
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
+                <div class="sm:col-span-2">
+                  <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Email Address <span class="text-red-500">*</span></label>
                   <input 
                     v-model="profileForm.email" 
                     type="email" 
                     placeholder="Enter email address"
-                    class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all"
-                    :class="{ 'border-red-400': profileErrors.email }"
+                    @input="validateField('email')"
+                    class="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a4972]/20 focus:border-[#1a4972] transition-all duration-200"
+                    :class="{ 'border-red-400 focus:ring-red-200': profileErrors.email }"
                   />
-                  <p v-if="profileErrors.email" class="text-xs text-red-500 mt-1">{{ profileErrors.email }}</p>
+                  <p v-if="profileErrors.email" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {{ profileErrors.email }}
+                  </p>
                 </div>
 
-                <div class="md:col-span-2">
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">Address</label>
+                <div class="sm:col-span-2">
+                  <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Address</label>
                   <input 
                     v-model="profileForm.address" 
                     type="text" 
                     placeholder="Enter address"
-                    class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all"
+                    class="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a4972]/20 focus:border-[#1a4972] transition-all duration-200"
                   />
                 </div>
 
-                <div>
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">Contact Number</label>
+                <div class="sm:col-span-2">
+                  <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Contact Number</label>
                   <input 
-                    v-model="profileForm.contact" 
-                    type="text" 
-                    placeholder="Enter contact number"
-                    class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all"
+                    v-model="displayPhoneNumber" 
+                    type="tel" 
+                    placeholder="Enter Philippine phone number (e.g., 0909-565-4444)"
+                    @input="handlePhoneInput"
+                    maxlength="13"
+                    class="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a4972]/20 focus:border-[#1a4972] transition-all duration-200"
+                    :class="{ 'border-red-400 focus:ring-red-200': profileErrors.contact_no }"
                   />
+                  <p v-if="profileErrors.contact_no" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {{ profileErrors.contact_no }}
+                  </p>
+                  <p class="text-xs text-slate-400 mt-1">Format: 09XX-XXX-XXXX or 639XX-XXX-XXXX</p>
                 </div>
               </div>
 
@@ -164,11 +193,14 @@
                 <button 
                   type="submit"
                   :disabled="profileLoading"
-                  class="px-6 py-2.5 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white text-sm font-semibold rounded-xl hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                  class="px-5 sm:px-6 py-2 sm:py-2.5 bg-[#1a4972] hover:bg-[#0f2f4a] text-white text-sm font-semibold rounded-xl hover:shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg v-if="profileLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                   </svg>
                   {{ profileLoading ? 'Saving...' : 'Save Changes' }}
                 </button>
@@ -178,28 +210,34 @@
         </div>
 
         <!-- Change Password Form -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-            <h3 class="text-sm font-bold text-slate-700">Change Password</h3>
+        <div class="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-slate-50">
+            <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6-4h12a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z"/>
+              </svg>
+              Change Password
+            </h3>
           </div>
           
-          <div class="p-6">
+          <div class="p-4 sm:p-6">
             <form @submit.prevent="changePassword" class="space-y-4">
               <div class="grid grid-cols-1 gap-4">
                 <div>
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">Current Password</label>
+                  <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Current Password <span class="text-red-500">*</span></label>
                   <div class="relative">
                     <input 
                       v-model="passwordForm.current_password" 
                       :type="showCurrentPassword ? 'text' : 'password'"
                       placeholder="Enter current password"
-                      class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all pr-10"
-                      :class="{ 'border-red-400': passwordErrors.current_password }"
+                      @input="passwordErrors.current_password = ''"
+                      class="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a4972]/20 focus:border-[#1a4972] transition-all duration-200 pr-10"
+                      :class="{ 'border-red-400 focus:ring-red-200': passwordErrors.current_password }"
                     />
                     <button 
                       type="button"
                       @click="showCurrentPassword = !showCurrentPassword"
-                      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                     >
                       <svg v-if="!showCurrentPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -213,19 +251,20 @@
                 </div>
 
                 <div>
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">New Password</label>
+                  <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">New Password <span class="text-red-500">*</span></label>
                   <div class="relative">
                     <input 
                       v-model="passwordForm.new_password" 
                       :type="showNewPassword ? 'text' : 'password'"
-                      placeholder="Enter new password"
-                      class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all pr-10"
-                      :class="{ 'border-red-400': passwordErrors.new_password }"
+                      placeholder="Enter new password (min. 8 characters)"
+                      @input="validatePassword"
+                      class="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a4972]/20 focus:border-[#1a4972] transition-all duration-200 pr-10"
+                      :class="{ 'border-red-400 focus:ring-red-200': passwordErrors.new_password }"
                     />
                     <button 
                       type="button"
                       @click="showNewPassword = !showNewPassword"
-                      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                     >
                       <svg v-if="!showNewPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -239,19 +278,20 @@
                 </div>
 
                 <div>
-                  <label class="block text-sm font-semibold text-slate-700 mb-1.5">Confirm New Password</label>
+                  <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">Confirm New Password <span class="text-red-500">*</span></label>
                   <div class="relative">
                     <input 
                       v-model="passwordForm.new_password_confirmation" 
                       :type="showConfirmPassword ? 'text' : 'password'"
                       placeholder="Confirm new password"
-                      class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] transition-all pr-10"
-                      :class="{ 'border-red-400': passwordErrors.new_password_confirmation }"
+                      @input="validatePasswordConfirmation"
+                      class="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a4972]/20 focus:border-[#1a4972] transition-all duration-200 pr-10"
+                      :class="{ 'border-red-400 focus:ring-red-200': passwordErrors.new_password_confirmation }"
                     />
                     <button 
                       type="button"
                       @click="showConfirmPassword = !showConfirmPassword"
-                      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                     >
                       <svg v-if="!showConfirmPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -269,11 +309,14 @@
                 <button 
                   type="submit"
                   :disabled="passwordLoading"
-                  class="px-6 py-2.5 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white text-sm font-semibold rounded-xl hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                  class="px-5 sm:px-6 py-2 sm:py-2.5 bg-[#1a4972] hover:bg-[#0f2f4a] text-white text-sm font-semibold rounded-xl hover:shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg v-if="passwordLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6-4h12a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z"/>
                   </svg>
                   {{ passwordLoading ? 'Changing...' : 'Change Password' }}
                 </button>
@@ -281,77 +324,18 @@
             </form>
           </div>
         </div>
-
-        <!-- Session Management -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-            <h3 class="text-sm font-bold text-slate-700">Active Sessions</h3>
-          </div>
-          
-          <div class="p-6">
-            <div class="space-y-4">
-              <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="text-sm font-semibold text-slate-800">Current Session</p>
-                    <p class="text-xs text-slate-500">This device • {{ formatDateTime(new Date()) }}</p>
-                  </div>
-                </div>
-                <span class="px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-full">
-                  Active Now
-                </span>
-              </div>
-
-              <button 
-                @click="logoutAllDevices"
-                class="w-full px-4 py-2.5 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-                Logout All Other Devices
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
-
-    <!-- Success Toast -->
-    <div 
-      v-if="toast.show" 
-      class="fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm font-medium"
-      :class="toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'"
-    >
-      <div class="w-5 h-5 rounded-full flex items-center justify-center" :class="toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'">
-        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path v-if="toast.type === 'success'" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-          <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </div>
-      {{ toast.message }}
     </div>
   </div>
 </template>
+
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useAuth } from '@/composables/useAuth';
 import accountService from '@/services/accountService';
 import Swal from 'sweetalert2';
-
+import { setUser } from '@/utils/appUtils';
 const { user, refreshUser, userRole, userInitials } = useAuth();
-
-// ========== TOAST STATE ==========
-const toast = reactive({
-  show: false,
-  message: '',
-  type: 'success'
-});
 
 // ========== PROFILE FORM ==========
 const profileLoading = ref(false);
@@ -360,13 +344,17 @@ const profileForm = reactive({
   last_name: '',
   email: '',
   address: '',
-  contact: ''
+  contact_no: '' // Stores the raw phone number (no formatting)
 });
+
+// Display phone number with formatting
+const displayPhoneNumber = ref('');
 
 const profileErrors = reactive({
   first_name: '',
   last_name: '',
-  email: ''
+  email: '',
+  contact: ''
 });
 
 // ========== PASSWORD FORM ==========
@@ -387,16 +375,167 @@ const passwordErrors = reactive({
   new_password_confirmation: ''
 });
 
-// ========== INITIALIZE FORM WITH USER DATA ==========
-const initForm = () => {
-  if (user.value) {
-    const nameParts = user.value.full_name?.split(' ') || [];
-    profileForm.first_name = nameParts[0] || '';
-    profileForm.last_name = nameParts.slice(1).join(' ') || '';
-    profileForm.email = user.value.email || '';
-    profileForm.address = user.value.address || '';
-    profileForm.contact = user.value.contact_number || '';
+// ========== PHONE NUMBER FORMATTING ==========
+const formatPhoneNumber = (value) => {
+  if (!value) return '';
+  
+  // Remove all non-digit characters
+  let cleaned = value.replace(/\D/g, '');
+  
+  // Limit to 12 digits (Philippine numbers max)
+  if (cleaned.length > 12) {
+    cleaned = cleaned.slice(0, 12);
   }
+  
+  // Format based on length
+  if (cleaned.length >= 4 && cleaned.length <= 7) {
+    // Format: 09XX-XXX
+    return cleaned.replace(/(\d{4})(\d{1,3})/, '$1-$2');
+  } else if (cleaned.length >= 8 && cleaned.length <= 11) {
+    // Format: 09XX-XXX-XXXX
+    return cleaned.replace(/(\d{4})(\d{3})(\d{1,4})/, '$1-$2-$3');
+  } else if (cleaned.length === 12) {
+    // Format: 639XX-XXX-XXXX
+    return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+  }
+  
+  return cleaned;
+};
+
+const handlePhoneInput = (event) => {
+  let value = event.target.value;
+  
+  // Remove all non-digit characters for storage
+  const rawValue = value.replace(/\D/g, '');
+  profileForm.contact_no = rawValue;
+  
+  // Format for display
+  displayPhoneNumber.value = formatPhoneNumber(rawValue);
+  
+  // Validate
+  validatePhoneNumber();
+};
+
+const validatePhoneNumber = () => {
+  const phone = profileForm.contact_no;
+  
+  if (phone) {
+    // Check if starts with 09 or 639
+    const isValid = /^(09\d{9})$|^(639\d{9})$/.test(phone);
+    
+    if (!isValid) {
+      profileErrors.contact_no = 'Please enter a valid Philippine phone number (e.g., 09123456789 or 639123456789)';
+    } else if (phone.length !== 11 && phone.length !== 12) {
+      profileErrors.contact_no = 'Phone number must be 11 or 12 digits';
+    } else {
+      profileErrors.contact_no = '';
+    }
+  } else {
+    profileErrors.contact_no = '';
+  }
+};
+
+// ========== VALIDATION FUNCTIONS ==========
+const validateField = (field) => {
+  switch(field) {
+    case 'first_name':
+      if (!profileForm.first_name.trim()) {
+        profileErrors.first_name = 'First name is required';
+      } else if (profileForm.first_name.length < 2) {
+        profileErrors.first_name = 'First name must be at least 2 characters';
+      } else if (!/^[a-zA-Z\s]+$/.test(profileForm.first_name)) {
+        profileErrors.first_name = 'First name can only contain letters';
+      } else {
+        profileErrors.first_name = '';
+      }
+      break;
+      
+    case 'last_name':
+      if (!profileForm.last_name.trim()) {
+        profileErrors.last_name = 'Last name is required';
+      } else if (profileForm.last_name.length < 2) {
+        profileErrors.last_name = 'Last name must be at least 2 characters';
+      } else if (!/^[a-zA-Z\s]+$/.test(profileForm.last_name)) {
+        profileErrors.last_name = 'Last name can only contain letters';
+      } else {
+        profileErrors.last_name = '';
+      }
+      break;
+      
+    case 'email':
+      const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
+      if (!profileForm.email.trim()) {
+        profileErrors.email = 'Email is required';
+      } else if (!emailRegex.test(profileForm.email)) {
+        profileErrors.email = 'Please enter a valid email address';
+      } else {
+        profileErrors.email = '';
+      }
+      break;
+  }
+};
+
+const validatePassword = () => {
+  if (passwordForm.new_password && passwordForm.new_password.length < 8) {
+    passwordErrors.new_password = 'Password must be at least 8 characters';
+  } else if (passwordForm.new_password && !/(?=.*[a-z])(?=.*[A-Z])/.test(passwordForm.new_password)) {
+    passwordErrors.new_password = 'Password must contain at least one uppercase and one lowercase letter';
+  } else {
+    passwordErrors.new_password = '';
+  }
+  
+  if (passwordForm.new_password_confirmation) {
+    validatePasswordConfirmation();
+  }
+};
+
+const validatePasswordConfirmation = () => {
+  if (passwordForm.new_password_confirmation && passwordForm.new_password !== passwordForm.new_password_confirmation) {
+    passwordErrors.new_password_confirmation = 'Passwords do not match';
+  } else {
+    passwordErrors.new_password_confirmation = '';
+  }
+};
+
+// ========== GET PROFILE ==========
+const getProfile = async () => {
+  profileLoading.value = true;
+  try {
+    const response = await accountService.getProfile();
+    if (response.success) {
+      const userData = response.data;
+      const nameParts = userData.full_name?.split(' ') || [];
+      profileForm.first_name = nameParts[0] || '';
+      profileForm.last_name = nameParts.slice(1).join(' ') || '';
+      profileForm.email = userData.email || '';
+      profileForm.address = userData.address || '';
+      profileForm.contact_no = userData.contact_number || '';
+      
+      // Format phone for display
+      displayPhoneNumber.value = formatPhoneNumber(profileForm.contact_no);
+      
+      // Validate initial data
+      validateField('first_name');
+      validateField('last_name');
+      validateField('email');
+      if (profileForm.contact) validatePhoneNumber();
+    }
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error!',
+      text: 'Failed to load profile information',
+      confirmButtonColor: '#1a4972'
+    });
+  } finally {
+    profileLoading.value = false;
+  }
+};
+
+// ========== INITIALIZE ==========
+const initForm = () => {
+  getProfile();
 };
 
 onMounted(() => {
@@ -424,25 +563,26 @@ const formatDateTime = (date) => {
   });
 };
 
-// ========== TOAST HELPER ==========
-const showToast = (message, type = 'success') => {
-  toast.show = true;
-  toast.message = message;
-  toast.type = type;
-  
-  setTimeout(() => {
-    toast.show = false;
-  }, 3000);
-};
-
 // ========== UPDATE PROFILE ==========
 const updateProfile = async () => {
-  profileLoading.value = true;
+  // Run all validations before submit
+  validateField('first_name');
+  validateField('last_name');
+  validateField('email');
+  if (profileForm.contact_no) validatePhoneNumber();
   
-  // Clear errors
-  profileErrors.first_name = '';
-  profileErrors.last_name = '';
-  profileErrors.email = '';
+  // Check if there are any validation errors
+  if (profileErrors.first_name || profileErrors.last_name || profileErrors.email || profileErrors.contact_no) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Validation Error',
+      text: 'Please fix the errors in the form before submitting',
+      confirmButtonColor: '#dc2626'
+    });
+    return;
+  }
+  
+  profileLoading.value = true;
   
   try {
     const payload = {
@@ -450,25 +590,52 @@ const updateProfile = async () => {
       lastName: profileForm.last_name,
       email: profileForm.email,
       address: profileForm.address || null,
-      contact: profileForm.contact || null
+      contact_no: profileForm.contact_no || null
     };
     
-    // ✅ FIXED: Using correct accountService method
     await accountService.updateProfile(payload);
-    
+    setUser({
+      ...user.value,
+      full_name: `${profileForm.first_name} ${profileForm.last_name}`,
+      email: profileForm.email,
+      address: profileForm.address || null,
+      contact_number: profileForm.contact_no || null
+    });
     // Refresh user data
     await refreshUser();
     
-    showToast('Profile updated successfully', 'success');
+    Swal.fire({
+      icon: 'success',
+      title: 'Success!',
+      text: 'Profile updated successfully',
+      timer: 2000,
+      showConfirmButton: false
+    });
     
   } catch (error) {
+    // Display server-side errors
     if (error.response?.data?.errors) {
       const errors = error.response.data.errors;
       if (errors.firstName) profileErrors.first_name = errors.firstName[0];
       if (errors.lastName) profileErrors.last_name = errors.lastName[0];
       if (errors.email) profileErrors.email = errors.email[0];
+      if (errors.contact_no) profileErrors.contact_no = errors.contact_no[0];
+      
+      // Show error message
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: error.response?.data?.message || 'Failed to update profile',
+        confirmButtonColor: '#dc2626'
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: 'Failed to update profile',
+        confirmButtonColor: '#dc2626'
+      });
     }
-    showToast(error.response?.data?.message || 'Failed to update profile', 'error');
   } finally {
     profileLoading.value = false;
   }
@@ -476,28 +643,44 @@ const updateProfile = async () => {
 
 // ========== CHANGE PASSWORD ==========
 const changePassword = async () => {
-  passwordLoading.value = true;
-  
-  // Clear errors
+  // Clear previous errors
   passwordErrors.current_password = '';
   passwordErrors.new_password = '';
   passwordErrors.new_password_confirmation = '';
   
-  // Validate form before submitting
-  if (!passwordForm.current_password || !passwordForm.new_password || !passwordForm.new_password_confirmation) {
-    if (!passwordForm.current_password) passwordErrors.current_password = 'Current password is required';
-    if (!passwordForm.new_password) passwordErrors.new_password = 'New password is required';
-    if (!passwordForm.new_password_confirmation) passwordErrors.new_password_confirmation = 'Password confirmation is required';
-    passwordLoading.value = false;
+  // Validate current password is not empty
+  if (!passwordForm.current_password) {
+    passwordErrors.current_password = 'Current password is required';
+  }
+  
+  // Validate new password
+  if (!passwordForm.new_password) {
+    passwordErrors.new_password = 'New password is required';
+  } else if (passwordForm.new_password.length < 8) {
+    passwordErrors.new_password = 'Password must be at least 8 characters';
+  } else if (!/(?=.*[a-z])(?=.*[A-Z])/.test(passwordForm.new_password)) {
+    passwordErrors.new_password = 'Password must contain at least one uppercase and one lowercase letter';
+  }
+  
+  // Validate confirmation
+  if (!passwordForm.new_password_confirmation) {
+    passwordErrors.new_password_confirmation = 'Please confirm your password';
+  } else if (passwordForm.new_password !== passwordForm.new_password_confirmation) {
+    passwordErrors.new_password_confirmation = 'Passwords do not match';
+  }
+  
+  // Check if there are any errors
+  if (passwordErrors.current_password || passwordErrors.new_password || passwordErrors.new_password_confirmation) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Validation Error',
+      text: 'Please fix the errors in the password form',
+      confirmButtonColor: '#dc2626'
+    });
     return;
   }
   
-  // Check if new password matches confirmation
-  if (passwordForm.new_password !== passwordForm.new_password_confirmation) {
-    passwordErrors.new_password_confirmation = 'Passwords do not match';
-    passwordLoading.value = false;
-    return;
-  }
+  passwordLoading.value = true;
   
   try {
     const payload = {
@@ -506,7 +689,6 @@ const changePassword = async () => {
       new_password_confirmation: passwordForm.new_password_confirmation
     };
     
-    // ✅ FIXED: Using correct accountService method
     await accountService.changePassword(payload);
     
     // Clear form
@@ -514,54 +696,32 @@ const changePassword = async () => {
     passwordForm.new_password = '';
     passwordForm.new_password_confirmation = '';
     
-    showToast('Password changed successfully', 'success');
+    Swal.fire({
+      icon: 'success',
+      title: 'Success!',
+      text: 'Password changed successfully',
+      timer: 2000,
+      showConfirmButton: false
+    });
     
   } catch (error) {
+    // Display server-side errors
     if (error.response?.data?.errors) {
       const errors = error.response.data.errors;
       if (errors.current_password) passwordErrors.current_password = errors.current_password[0];
       if (errors.new_password) passwordErrors.new_password = errors.new_password[0];
       if (errors.new_password_confirmation) passwordErrors.new_password_confirmation = errors.new_password_confirmation[0];
     }
-    showToast(error.response?.data?.message || 'Failed to change password', 'error');
+    
+    // Show error message from server
+    Swal.fire({
+      icon: 'error',
+      title: 'Error!',
+      text: error.response?.data?.message || 'Failed to change password',
+      confirmButtonColor: '#dc2626'
+    });
   } finally {
     passwordLoading.value = false;
-  }
-};
-
-// ========== LOGOUT ALL DEVICES ==========
-const logoutAllDevices = async () => {
-  const result = await Swal.fire({
-    title: 'Logout All Devices?',
-    text: 'This will sign you out from all other devices. Your current session will remain active.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#dc2626',
-    cancelButtonColor: '#64748b',
-    confirmButtonText: 'Yes, logout others',
-    cancelButtonText: 'Cancel'
-  });
-  
-  if (result.isConfirmed) {
-    try {
-      await accountService.logoutAllDevices();
-      
-      await Swal.fire({
-        icon: 'success',
-        title: 'Success!',
-        text: 'All other devices have been logged out',
-        timer: 2000,
-        showConfirmButton: false
-      });
-      
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error!',
-        text: error.response?.data?.message || 'Failed to logout other devices',
-        confirmButtonColor: '#dc2626'
-      });
-    }
   }
 };
 </script>

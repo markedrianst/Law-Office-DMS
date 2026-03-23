@@ -40,22 +40,8 @@
               <h1 class="text-3xl font-bold mb-1 text-white tracking-wide">LAW OFFICE</h1>
               <p class="text-sm tracking-wide text-white/80 font-light">Data Management System</p>
             </div>
-
-            <!-- Error Alert -->
-            <Transition name="fade-slide">
-              <div
-                v-if="error"
-                class="mb-4 p-3 rounded-xl text-sm text-center bg-red-500/20 border border-red-500/50 text-white font-medium"
-                role="alert"
-              >
-                {{ error }}
-              </div>
-            </Transition>
-
-            <!-- Login Form -->
             <form @submit.prevent="handleLogin" class="space-y-6" novalidate>
-              <!-- Email Field -->
-              <div>
+              <!-- Email Field -->        <div>
                 <label for="email" class="block text-sm font-medium mb-1 text-white/90">
                   Email Address
                 </label>
@@ -201,34 +187,20 @@
                   <span>{{ loading ? 'Signing in...' : 'Sign In' }}</span>
                 </span>
               </button>
-
-              <!-- Forgot Password Link (Optional) -->
-              <div class="text-center mt-4">
-                <a
-                  href="#"
-                  class="text-sm text-white/70 hover:text-white transition-colors"
-                  @click.prevent="handleForgotPassword"
-                >
-                  Forgot password?
-                </a>
-              </div>
             </form>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Password Change Modal -->
     <Transition name="modal">
       <div
         v-if="showResetModal"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
         @click.self="closeResetModal"
       >
-        <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
 
-        <!-- Modal Card -->
         <div class="relative w-full max-w-md">
           <div class="relative">
             <div class="absolute inset-0 bg-black/20 rounded-2xl blur-xl transform translate-y-2"></div>
@@ -246,7 +218,6 @@
               ></div>
 
               <div class="relative z-10">
-                <!-- Modal Header -->
                 <div class="text-center mb-6">
                   <h2 class="text-2xl font-bold text-white">Change Password</h2>
                   <p class="text-sm mt-2 text-white/80">
@@ -254,7 +225,6 @@
                   </p>
                 </div>
 
-                <!-- Success Message -->
                 <Transition name="fade-slide">
                   <div
                     v-if="showSuccessMessage"
@@ -270,7 +240,6 @@
                 </Transition>
 
                 <form @submit.prevent="handleResetPassword" class="space-y-4">
-                  <!-- Current Password -->
                   <div>
                     <label class="block text-sm font-medium mb-1 text-white/90">Current Password</label>
                     <div class="relative">
@@ -303,8 +272,6 @@
                       </p>
                     </Transition>
                   </div>
-
-                  <!-- New Password -->
                   <div>
                     <label class="block text-sm font-medium mb-1 text-white/90">New Password</label>
                     <div class="relative">
@@ -337,8 +304,6 @@
                       </p>
                     </Transition>
                   </div>
-
-                  <!-- Confirm Password -->
                   <div>
                     <label class="block text-sm font-medium mb-1 text-white/90">Confirm Password</label>
                     <div class="relative">
@@ -371,8 +336,6 @@
                       </p>
                     </Transition>
                   </div>
-
-                  <!-- Modal Actions -->
                   <div class="flex justify-end gap-3 mt-6">
                     <button
                       type="button"
@@ -422,7 +385,6 @@ import auditLogService from "@/services/auditLogService";
 import approvalService from "@/services/approvalService";
 import caseCategoryService from "@/services/caseCategoryService";
 import caseService from "@/services/caseService";
-// Import appUtils setters
 import { 
   setUser,
   setDashboard
@@ -432,14 +394,12 @@ const router = useRouter();
 const { refreshUser } = useAuth();
 const backgroundImage = ref(backgroundImg);
 
-// ==================== LOGIN FORM STATE ====================
 const email = ref("");
 const password = ref("");
 const loading = ref(false);
 const showPassword = ref(false);
 const error = ref("");
 
-// ==================== PASSWORD CHANGE MODAL STATE ====================
 const showResetModal = ref(false);
 const resetEmail = ref("");
 const currentPassword = ref("");
@@ -449,12 +409,10 @@ const resetLoading = ref(false);
 const showSuccessMessage = ref(false);
 const successMessage = ref("");
 
-// ==================== PASSWORD VISIBILITY ====================
 const showCurrentPassword = ref(false);
 const showNewPassword = ref(false);
 const showConfirmPassword = ref(false);
 
-// ==================== ERROR STATE ====================
 const errors = reactive({ 
   email: "", 
   password: "" 
@@ -466,7 +424,6 @@ const resetErrors = reactive({
   confirmPassword: "" 
 });
 
-// ==================== COMPUTED VALIDATION ====================
 const isFormValid = computed(() => {
   return email.value && password.value && !errors.email && !errors.password;
 });
@@ -483,7 +440,6 @@ const isResetFormValid = computed(() => {
   );
 });
 
-// ==================== VALIDATION METHODS ====================
 const validateEmail = () => {
   if (!email.value) {
     errors.email = "Email is required";
@@ -494,7 +450,6 @@ const validateEmail = () => {
   }
 };
 
-// ==================== LOAD ONLY DASHBOARD (FAST) ====================
 const loadDashboardOnly = async () => {
   try {
     const response = await api.get('/dashboard');
@@ -508,9 +463,7 @@ const loadDashboardOnly = async () => {
   }
 };
 
-// ==================== LOGIN HANDLER ====================
 const handleLogin = async () => {
-  // Validate before submission
   if (!email.value || !password.value) {
     if (!email.value) errors.email = "Email is required";
     if (!password.value) errors.password = "Password is required";
@@ -532,7 +485,6 @@ const handleLogin = async () => {
   error.value = "";
 
   try {
-    // Step 1: Login
     const response = await authService.login({ 
       email: email.value.trim(), 
       password: password.value 
@@ -545,14 +497,11 @@ const handleLogin = async () => {
       return;
     }
 
-    // Step 2: Store user
     setUser(response.user);
     await refreshUser();
 
-    // Step 3: Load ONLY dashboard data (one request, fast)
     await loadDashboardOnly();
 
-    // Step 4: Close loading
     Swal.close();
       await Promise.all([
       userService.getUsers({ per_page: 100 }).catch(() => {}),
@@ -591,7 +540,6 @@ const handleLogin = async () => {
   }
 };
 
-// ==================== ERROR HANDLING ====================
 const handleLoginError = (err) => {
   if (err.response?.data?.errors) {
     const backendErrors = err.response.data.errors;
@@ -604,9 +552,7 @@ const handleLoginError = (err) => {
   }
 };
 
-// ==================== PASSWORD RESET HANDLER ====================
 const handleResetPassword = async () => {
-  // Validation
   if (!currentPassword.value) {
     resetErrors.currentPassword = "Current password is required";
     return;
@@ -660,7 +606,6 @@ const handleResetPassword = async () => {
   }
 };
 
-// ==================== MODAL CONTROLS ====================
 const closeResetModal = () => {
   showResetModal.value = false;
   showSuccessMessage.value = false;
@@ -670,10 +615,6 @@ const closeResetModal = () => {
   resetErrors.currentPassword = "";
   resetErrors.newPassword = "";
   resetErrors.confirmPassword = "";
-};
-
-// ==================== OPTIONAL FORGOT PASSWORD ====================
-const handleForgotPassword = () => {
 };
 </script>
 <style scoped>
