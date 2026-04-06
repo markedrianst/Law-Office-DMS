@@ -561,11 +561,6 @@
               <p class="text-xs text-gray-400">Record folder movement</p>
             </div>
           </div>
-          <button @click="folderModal.show = false" class="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
         </div>
         <div class="px-5 sm:px-6 py-5 space-y-4 overflow-y-auto">
           <div>
@@ -667,11 +662,6 @@
               <p class="text-xs text-gray-400">Record checklist movement</p>
             </div>
           </div>
-          <button @click="checklistTrackerModal.show = false" class="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
         </div>
         <div class="px-5 sm:px-6 py-5 space-y-4 overflow-y-auto">
           <div>

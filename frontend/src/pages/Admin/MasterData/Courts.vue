@@ -286,11 +286,6 @@
                 <p class="text-xs text-slate-500">{{ isEditing ? 'Update court details' : 'Create a new court or office' }}</p>
               </div>
             </div>
-            <button @click="closeModal" :disabled="formLoading" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
           </div>
           <div class="px-5 sm:px-6 py-5 space-y-4 overflow-y-auto">
             <div>

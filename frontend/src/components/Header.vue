@@ -4,9 +4,10 @@
     <div class="flex items-center gap-2 md:hidden">
       <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-white/10 border border-white/20">
         <img 
-          src="@/assets/images/lawofficelogo.png" 
+          src="@/assets/images/favicon.png" 
           alt="Logo"
-          class="w-5 h-5 object-contain"
+           class="w-15 h-13 object-contain pt-1"
+
         />
       </div>
       <div class="flex flex-col">

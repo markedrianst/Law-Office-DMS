@@ -7,9 +7,9 @@
     <div class="flex items-center gap-3 px-4 py-5 border-b border-white/10 min-h-[68px]">
       <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white/10 border border-white/20">
         <img 
-          src="@/assets/images/lawofficelogo.png" 
+          src="@/assets/images/favicon.png" 
           alt="Logo"
-          class="w-6 h-6 object-contain"
+          class="w-15 h-13 object-contain pt-1"
         />
       </div>
       <div v-if="!collapsed || isMobile" class="flex flex-col gap-0.5">
