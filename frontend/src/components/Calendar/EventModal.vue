@@ -17,17 +17,12 @@
                 'bg-amber-100': mode === 'edit',
                 'bg-emerald-100': mode === 'view'
               }">
-              <!-- Add Mode Icon -->
               <svg v-if="mode === 'add'" class="w-5 h-5 text-[#1a4972]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
               </svg>
-              
-              <!-- Edit Mode Icon -->
               <svg v-else-if="mode === 'edit'" class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
-              
-              <!-- View Mode Icon -->
               <svg v-else class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
               </svg>
@@ -41,11 +36,6 @@
               </p>
             </div>
           </div>
-          <button @click="$emit('close')" class="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition hover:scale-110">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
         </div>
 
         <!-- Body -->
@@ -55,7 +45,6 @@
           <template v-if="mode === 'view'">
             <div class="space-y-4">
               
-              <!-- Status Banner -->
               <div v-if="isPast" class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
                 <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
                   <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -110,13 +99,11 @@
 
               <!-- Event Details Card -->
               <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <!-- Title Section -->
                 <div class="p-5 border-b border-slate-100">
                   <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Title</p>
                   <p class="text-xl font-bold text-slate-800">{{ localEvent.title }}</p>
                 </div>
 
-                <!-- Details Grid -->
                 <div class="grid grid-cols-2 divide-x divide-slate-100">
                   <div class="p-4">
                     <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Type</p>
@@ -144,7 +131,6 @@
                   </div>
                 </div>
 
-                <!-- Additional Info -->
                 <div class="border-t border-slate-100 divide-y divide-slate-100">
                   <div v-if="localEvent.case" class="p-4">
                     <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Case</p>
@@ -184,7 +170,6 @@
                   </div>
                 </div>
 
-                <!-- Reschedule Info -->
                 <div v-if="localEvent.rescheduled_from_id" class="bg-amber-50 p-4 border-t border-amber-200">
                   <div class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -208,7 +193,6 @@
           <template v-else>
             <form @submit.prevent="handleSubmit" class="space-y-5">
               
-              <!-- Past Date Warning -->
               <div v-if="form.hearing_date && isPastDate(form.hearing_date)" class="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
                 <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -216,7 +200,6 @@
                 <span class="text-sm text-red-600">Cannot create/edit events in the past</span>
               </div>
 
-              <!-- Title Field -->
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">
                   Title <span class="text-red-500">*</span>
@@ -232,7 +215,6 @@
                 <p v-if="errors.title" class="text-xs text-red-500 mt-1">{{ errors.title }}</p>
               </div>
 
-              <!-- Type & Status Grid -->
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -252,7 +234,6 @@
                   </select>
                 </div>
 
-                <!-- Status (Edit only) -->
                 <div v-if="mode === 'edit'">
                   <label class="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
                   <select 
@@ -268,7 +249,6 @@
                 </div>
               </div>
 
-              <!-- Date & Time Grid -->
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -300,7 +280,6 @@
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">Link to Case</label>
                 <div class="relative" ref="caseDropdownRef">
-                  <!-- Search Input -->
                   <div class="relative">
                     <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" 
                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -315,8 +294,6 @@
                       class="w-full pl-9 pr-8 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 transition"
                       :class="{ 'border-[#1a4972] font-medium': form.case_id }"
                       :disabled="form.hearing_date && isPastDate(form.hearing_date)" />
-                    
-                    <!-- Clear button -->
                     <button v-if="caseSearch || form.case_id" type="button" @click.prevent="clearCase"
                       class="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -324,13 +301,10 @@
                       </svg>
                     </button>
                   </div>
-
-                  <!-- Dropdown list -->
                   <Transition name="dropdown">
                     <div v-if="caseDropdownOpen" 
                       class="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
                       <div class="max-h-60 overflow-y-auto">
-                        <!-- Personal Event Option -->
                         <div
                           @mousedown.prevent="selectCase(null)"
                           class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50"
@@ -343,8 +317,6 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                           </svg>
                         </div>
-
-                        <!-- Case Options -->
                         <div v-for="caseItem in filteredCases" :key="caseItem.id"
                           @mousedown.prevent="selectCase(caseItem)"
                           class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50 last:border-0"
@@ -365,8 +337,6 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                           </svg>
                         </div>
-
-                        <!-- No results -->
                         <div v-if="filteredCases.length === 0 && caseSearch" class="px-4 py-4 text-center">
                           <p class="text-xs text-slate-500">No cases match "<span class="font-medium">{{ caseSearch }}</span>"</p>
                         </div>
@@ -390,7 +360,6 @@
                     :disabled="form.hearing_date && isPastDate(form.hearing_date)" />
                 </div>
                 
-                <!-- Court Selection with Search -->
                 <div>
                   <label class="block text-sm font-semibold text-slate-700 mb-1.5">Court</label>
                   <div class="relative" ref="courtDropdownRef">
@@ -407,21 +376,16 @@
                       class="w-full pl-9 pr-8 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 transition"
                       :class="{ 'border-[#1a4972] font-medium': form.court_id }"
                       :disabled="form.hearing_date && isPastDate(form.hearing_date)" />
-                    
-                    <!-- Clear button -->
                     <button v-if="courtSearch || form.court_id" type="button" @click.prevent="clearCourt"
                       class="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
                       </svg>
                     </button>
-
-                    <!-- Dropdown list -->
                     <Transition name="dropdown">
                       <div v-if="courtDropdownOpen" 
                         class="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
                         <div class="max-h-48 overflow-y-auto">
-                          <!-- No Court Option -->
                           <div
                             @mousedown.prevent="selectCourt(null)"
                             class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50"
@@ -431,8 +395,6 @@
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                             </svg>
                           </div>
-
-                          <!-- Court Options -->
                           <div v-for="court in filteredCourts" :key="court.id"
                             @mousedown.prevent="selectCourt(court)"
                             class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer hover:bg-blue-50/70 transition-colors border-b border-slate-50 last:border-0"
@@ -448,8 +410,6 @@
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                             </svg>
                           </div>
-
-                          <!-- No results -->
                           <div v-if="filteredCourts.length === 0 && courtSearch" class="px-4 py-4 text-center">
                             <p class="text-xs text-slate-500">No courts match "<span class="font-medium">{{ courtSearch }}</span>"</p>
                           </div>
@@ -460,7 +420,7 @@
                 </div>
               </div>
 
-              <!-- Assignment - ONLY LAWYERS -->
+              <!-- Assignment -->
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">Assign To Lawyer</label>
                 <select 
@@ -491,20 +451,20 @@
           </template>
         </div>
 
-        <!-- Footer with Actions -->
+        <!-- ── Footer ── -->
         <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
           
-          <!-- Cancel/Close Button -->
-          <button @click="$emit('close')"
-            class="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:scale-105 transition-all duration-200">
+          <!-- Cancel / Close — disabled while saving -->
+          <button
+            @click="$emit('close')"
+            :disabled="formLoading"
+            class="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
             {{ mode === 'view' ? 'Close' : 'Cancel' }}
           </button>
           
           <!-- View Mode Action Buttons -->
           <template v-if="mode === 'view'">
             <div class="flex items-center gap-2">
-              
-              <!-- Reschedule Button -->
               <button v-if="!isPast && localEvent.status === 'scheduled' && canEdit" 
                 @click="openRescheduleModal"
                 class="px-4 py-2.5 text-sm font-semibold text-white bg-blue-500 rounded-xl hover:bg-blue-600 hover:scale-105 transition-all duration-200 flex items-center gap-2 shadow-md">
@@ -513,8 +473,6 @@
                 </svg>
                 Reschedule
               </button>
-              
-              <!-- Cancel Button -->
               <button v-if="!isPast && localEvent.status === 'scheduled' && canEdit" 
                 @click="openCancelModal"
                 class="px-4 py-2.5 text-sm font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 hover:scale-105 transition-all duration-200 flex items-center gap-2 shadow-md">
@@ -523,8 +481,6 @@
                 </svg>
                 Cancel
               </button>
-              
-              <!-- Complete Button -->
               <button v-if="!isPast && localEvent.status === 'scheduled' && canEdit" 
                 @click="() => $emit('status-change', { id: localEvent.id, status: 'completed' })"
                 class="px-4 py-2.5 text-sm font-semibold text-white bg-green-500 rounded-xl hover:bg-green-600 hover:scale-105 transition-all duration-200 flex items-center gap-2 shadow-md">
@@ -533,8 +489,6 @@
                 </svg>
                 Complete
               </button>
-              
-              <!-- Edit Button -->
               <button v-if="!isPast && canEdit && localEvent.status === 'scheduled'" 
                 @click="$emit('switch-to-edit')"
                 class="px-4 py-2.5 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 hover:scale-105 transition-all duration-200 flex items-center gap-2 shadow-md">
@@ -546,16 +500,23 @@
             </div>
           </template>
           
-          <!-- Add/Edit Mode Save Button -->
-          <button v-else-if="mode !== 'view' && (!form.hearing_date || !isPastDate(form.hearing_date))" 
+          <!-- ── Add / Edit Save Button (with loading state) ── -->
+          <button
+            v-else-if="mode !== 'view' && (!form.hearing_date || !isPastDate(form.hearing_date))"
             @click="handleSubmit"
-            class="px-5 py-2.5 text-sm font-semibold text-white rounded-xl flex items-center gap-2 min-w-[120px] justify-center bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] hover:from-[#1e5780] hover:to-[#1a4972] hover:scale-105 hover:shadow-lg transition-all duration-200"
-            :disabled="!form.hearing_date || isPastDate(form.hearing_date)">
-            <svg v-if="formLoading" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+            :disabled="!form.hearing_date || isPastDate(form.hearing_date) || formLoading"
+            class="px-5 py-2.5 text-sm font-semibold text-white rounded-xl flex items-center gap-2 min-w-[130px] justify-center bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] hover:from-[#1e5780] hover:to-[#1a4972] hover:scale-105 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+          >
+            <!-- Spinner shown while saving -->
+            <svg v-if="formLoading" class="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
             </svg>
-            {{ mode === 'add' ? 'Create Event' : 'Save Changes' }}
+            <!-- Save icon shown when idle -->
+            <svg v-else class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            {{ formLoading ? (mode === 'add' ? 'Creating...' : 'Saving...') : (mode === 'add' ? 'Create Event' : 'Save Changes') }}
           </button>
         </div>
       </div>
@@ -592,7 +553,6 @@ const emit = defineEmits(['close', 'save', 'status-change', 'switch-to-edit', 'r
 
 const { user } = useAuth();
 
-// Form state
 const form = reactive({
   id: null,
   title: '',
@@ -610,7 +570,6 @@ const form = reactive({
 
 const errors = ref({});
 
-// Search states
 const caseSearch = ref('');
 const caseDropdownOpen = ref(false);
 const caseDropdownRef = ref(null);
@@ -619,7 +578,6 @@ const courtSearch = ref('');
 const courtDropdownOpen = ref(false);
 const courtDropdownRef = ref(null);
 
-// Computed today date in YYYY-MM-DD format
 const today = computed(() => {
   const date = new Date();
   const year = date.getFullYear();
@@ -628,49 +586,36 @@ const today = computed(() => {
   return `${year}-${month}-${day}`;
 });
 
-// Filtered cases based on search
 const filteredCases = computed(() => {
   if (!props.cases || !Array.isArray(props.cases)) return [];
-  
   if (!caseSearch.value) return props.cases;
-  
   const searchLower = caseSearch.value.toLowerCase();
-  return props.cases.filter(caseItem => {
-    return (caseItem.case_code?.toLowerCase().includes(searchLower)) ||
-           (caseItem.client?.toLowerCase().includes(searchLower)) ||
-           (caseItem.title?.toLowerCase().includes(searchLower));
-  });
+  return props.cases.filter(caseItem =>
+    (caseItem.case_code?.toLowerCase().includes(searchLower)) ||
+    (caseItem.client?.toLowerCase().includes(searchLower)) ||
+    (caseItem.title?.toLowerCase().includes(searchLower))
+  );
 });
 
-// Filtered courts based on search
 const filteredCourts = computed(() => {
   if (!props.courts || !Array.isArray(props.courts)) return [];
-  
   if (!courtSearch.value) return props.courts;
-  
   const searchLower = courtSearch.value.toLowerCase();
-  return props.courts.filter(court => {
-    return court.name?.toLowerCase().includes(searchLower) ||
-           court.type?.toLowerCase().includes(searchLower);
-  });
+  return props.courts.filter(court =>
+    court.name?.toLowerCase().includes(searchLower) ||
+    court.type?.toLowerCase().includes(searchLower)
+  );
 });
 
-// Available users for assignment - ONLY LAWYERS
 const availableUsers = computed(() => {
   if (!props.users || !Array.isArray(props.users)) return [];
-  
-  return props.users.filter(user => 
-    user.role?.toLowerCase() === 'lawyer'
-  ).map(user => ({
-    id: user.id,
-    full_name: user.full_name,
-    role: user.role
-  }));
+  return props.users
+    .filter(user => user.role?.toLowerCase() === 'lawyer')
+    .map(user => ({ id: user.id, full_name: user.full_name, role: user.role }));
 });
 
 const localEvent = computed(() => props.event || {});
 
-// Helper to get case initials
 const getCaseInitials = (caseItem) => {
   if (!caseItem.client) return '?';
   const parts = caseItem.client.split(' ').filter(Boolean);
@@ -679,131 +624,70 @@ const getCaseInitials = (caseItem) => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
-// Priority class for case display
 const priorityClass = (priority) => {
-  const classes = {
-    'urgent': 'bg-red-50 text-red-700',
-    'normal': 'bg-blue-50 text-blue-700',
-    'low': 'bg-slate-100 text-slate-600'
-  };
+  const classes = { urgent: 'bg-red-50 text-red-700', normal: 'bg-blue-50 text-blue-700', low: 'bg-slate-100 text-slate-600' };
   return classes[priority] || 'bg-slate-100 text-slate-500';
 };
 
-// Helper to format date for display - FIXED
 const formatDisplayDate = (date) => {
   if (!date) return '—';
-  
-  // Parse YYYY-MM-DD format manually to avoid timezone issues
   if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [year, month, day] = date.split('-').map(Number);
-    const d = new Date(year, month - 1, day);
-    return d.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   }
-  
-  // Fallback for other formats
   const d = new Date(date);
   if (isNaN(d.getTime())) return date;
-  
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-// Helper to format time for display
 const formatTime = (time) => {
   if (!time) return null;
-  if (time.includes(':')) {
-    const parts = time.split(':');
-    return `${parts[0]}:${parts[1]}`;
-  }
+  if (time.includes(':')) { const parts = time.split(':'); return `${parts[0]}:${parts[1]}`; }
   return time;
 };
 
-// Click outside handlers
 const handleClickOutside = (event) => {
-  if (caseDropdownRef.value && !caseDropdownRef.value.contains(event.target)) {
-    caseDropdownOpen.value = false;
-  }
-  if (courtDropdownRef.value && !courtDropdownRef.value.contains(event.target)) {
-    courtDropdownOpen.value = false;
-  }
+  if (caseDropdownRef.value && !caseDropdownRef.value.contains(event.target)) caseDropdownOpen.value = false;
+  if (courtDropdownRef.value && !courtDropdownRef.value.contains(event.target)) courtDropdownOpen.value = false;
 };
 
-// Clear field error
 const clearFieldError = (field) => {
-  if (errors.value[field]) {
-    errors.value = { ...errors.value, [field]: '' };
-  }
+  if (errors.value[field]) errors.value = { ...errors.value, [field]: '' };
 };
 
-// Validate form
 const validateForm = () => {
   const newErrors = {};
-  
   if (!form.title) newErrors.title = 'Title is required';
   if (!form.hearing_date) newErrors.hearing_date = 'Date is required';
   if (form.hearing_date && isPastDate(form.hearing_date)) newErrors.hearing_date = 'Cannot select past date';
-  
   errors.value = newErrors;
   return Object.keys(newErrors).length === 0;
 };
 
 const handleSubmit = () => {
   if (!validateForm()) return;
-  
-  const payload = {
-    ...form,
-    case_id: form.case_id || null,
-    court_id: form.court_id || null,
-    assigned_to: form.assigned_to || null
-  };
-  
-  emit('save', { mode: props.mode, data: payload });
+  emit('save', {
+    mode: props.mode,
+    data: { ...form, case_id: form.case_id || null, court_id: form.court_id || null, assigned_to: form.assigned_to || null }
+  });
 };
 
-// Case selection methods
 const selectCase = (caseItem) => {
-  if (caseItem) {
-    form.case_id = caseItem.id;
-    caseSearch.value = `${caseItem.case_code} - ${caseItem.client || ''}`;
-  } else {
-    form.case_id = '';
-    caseSearch.value = '';
-  }
+  if (caseItem) { form.case_id = caseItem.id; caseSearch.value = `${caseItem.case_code} - ${caseItem.client || ''}`; }
+  else { form.case_id = ''; caseSearch.value = ''; }
   caseDropdownOpen.value = false;
 };
 
-const clearCase = () => {
-  form.case_id = '';
-  caseSearch.value = '';
-  caseDropdownOpen.value = false;
-};
+const clearCase = () => { form.case_id = ''; caseSearch.value = ''; caseDropdownOpen.value = false; };
 
-// Court selection methods
 const selectCourt = (court) => {
-  if (court) {
-    form.court_id = court.id;
-    courtSearch.value = court.name;
-  } else {
-    form.court_id = '';
-    courtSearch.value = '';
-  }
+  if (court) { form.court_id = court.id; courtSearch.value = court.name; }
+  else { form.court_id = ''; courtSearch.value = ''; }
   courtDropdownOpen.value = false;
 };
 
-const clearCourt = () => {
-  form.court_id = '';
-  courtSearch.value = '';
-  courtDropdownOpen.value = false;
-};
+const clearCourt = () => { form.court_id = ''; courtSearch.value = ''; courtDropdownOpen.value = false; };
 
-// Enhanced Reschedule Modal
 const openRescheduleModal = async () => {
   const currentDate = new Date(localEvent.value.hearing_date);
   const year = currentDate.getFullYear();
@@ -823,19 +707,16 @@ const openRescheduleModal = async () => {
             <span class="font-medium">Current: ${formatDisplayDate(localEvent.value.hearing_date)} ${localEvent.value.start_time ? 'at ' + localEvent.value.start_time : ''}</span>
           </div>
         </div>
-        
         <div class="space-y-3">
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1.5">New Date <span class="text-red-500">*</span></label>
             <input type="date" id="new_date" class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10" value="${formattedDate}" min="${today.value}">
           </div>
-          
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1.5">New Time <span class="text-slate-400 text-xs">(Optional)</span></label>
             <input type="time" id="new_time" class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10" value="${localEvent.value.start_time || ''}">
             <p class="text-xs text-slate-400 mt-1">Leave empty for all-day event</p>
           </div>
-          
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1.5">Reason for Rescheduling <span class="text-red-500">*</span></label>
             <textarea id="reason" class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 resize-none" rows="3" placeholder="Please provide a reason..."></textarea>
@@ -857,31 +738,17 @@ const openRescheduleModal = async () => {
       const new_date = document.getElementById('new_date').value;
       const new_time = document.getElementById('new_time').value;
       const reason = document.getElementById('reason').value;
-      
-      if (!new_date) {
-        Swal.showValidationMessage('New date is required');
-        return false;
-      }
-      if (!reason) {
-        Swal.showValidationMessage('Reason is required');
-        return false;
-      }
-      
+      if (!new_date) { Swal.showValidationMessage('New date is required'); return false; }
+      if (!reason) { Swal.showValidationMessage('Reason is required'); return false; }
       return { new_date, new_time: new_time || null, reason };
     }
   });
   
   if (formValues) {
-    emit('reschedule', {
-      id: localEvent.value.id,
-      new_date: formValues.new_date,
-      new_time: formValues.new_time,
-      reason: formValues.reason
-    });
+    emit('reschedule', { id: localEvent.value.id, new_date: formValues.new_date, new_time: formValues.new_time, reason: formValues.reason });
   }
 };
 
-// Enhanced Cancel Modal
 const openCancelModal = async () => {
   const { value: reason } = await Swal.fire({
     title: '<span class="text-xl font-bold text-slate-800">Cancel Hearing</span>',
@@ -895,12 +762,10 @@ const openCancelModal = async () => {
             <span class="font-medium">This action cannot be undone</span>
           </div>
         </div>
-        
         <div class="bg-slate-50 p-4 rounded-lg mb-4">
           <p class="text-sm text-slate-600"><span class="font-semibold">Event:</span> ${localEvent.value.title}</p>
           <p class="text-sm text-slate-600 mt-1"><span class="font-semibold">Date:</span> ${formatDisplayDate(localEvent.value.hearing_date)}</p>
         </div>
-        
         <div>
           <label class="block text-sm font-semibold text-slate-700 mb-1.5">Reason for Cancellation <span class="text-red-500">*</span></label>
           <textarea id="reason" class="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#1a4972] focus:ring-2 focus:ring-[#1a4972]/10 resize-none" rows="3" placeholder="Please provide a reason..."></textarea>
@@ -919,50 +784,31 @@ const openCancelModal = async () => {
     },
     preConfirm: () => {
       const reason = document.getElementById('reason').value;
-      if (!reason) {
-        Swal.showValidationMessage('Reason is required');
-        return false;
-      }
+      if (!reason) { Swal.showValidationMessage('Reason is required'); return false; }
       return reason;
     }
   });
   
-  if (reason) {
-    emit('cancel', {
-      id: localEvent.value.id,
-      reason
-    });
-  }
+  if (reason) emit('cancel', { id: localEvent.value.id, reason });
 };
 
-// Watch for event changes - FIXED
 watch(() => props.event, (newVal) => {
   if (newVal) {
     let hearingDate = '';
-    
     if (newVal.hearing_date) {
-      // Check if it's already in YYYY-MM-DD format
       if (typeof newVal.hearing_date === 'string' && newVal.hearing_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
         hearingDate = newVal.hearing_date;
       } else {
-        // Try to parse other formats
         const date = new Date(newVal.hearing_date);
         if (!isNaN(date.getTime())) {
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          hearingDate = `${year}-${month}-${day}`;
+          hearingDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         } else {
           hearingDate = newVal.hearing_date;
         }
       }
     }
-    
     let startTime = newVal.start_time || '';
-    if (startTime && startTime.includes(':')) {
-      const parts = startTime.split(':');
-      startTime = `${parts[0]}:${parts[1]}`;
-    }
+    if (startTime && startTime.includes(':')) { const parts = startTime.split(':'); startTime = `${parts[0]}:${parts[1]}`; }
     
     Object.assign(form, {
       id: newVal.id || null,
@@ -979,82 +825,39 @@ watch(() => props.event, (newVal) => {
       reschedule_reason: newVal.reschedule_reason || ''
     });
 
-    // Set search fields
     if (newVal.case_id && props.cases) {
       const selectedCase = props.cases.find(c => c.id === newVal.case_id);
-      if (selectedCase) {
-        caseSearch.value = `${selectedCase.case_code} - ${selectedCase.client || ''}`;
-      }
+      if (selectedCase) caseSearch.value = `${selectedCase.case_code} - ${selectedCase.client || ''}`;
     }
-    
     if (newVal.court_id && props.courts) {
       const selectedCourt = props.courts.find(c => c.id === newVal.court_id);
-      if (selectedCourt) {
-        courtSearch.value = selectedCourt.name;
-      }
+      if (selectedCourt) courtSearch.value = selectedCourt.name;
     }
-    
     errors.value = {};
   }
 }, { immediate: true });
 
-// Reset form when modal closes
 watch(() => props.show, (newVal) => {
   if (!newVal) {
-    setTimeout(() => {
-      errors.value = {};
-      caseSearch.value = '';
-      courtSearch.value = '';
-    }, 300);
+    setTimeout(() => { errors.value = {}; caseSearch.value = ''; courtSearch.value = ''; }, 300);
   }
 });
 
-// Lifecycle
-onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside);
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', handleClickOutside);
-});
+onMounted(() => { document.addEventListener('mousedown', handleClickOutside); });
+onBeforeUnmount(() => { document.removeEventListener('mousedown', handleClickOutside); });
 </script>
 
 <style scoped>
-.modal-enter-active, .modal-leave-active {
-  transition: all 0.25s ease;
-}
-.modal-enter-from, .modal-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
-}
+.modal-enter-active, .modal-leave-active { transition: all 0.25s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; transform: scale(0.95); }
 
-.dropdown-enter-active {
-  transition: all 0.15s ease;
-}
-.dropdown-enter-from {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-.dropdown-leave-active {
-  transition: all 0.1s ease;
-}
-.dropdown-leave-to {
-  opacity: 0;
-}
+.dropdown-enter-active { transition: all 0.15s ease; }
+.dropdown-enter-from { opacity: 0; transform: translateY(-6px); }
+.dropdown-leave-active { transition: all 0.1s ease; }
+.dropdown-leave-to { opacity: 0; }
 
-/* Custom scrollbar */
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
-}
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 3px;
-}
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
+.overflow-y-auto::-webkit-scrollbar { width: 6px; }
+.overflow-y-auto::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+.overflow-y-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.overflow-y-auto::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 </style>

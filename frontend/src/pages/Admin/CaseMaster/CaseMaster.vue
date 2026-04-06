@@ -164,6 +164,9 @@
               class="transition-all duration-300 hover:bg-blue-50/30 group"
               :style="{ animation: `fadeIn 0.3s ease-out ${index * 0.03}s both` }"
             >
+              <td class="px-5 py-4 text-xs font-semibold text-slate-400 tabular-nums">
+                {{ (pagination.current_page - 1) * pagination.per_page + index + 1 }}
+              </td>
               <!-- Case Code + Title -->
               <td class="px-5 py-4">
                 <div class="flex items-center gap-2 mb-1">
@@ -597,6 +600,7 @@ const { refreshClients } = useMasterData();
 
 // Columns
 const columns = [
+  { label: '#', field: 'id', sortable: true },  
   { label: 'Case', field: 'case_code', sortable: true },
   { label: 'Client', field: 'client', sortable: true },
   { label: 'Assigned To', field: 'lawyer', sortable: false },
@@ -686,28 +690,17 @@ const errors = reactive({
 
 // Flag to track if lookups are loaded
 let lookupsLoaded = false;
-
-// ========== COMPUTED ==========
-// Filter cases based on current filters (client-side for instant response)
 const filteredCases = computed(() => {
   let filtered = allCases.value;
-
-  // Filter by status
   if (filters.status) {
     filtered = filtered.filter(item => item.case_status === filters.status);
   }
-
-  // Filter by priority
   if (filters.priority) {
     filtered = filtered.filter(item => item.priority === filters.priority);
   }
-
-  // Filter by stage
   if (filters.stage_id) {
     filtered = filtered.filter(item => item.current_stage_id === filters.stage_id);
   }
-
-  // Filter by search
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
     filtered = filtered.filter(item => {

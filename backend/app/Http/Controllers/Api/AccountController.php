@@ -100,10 +100,6 @@ class AccountController extends Controller
             ]
         ]);
     }
-
-    /**
-     * Change password
-     */
     public function changePassword(Request $request)
     {
         $user = $request->user();

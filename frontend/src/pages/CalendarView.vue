@@ -21,51 +21,29 @@
     </div>
 
     <!-- Filters Bar -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 sm:p-4 mb-4 space-y-2">
-      <!-- Row 1: Month nav + New Event + Refresh -->
-      <div class="flex items-center gap-2 flex-wrap">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 sm:p-4 mb-4">
+      <div class="flex items-center gap-2 sm:gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <!-- Month Navigation -->
-        <div class="flex items-center gap-1 bg-slate-50 rounded-xl border border-slate-200 p-1 shrink-0">
-          <button @click="previousMonth" class="p-1.5 hover:bg-white rounded-lg transition">
+        <div class="flex items-center gap-2 bg-slate-50 rounded-xl border border-slate-200 p-1 flex-shrink-0">
+          <button @click="previousMonth" class="p-2 hover:bg-white rounded-lg transition">
             <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
           </button>
-          <span class="text-xs sm:text-sm font-semibold text-slate-700 px-1 whitespace-nowrap">{{ currentMonthName }} {{ currentYear }}</span>
-          <button @click="nextMonth" class="p-1.5 hover:bg-white rounded-lg transition">
+          <span class="text-xs sm:text-sm font-semibold text-slate-700 px-2 whitespace-nowrap">{{ currentMonthName }} {{ currentYear }}</span>
+          <button @click="nextMonth" class="p-2 hover:bg-white rounded-lg transition">
             <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
           </button>
-          <button @click="goToToday" class="px-2 py-1 text-xs font-medium bg-white border border-slate-200 rounded-lg hover:bg-slate-50 whitespace-nowrap">Today</button>
+          <button @click="goToToday" class="px-2 sm:px-3 py-1 text-xs font-medium bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+            Today
+          </button>
         </div>
-        <div class="flex-1"></div>
-        <!-- New Event -->
-        <button @click="openCreateModal"
-          class="shrink-0 px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-all whitespace-nowrap hover:shadow-lg active:scale-95 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white shadow-md shadow-[#1a4972]/30">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-          </svg>
-          <span class="hidden sm:inline">New Event</span>
-          <span class="sm:hidden">New</span>
-        </button>
-        <!-- Refresh -->
-        <button @click="manualRefresh" :disabled="isRefreshing"
-          class="shrink-0 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-all whitespace-nowrap hover:shadow-md active:scale-95 disabled:opacity-50 bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5">
-          <svg v-if="isRefreshing" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-          </svg>
-          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-          <span class="hidden sm:inline">Refresh</span>
-        </button>
-      </div>
-      <!-- Row 2: Filters -->
-      <div class="flex flex-wrap items-center gap-2">
+
+        <!-- Type Filter -->
         <select v-model="filters.type" @change="applyFilters"
-          class="flex-1 min-w-[110px] px-3 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer">
+          class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-shrink-0 min-w-[110px] sm:min-w-[120px]">
           <option value="">All Types</option>
           <option value="hearing">⚖️ Hearing</option>
           <option value="meeting">🤝 Meeting</option>
@@ -74,21 +52,49 @@
           <option value="personal">📌 Personal</option>
           <option value="other">📅 Other</option>
         </select>
+
+        <!-- Status Filter -->
         <select v-model="filters.status" @change="applyFilters"
-          class="flex-1 min-w-[110px] px-3 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer">
+          class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-shrink-0 min-w-[110px] sm:min-w-[120px]">
           <option value="">All Status</option>
           <option value="scheduled">📅 Scheduled</option>
           <option value="completed">✅ Completed</option>
           <option value="cancelled">❌ Cancelled</option>
           <option value="rescheduled">🔄 Rescheduled</option>
         </select>
+
+        <!-- Case Filter -->
         <select v-model="filters.case_id" @change="applyFilters"
-          class="flex-1 min-w-[150px] px-3 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer">
+          class="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1a4972] text-slate-600 cursor-pointer flex-shrink-0 min-w-[180px] sm:min-w-[200px]">
           <option value="">All Cases</option>
           <option v-for="caseItem in userCases" :key="caseItem.id" :value="caseItem.id">
             {{ caseItem.case_code }} - {{ caseItem.title }}
           </option>
         </select>
+        
+        <!-- New Event Button -->
+        <button @click="openCreateModal"
+          class="px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-all duration-200 whitespace-nowrap hover:shadow-lg active:scale-95 bg-gradient-to-r from-[#1a4972] to-[#0f2f4a] text-white shadow-md shadow-[#1a4972]/30 flex-shrink-0">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+          </svg>
+          <span class="hidden sm:inline">New Event</span>
+          <span class="sm:hidden">New</span>
+        </button>
+
+        <!-- Refresh Button -->
+        <button @click="manualRefresh" :disabled="isRefreshing"
+          class="px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-all duration-200 whitespace-nowrap hover:shadow-lg active:scale-95 disabled:opacity-50 bg-white text-[#1a4972] border border-[#1a4972]/30 hover:bg-[#1a4972]/5 flex-shrink-0">
+          <svg v-if="isRefreshing" class="animate-spin w-3 h-3 sm:w-4 sm:h-4 mr-2" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg v-else class="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span class="hidden sm:inline">Refresh</span>
+          <span class="sm:hidden">Sync</span>
+        </button>
       </div>
     </div>
 
@@ -270,6 +276,7 @@
       :users="lookups.users"
       :is-past="selectedEvent ? isPast(selectedEvent.hearing_date) : false"
       :can-edit="selectedEvent ? canEditEvent(selectedEvent) : false"
+      :form-loading="formLoading"
       @close="closeModal"
       @save="onEventSave"
       @status-change="onStatusChange"
@@ -349,6 +356,7 @@ const showModal = ref(false);
 const modalMode = ref('add');
 const selectedEvent = ref(null);
 const showDayModal = ref(false);
+const formLoading = ref(false);
 const selectedDate = ref('');
 const selectedDayEvents = ref([]);
 
@@ -644,6 +652,7 @@ const closeModal = () => {
 };
 
 const onEventSave = async ({ mode, data }) => {
+  formLoading.value = true;
   try {
     if (isPast(data.hearing_date)) {
       Swal.fire({
@@ -685,6 +694,8 @@ const onEventSave = async ({ mode, data }) => {
       title: 'Error',
       text: error.message || 'Failed to save event'
     });
+  } finally {
+    formLoading.value = false;
   }
 };
 
@@ -816,4 +827,4 @@ watch(filters, () => {
     transform: translateY(0);
   }
 }
-</style>
+</style>  

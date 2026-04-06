@@ -26,7 +26,7 @@
               <div class="relative">
                 <div class="absolute inset-0 bg-white/30 blur-xl rounded-full"></div>
                 <img
-                  src="../../assets/images/lawofficelogo.png"
+                  src="../../assets/images/favicon.png"
                   alt="Law Office Logo"
                   class="relative w-24 h-24 object-contain drop-shadow-lg"
                   loading="eager"
@@ -448,7 +448,7 @@ const validateEmail = () => {
   } else {
     errors.email = "";
   }
-};
+  };
 
 const loadDashboardOnly = async () => {
   try {

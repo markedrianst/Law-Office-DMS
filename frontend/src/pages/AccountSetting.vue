@@ -478,8 +478,6 @@ const validateField = (field) => {
 const validatePassword = () => {
   if (passwordForm.new_password && passwordForm.new_password.length < 8) {
     passwordErrors.new_password = 'Password must be at least 8 characters';
-  } else if (passwordForm.new_password && !/(?=.*[a-z])(?=.*[A-Z])/.test(passwordForm.new_password)) {
-    passwordErrors.new_password = 'Password must contain at least one uppercase and one lowercase letter';
   } else {
     passwordErrors.new_password = '';
   }
@@ -658,8 +656,6 @@ const changePassword = async () => {
     passwordErrors.new_password = 'New password is required';
   } else if (passwordForm.new_password.length < 8) {
     passwordErrors.new_password = 'Password must be at least 8 characters';
-  } else if (!/(?=.*[a-z])(?=.*[A-Z])/.test(passwordForm.new_password)) {
-    passwordErrors.new_password = 'Password must contain at least one uppercase and one lowercase letter';
   }
   
   // Validate confirmation

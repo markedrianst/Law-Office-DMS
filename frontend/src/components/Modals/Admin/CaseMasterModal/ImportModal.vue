@@ -18,11 +18,6 @@
               <p class="text-sm text-slate-500">Upload your Excel file to import cases</p>
             </div>
           </div>
-          <button @click="close" :disabled="uploading" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
         </div>
 
         <!-- Body -->

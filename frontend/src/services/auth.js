@@ -43,8 +43,8 @@ loadUserFromSession();
 const authService = {
  async getCsrfCookie() {
     await api.get("/sanctum/csrf-cookie", {
-        // baseURL: "https://pinedalawoffice.emberwebsolutions.com"
-        baseURL: "http://localhost:8000"
+        baseURL: "https://pinedalawoffice.emberwebsolutions.com"
+        // baseURL: "http://localhost:8000"
     });
 },
 
